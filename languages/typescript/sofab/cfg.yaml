@@ -1,0 +1,2 @@
+generic: { emit: project, timestamp: false }
+targets: { typescript: {} }

@@ -1,0 +1,43 @@
+# === Reference clones (not part of this repo) ================================
+/old-repo/
+/generator/
+
+# === Local editor / agent config & crash dumps ===============================
+/.claude-config/
+core
+*.core
+
+# === Bootstrapped tooling & vendored corelibs (fetched by scripts/bootstrap.sh)
+/tools/sofabgen
+/tools/sofabgen.exe
+/tools/venv/
+/vendor/
+
+# === Per-language build outputs ==============================================
+# Generated *source* (protoc / sofabgen output) IS committed so the repo is
+# browsable and usable without a regen; only heavy derived build outputs below
+# are ignored. setup.sh regenerates the source on demand.
+languages/**/target/
+languages/**/bin/
+languages/**/obj/
+languages/**/build/
+languages/**/node_modules/
+languages/**/dist/
+languages/**/__pycache__/
+languages/**/*.class
+languages/**/*.jar
+languages/**/*.o
+languages/**/*.exe
+# compiled bench executables (no extension) live next to their sources
+languages/*/sofab/bench
+languages/*/protobuf/bench
+Cargo.lock
+
+# === Benchmark run artifacts =================================================
+/results/raw/
+
+# === Secrets =================================================================
+.env
+.devcontainer/.env
+*.env
+/scratchpad/

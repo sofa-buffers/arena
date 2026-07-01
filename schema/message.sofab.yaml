@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/sofa-buffers/generator/v0.1.0/schema/sofabuffers-schema-v1.json
+#
+# SofaBuffers message definition for the comparison's full-scale example.
+#
+# This mirrors, field-for-field, the protobuf definition in
+# ../../protoc/proto/message.proto (message FullScaleExample and the nested
+# messages it references). The `sofabgen` code generator compiles it to the
+# typed C in build/.../generated/example.{c,h}, exactly like protoc compiles
+# the .proto. Field ids are the wire keys and match the proto field numbers.
+#
+# proto `repeated` fields have no fixed length; SofaBuffers fixed-inline C needs
+# a count, so arrays are pinned to count: 5 (the size the bench actually fills),
+# and string elements get a maxlen so they can live in a 2-D char buffer.
+version: 1
+
+messages:
+  example:
+    summary: |
+      This example demonstrates the use of SofaBuffers to encode and decode a message.
+    payload:
+      # FullScaleExample scalar fields (proto field numbers 1..8 -> ids 0..7).
+      u8:  { id: 0, type: u8 }
+      i8:  { id: 1, type: i8 }
+      u16: { id: 2, type: u16 }
+      i16: { id: 3, type: i16 }
+      u32: { id: 4, type: u32 }
+      i32: { id: 5, type: i32 }
+      u64: { id: 6, type: u64 }
+      i64: { id: 7, type: i64 }
+
+      # FullScaleSeqStruct (proto field 10).
+      nested:
+        id: 10
+        type: struct
+        fields:
+          f32:         { id: 0, type: fp32 }
+          f64:         { id: 1, type: fp64 }
+          str:         { id: 2, type: string, maxlen: 32 }
+          bytes_field: { id: 3, type: blob,   maxlen: 4 }
+
+      # FullScaleSeqStructOfArrays (proto field 100).
+      arrays:
+        id: 100
+        type: struct
+        fields:
+          u8:  { id: 0, type: array, items: { type: u8,  count: 5 } }
+          i8:  { id: 1, type: array, items: { type: i8,  count: 5 } }
+          u16: { id: 2, type: array, items: { type: u16, count: 5 } }
+          i16: { id: 3, type: array, items: { type: i16, count: 5 } }
+          u32: { id: 4, type: array, items: { type: u32, count: 5 } }
+          i32: { id: 5, type: array, items: { type: i32, count: 5 } }
+          u64: { id: 6, type: array, items: { type: u64, count: 5 } }
+          i64: { id: 7, type: array, items: { type: i64, count: 5 } }
+          # FullScaleSeqStructOfFpArrays (proto field 10 within the struct).
+          nested:
+            id: 10
+            type: struct
+            fields:
+              fp32: { id: 0, type: array, items: { type: fp32, count: 5 } }
+              fp64: { id: 1, type: array, items: { type: fp64, count: 5 } }
+
+      # FullScaleSeqArrayOfStrings (proto field 200): repeated string.
+      string_array:
+        id: 200
+        type: array
+        items: { type: string, count: 5, maxlen: 64 }

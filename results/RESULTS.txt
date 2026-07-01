@@ -1,0 +1,30 @@
+
+================================================================================
+ SofaBuffers vs Protobuf — the big picture
+   same message, same values, every language. size in bytes; speed in MB/s
+   (encode+decode throughput). MB/s is within-language only (different runtimes).
+================================================================================
+  language    |  wire size (B) |      throughput MB/s |      sofab advantage
+              |  sofab   proto |     sofab      proto |     size       speed
+  ----------------------------------------------------------------------------
+  c           |    434     494 |    160.62     218.07 |    1.14x       0.74x
+  cpp         |    436     494 |    207.29     174.68 |    1.13x       1.19x
+  rust        |    436     494 |    153.94     137.76 |    1.13x       1.12x
+  go          |    436     494 |     21.74      70.43 |    1.13x       0.31x
+  csharp      |    436     494 |     83.05     109.74 |    1.13x       0.76x
+  java        |    436     494 |    112.26     110.39 |    1.13x       1.02x
+  typescript  |    436     494 |     13.98      37.20 |    1.13x       0.38x
+  python      |    436     494 |      2.27     143.13 |    1.13x       0.02x
+
+  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers is smaller on the wire)
+  speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
+
+  status per language:
+    c           OK
+    cpp         OK
+    rust        OK
+    go          OK
+    csharp      OK
+    java        OK
+    typescript  OK
+    python      OK

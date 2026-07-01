@@ -1,0 +1,2 @@
+generic: { emit: project, timestamp: false }
+targets: { go: { package: message, module_path: example.com/gen, go_version: "1.21" } }

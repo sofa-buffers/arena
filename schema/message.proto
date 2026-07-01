@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package fullscale;
+
+// Corresponds to full_scale_seq_struct_t
+message FullScaleSeqStruct {
+  float f32 = 1;                // 32-bit floating point
+  double f64 = 2;               // 64-bit floating point
+  string str = 3;                // string
+  bytes bytes_field = 4;         // raw bytes
+}
+
+// Corresponds to full_scale_seq_struct_of_fp_arrays_t
+message FullScaleSeqStructOfFpArrays {
+  repeated float fp32 = 1;       // array of floats
+  repeated double fp64 = 2;      // array of doubles
+}
+
+// Corresponds to full_scale_seq_struct_of_arrays_t
+message FullScaleSeqStructOfArrays {
+  repeated uint32 u8 = 1;
+  repeated int32 i8 = 2;
+  repeated uint32 u16 = 3;
+  repeated int32 i16 = 4;
+  repeated uint32 u32 = 5;
+  repeated int32 i32 = 6;
+  repeated uint64 u64 = 7;
+  repeated int64 i64 = 8;
+  FullScaleSeqStructOfFpArrays nested = 10;
+}
+
+// Corresponds to full_scale_seq_array_of_strings_t
+message FullScaleSeqArrayOfStrings {
+  repeated string strings = 1;  // array of strings
+}
+
+// Corresponds to full_scale_example_t
+message FullScaleExample {
+  uint32 u8 = 1;
+  int32 i8 = 2;
+  uint32 u16 = 3;
+  int32 i16 = 4;
+  uint32 u32 = 5;
+  int32 i32 = 6;
+  uint64 u64 = 7;
+  int64 i64 = 8;
+  FullScaleSeqStruct nested = 10;
+  FullScaleSeqStructOfArrays arrays = 100;
+  FullScaleSeqArrayOfStrings string_array = 200;
+}
