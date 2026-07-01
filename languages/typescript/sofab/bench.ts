@@ -49,16 +49,21 @@ function main(): number {
 
   const iters = parseInt(process.env.BENCH_ITERS ?? "500000", 10);
 
+  // Pool a single OStream across encodes via reset() (corelib-ts) — the buffer
+  // is hoisted out of the timed region, matching the bench contract and how
+  // protobufjs internally reuses its writer.
+  const os = new OStream();
+
   // Warm the JIT.
   for (let i = 0; i < 10000; i++) {
-    const os = new OStream();
+    os.reset();
     src.marshal(os);
     Example.decode(os.bytes());
   }
 
   const t0 = process.hrtime.bigint();
   for (let i = 0; i < iters; i++) {
-    const os = new OStream();
+    os.reset();
     src.marshal(os);
     Example.decode(os.bytes());
   }

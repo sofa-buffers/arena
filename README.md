@@ -96,14 +96,14 @@ targets emit the same **494-byte** wire.
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** advantage | **speed** advantage |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C          | 434 | 494 | 160.6 | 218.1 | **1.14×** | 0.74× |
-| C++        | 436 | 494 | 207.3 | 174.7 | **1.13×** | **1.19×** |
-| Rust       | 436 | 494 | 153.9 | 137.8 | **1.13×** | **1.12×** |
-| Go         | 436 | 494 |  21.7 |  70.4 | **1.13×** | 0.31× |
-| C#         | 436 | 494 |  83.1 | 109.7 | **1.13×** | 0.76× |
-| Java       | 436 | 494 | 112.3 | 110.4 | **1.13×** | **1.02×** |
-| TypeScript | 436 | 494 |  14.0 |  37.2 | **1.13×** | 0.38× |
-| Python     | 436 | 494 |   2.3 | 143.1 | **1.13×** | 0.02× |
+| C          | 434 | 494 | 136.7 | 221.5 | **1.14×** | 0.62× |
+| C++        | 436 | 494 | 210.5 | 177.9 | **1.13×** | **1.18×** |
+| Rust       | 436 | 494 | 165.2 | 152.2 | **1.13×** | **1.09×** |
+| Go         | 436 | 494 |  33.7 |  86.4 | **1.13×** | 0.39× |
+| C#         | 436 | 494 |  85.5 |  98.9 | **1.13×** | 0.86× |
+| Java       | 436 | 494 | 111.5 | 155.7 | **1.13×** | 0.72× |
+| TypeScript | 436 | 494 |  22.1 |  41.0 | **1.13×** | 0.54× |
+| Python     | 436 | 494 |  17.4 | 143.5 | **1.13×** | 0.12× |
 
 *size advantage = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed
 advantage = sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is
@@ -117,23 +117,30 @@ rows. Wire size and the per-language ratios are the stable, comparable columns.*
   436 bytes), and the C object API is leaner still at 434 B. Same message, same
   values, every language: SofaBuffers is the smaller encoding, full stop.
 - **On speed, it's a split decided by runtime maturity, not by the format:**
-  - In **native / systems languages** SofaBuffers is competitive-to-faster —
-    **C++ 1.19×**, **Rust 1.12×**, **Java ~tie**. Here the lean wire format and
-    zero/low-overhead codegen turn into fewer cycles.
-  - In **Go, C#, TypeScript and Python**, Google's protobuf runtimes — a decade of
-    hand-tuning, C-accelerated fast paths (Python's `upb`), and codegen honed for
-    each VM — are faster than the younger SofaBuffers corelibs. Python is the
-    extreme: its SofaBuffers corelib is **pure Python** while protobuf calls into a
-    C extension, so protobuf is ~60× faster there. That gap is an artifact of the
-    corelib's maturity, not the wire format.
+  - In **C++ and Rust, SofaBuffers is faster** — **C++ 1.18×**, **Rust 1.09×**.
+    Here the lean wire format and low-overhead codegen turn into fewer cycles.
+  - **Elsewhere, Google's protobuf runtimes lead** — a decade of hand-tuning,
+    C-accelerated fast paths, and codegen honed for each VM. The gap runs from
+    close (**C# 0.86×**, **Java 0.72×**) to wide (**Go 0.39×**, **TypeScript
+    0.54×**), and is largest in **Python** (**0.12×**), where protobuf calls into a
+    C extension. These gaps track corelib maturity, not the wire format.
   - **C** is the interesting inversion: `protobuf-c` is a famously tight C
     implementation and edges out the SofaBuffers object API (a runtime-descriptor
-    codec built for footprint/embedded flexibility, not peak throughput).
+    codec built for footprint/embedded flexibility, not peak throughput) at
+    **0.62×**.
+- **Corelib tuning moves the needle.** Two recent optimizations narrowed the
+  biggest higher-level gaps without touching the wire format: **TypeScript** rose
+  from **~0.38× to 0.54×** — pool the encode buffer via `OStream.reset()` instead
+  of allocating one per message, plus a single-shot contiguous-decode path that
+  skips the chunk-accumulator `Map`s — and **Python** jumped from **~0.02× to
+  0.12×** by building corelib-py's native Cython accelerator instead of the
+  pure-Python fallback (its earlier ~60× deficit is now ~8×).
 
 - **Bottom line.** SofaBuffers already delivers its headline promise — a **smaller
-  wire in every language** — and is **as fast or faster where the language is close
-  to the metal** (C++, Rust, Java). Its higher-level corelibs (Go/C#/TS/Python)
-  are the place left to optimize; the format itself is clearly not the bottleneck.
+  wire in every language** — and is **faster where the language is close to the
+  metal** (C++, Rust). The higher-level corelibs are where throughput work remains,
+  and the TypeScript and Python gains show that gap is a corelib-maturity artifact,
+  not a format limitation.
 
 > **Note — why C is 434 B.** The C target is the SofaBuffers *object API*
 > (`corelib-c-cpp`), a runtime-descriptor codec for constrained/embedded use. It
