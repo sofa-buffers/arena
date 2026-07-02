@@ -5,7 +5,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 CORELIB="$ROOT/vendor/corelib-rs"
-export PATH="$HOME/.cargo/bin:$PATH"
+export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
+export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
+export PATH="/usr/local/cargo/bin:$HOME/.cargo/bin:$PATH"
+export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native"
 
 # --- sofab: generate the typed message crate against corelib-rs (std) ---
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang rust \
@@ -33,6 +36,10 @@ path = "src/main.rs"
 [[bin]]
 name = "bench"
 path = "src/bench.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
 EOF
 
 # Drop our bench binary in beside the generated message module.

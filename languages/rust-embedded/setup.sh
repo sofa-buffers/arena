@@ -43,6 +43,12 @@ path = "src/main.rs"
 [[bin]]
 name = "bench"
 path = "src/bench.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
 EOF
 
 # Drop our bench binary in beside the generated message module.

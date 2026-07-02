@@ -14,7 +14,7 @@ BENCHINC="$ROOT/old-repo/src/common"   # bench.h timing harness
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang c \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >&2
 
-gcc -O2 -std=c99 \
+gcc -Os -flto -std=c99 \
     "$HERE/sofab/bench.c" \
     "$HERE"/sofab/gen/*.c \
     "$CORELIB/src/object.c" "$CORELIB/src/ostream.c" "$CORELIB/src/istream.c" \
@@ -26,7 +26,7 @@ gcc -O2 -std=c99 \
 mkdir -p "$HERE/protobuf/gen"
 protoc-c --c_out="$HERE/protobuf/gen" -I "$ROOT/schema" "$ROOT/schema/message.proto" >&2
 
-gcc -O2 -std=c99 \
+gcc -Os -flto -std=c99 \
     "$HERE/protobuf/bench.c" \
     "$HERE"/protobuf/gen/*.c \
     "$COMMON/sha256.c" \
@@ -55,7 +55,7 @@ python3 "$NANOPB/generator/nanopb_generator.py" \
     "$ROOT/schema/message.proto" >&2
 
 # 4) compile bench + generated code + nanopb runtime + sha256
-gcc -O2 -std=c99 \
+gcc -Os -flto -std=c99 \
     "$HERE/nanopb/bench.c" \
     "$HERE/nanopb/gen/message.pb.c" \
     "$NANOPB/pb_encode.c" "$NANOPB/pb_decode.c" "$NANOPB/pb_common.c" \

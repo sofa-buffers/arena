@@ -42,7 +42,7 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 |---|---|---|---|
 | **Maxspeed** — cpp, rust | `corelib-cpp` (C++20), `corelib-rs` (std) | Google protobuf (`libprotobuf`, prost) | throughput |
 | **Maxspeed** — go, csharp, java, typescript, python | each language's corelib | Google protobuf runtime | throughput |
-| **Embedded** — c | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
+| **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
 | **Embedded** — cpp-embedded | `corelib-c-cpp` C++ wrapper (`corelib: c-cpp`) | **EmbeddedProto** | footprint |
 | **Embedded** — rust-embedded | `corelib-rs-no-std` (no_std, no-alloc) | **micropb** | footprint |
 
@@ -67,6 +67,13 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   protobuf-family baseline (`protobuf`, `protobuf-c`, `nanopb`, `micropb`,
   `embeddedproto`) emits the identical **494-byte** protobuf wire. A drifted fill in
   any language is caught automatically.
+- **Optimized per category, portably, identically per row.** Maxspeed targets build
+  for speed — `-O3 -march=native -flto` (C/C++), `target-cpu=native` + LTO (Rust),
+  and portable runtime tuning for the VMs (workstation/server GC, `GOGC`, ParallelGC,
+  TieredPGO). Embedded targets build for size — `-Os -flto`. Nothing pins a CPU/ISA
+  level: `-march=native` is *adaptive* and the arena rebuilds on each host, so it runs
+  anywhere; and within a row SofaBuffers and its baseline get the **same** flags.
+  Throughput is reported **best-of-5** (`RUNS=5`) since it is noisy.
 
 > **Reading throughput (`MB/s`).** An encode+decode figure on **this host**, only
 > meaningful **within a language** (each runs on a different runtime — JIT, VM,
@@ -97,8 +104,9 @@ footprint metric), and a network fetch of nanopb / EmbeddedProto (build-time onl
 ./scripts/run_benchmark.sh
 
 # handy variants
-LANGS="cpp rust c" ./scripts/run_benchmark.sh     # a subset (any category)
+LANGS="cpp rust c-embedded" ./scripts/run_benchmark.sh     # a subset (any category)
 BENCH_ITERS=100000 ./scripts/run_benchmark.sh     # fewer iterations
+RUNS=5 ./scripts/run_benchmark.sh                 # best-of-5 throughput (recommended)
 ./scripts/run_benchmark.sh --no-setup             # reuse existing builds
 ```
 
@@ -119,25 +127,27 @@ protobuf-family baseline emits the same **494-byte** wire.
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 436 | 494 | 207.8 | 173.5 | **1.13×** | **1.20×** |
-| Rust       | 436 | 494 | 155.3 | 146.6 | **1.13×** | **1.06×** |
-| Go         | 436 | 494 |  20.8 |  92.0 | **1.13×** | 0.23× |
-| C#         | 436 | 494 |  85.3 | 105.2 | **1.13×** | 0.81× |
-| Java       | 436 | 494 | 109.2 | 168.5 | **1.13×** | 0.65× |
-| TypeScript | 436 | 494 |  22.5 |  35.3 | **1.13×** | 0.64× |
-| Python     | 436 | 494 |  16.5 | 133.3 | **1.13×** | 0.12× |
+| C++        | 436 | 494 | 229.9 | 176.5 | **1.13×** | **1.30×** |
+| Rust       | 436 | 494 | 174.7 | 192.3 | **1.13×** | 0.91× |
+| Go         | 436 | 494 |  44.4 | 111.0 | **1.13×** | 0.40× |
+| C#         | 436 | 494 |  91.8 | 116.1 | **1.13×** | 0.79× |
+| Java       | 436 | 494 | 133.6 | 205.8 | **1.13×** | 0.65× |
+| TypeScript | 436 | 494 |  25.4 |  38.8 | **1.13×** | 0.66× |
+| Python     | 436 | 494 |  17.1 | 153.9 | **1.13×** | 0.11× |
 
 *size adv = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed adv =
-sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). MB/s is machine-dependent,
-varies run-to-run, and is comparable **only within a row**.*
+sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-5**
+(`RUNS=5`; noise is downward), machine-dependent, and comparable **only within a
+row**. Compiled targets build `-O3 -march=native -flto` (adaptive, rebuilt per
+host); VM targets use portable GC/JIT tuning — identical for both impls in a row.*
 
 ### Embedded — code footprint (isolated codec, `-Os`, no libc; **lower is better**)
 
 | target | impl | wire | `.text` | `.rodata` | static-RAM | `.text` vs sofab |
 |---|---|--:|--:|--:|--:|:--:|
-| **c** | sofab | 434 | **5 918** | 1 382 | 192 | 1.00× |
+| **c-embedded** | sofab | 434 | **5 918** | 1 382 | 192 | 1.00× |
 | | nanopb | 494 | 9 621 | 1 057 | 248 | 1.63× |
-| | protobuf-c | 494 | 26 267 | 4 006 | 2 632 | 4.44× |
+| | protobuf-c | 494 | 26 267 | 4 015 | 2 632 | 4.44× |
 | **cpp-embedded** | sofab | 436 | 12 187 | 1 597 | 592 | 1.00× |
 | | **embeddedproto** | 494 | **3 276** | 261 | 352 | **0.27×** |
 | **rust-embedded** | sofab | 436 | — | — | — | *(pending ARM)* |
@@ -150,14 +160,18 @@ means the baseline carries more code than SofaBuffers.*
 
 - **On the wire, SofaBuffers wins everywhere — consistently ~13% smaller** (494 →
   436 B; the C object API is leaner still at 434 B). Same message, every language.
-- **Maxspeed: a split decided by runtime maturity, not the format.**
-  - **C++ and Rust: SofaBuffers is faster** — **C++ 1.20×**, **Rust 1.06×**. A lean
-    wire format plus low-overhead codegen turns into fewer cycles.
+- **Maxspeed: a split decided by runtime maturity, not the format** (all targets
+  built/tuned for speed — see settings note above).
+  - **C++: SofaBuffers is faster — 1.30×.** A lean wire format plus low-overhead
+    codegen, and `-O3 -march=native -flto` vectorizes the hot loops.
+  - **Rust: near-parity, protobuf edges ahead (0.91×).** Both got `target-cpu=native`
+    + LTO; `prost`'s heavily-tuned generated code benefits a touch more (it led ~1.06×
+    before the aggressive flags — the optimization helped prost more than sofab-rust).
   - **Elsewhere Google's protobuf runtimes lead** — a decade of hand-tuning and
-    per-VM codegen. The gap ranges from close (**C# 0.81×**, **Java 0.65×**,
-    **TypeScript 0.64×**) to wide (**Go**, **Python** — where protobuf calls a C
-    extension). These track corelib maturity, not the wire format.
-  - **Corelib tuning moves the needle:** recent work lifted **TypeScript** (pool the
+    per-VM codegen. The gap ranges from close (**C# 0.79×**, **Java 0.65×**,
+    **TypeScript 0.66×**) to wide (**Go 0.40×**, **Python 0.11×** — where protobuf
+    calls a C extension). These track corelib maturity, not the wire format.
+  - **Corelib tuning moves the needle:** earlier work lifted **TypeScript** (pool the
     encode buffer via `OStream.reset()` + a single-shot contiguous-decode path) and
     **Python** (build corelib-py's native Cython accelerator) — evidence the gaps are
     a maturity artifact, not a format limit.

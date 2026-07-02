@@ -2,7 +2,7 @@
 # Footprint probe for the three C serialization codecs.
 #
 # Prints ONE line per impl:
-#   FOOTPRINT lang=c impl=<sofab|nanopb|protobuf-c> text=<b> rodata=<b> data=<b> bss=<b>
+#   FOOTPRINT lang=c-embedded impl=<sofab|nanopb|protobuf-c> text=<b> rodata=<b> data=<b> bss=<b>
 #
 # Methodology (kept consistent across impls):
 #   * All compilation uses -Os -ffunction-sections -fdata-sections -std=c99 so
@@ -39,7 +39,7 @@ sum_sections() {
 emit() { # impl "text rodata data bss"
     local impl="$1"
     read -r t r d b <<<"$2"
-    printf 'FOOTPRINT lang=c impl=%s text=%s rodata=%s data=%s bss=%s\n' "$impl" "$t" "$r" "$d" "$b"
+    printf 'FOOTPRINT lang=c-embedded impl=%s text=%s rodata=%s data=%s bss=%s\n' "$impl" "$t" "$r" "$d" "$b"
 }
 
 # --- sofab: object-sum of generated code + corelib codec ----------------------

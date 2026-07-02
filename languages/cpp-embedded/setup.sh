@@ -25,12 +25,12 @@ mkdir -p "$HERE/sofab/gen"
 OBJ="$(mktemp -d)"
 trap 'rm -rf "$OBJ"' EXIT
 # corelib-c-cpp ships C sources: compile them as C, then link into the C++ bench.
-$CC -O2 -std=c99 -c \
+$CC -Os -flto -std=c99 -c \
     "$CORELIB/src/object.c" "$CORELIB/src/ostream.c" "$CORELIB/src/istream.c" \
     -I"$CORELIB/src/include"
-$CC -O2 -std=c99 -c "$COMMON/sha256.c" -I"$COMMON"
+$CC -Os -flto -std=c99 -c "$COMMON/sha256.c" -I"$COMMON"
 mv ./*.o "$OBJ"/
-$CXX -O2 -std=c++20 \
+$CXX -Os -flto -std=c++20 \
     -I"$HERE/sofab/gen" -I"$CORELIB/src/include" -I"$COMMON" \
     "$HERE/sofab/bench.cpp" "$OBJ"/*.o \
     -o "$HERE/sofab/bench" >&2
@@ -52,7 +52,7 @@ mkdir -p "$HERE/embeddedproto/gen"
     --eams_out="$HERE/embeddedproto/gen" \
     "$HERE/embeddedproto/proto/message.proto" >&2 )
 # 4) compile bench + generated header + EmbeddedProto runtime sources + sha256.
-$CXX -O2 -std=c++17 \
+$CXX -Os -flto -std=c++17 \
     -I"$HERE/embeddedproto/gen" -I"$EP/src" -I"$COMMON" \
     "$HERE/embeddedproto/bench.cpp" \
     "$EP/src/Fields.cpp" "$EP/src/MessageInterface.cpp" "$EP/src/ReadBufferSection.cpp" \

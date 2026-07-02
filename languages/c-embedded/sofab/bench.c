@@ -116,7 +116,7 @@ int main(void)
 
     const double cpu = t1 - t0;
     const double mbs = (cpu > 0.0) ? ((double)serialized * (double)iters) / cpu / 1.0e6 : 0.0;
-    printf("BENCH lang=c impl=sofab serialized_bytes=%zu iters=%ld cpu_time_s=%.6f "
+    printf("BENCH lang=c-embedded impl=sofab serialized_bytes=%zu iters=%ld cpu_time_s=%.6f "
            "throughput_mbs=%.2f sha256=%s\n", serialized, iters, cpu, mbs, sha);
     fflush(stdout);
     return 0;

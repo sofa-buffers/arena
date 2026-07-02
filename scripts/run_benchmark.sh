@@ -28,14 +28,18 @@
 #   ./scripts/run_benchmark.sh --no-setup      # skip setup.sh (reuse builds)
 #   LANGS="python go" ./scripts/run_benchmark.sh
 #   BENCH_ITERS=100000 ./scripts/run_benchmark.sh
+#   RUNS=5 ./scripts/run_benchmark.sh                # best-of-5 throughput (noise)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-LANGS="${LANGS:-c cpp rust go csharp java typescript python rust-embedded cpp-embedded}"
+LANGS="${LANGS:-c-embedded cpp rust go csharp java typescript python rust-embedded cpp-embedded}"
 DO_SETUP=1
 [ "${1:-}" = "--no-setup" ] && DO_SETUP=0
+# Throughput is noisy; RUNS>1 repeats each bench and keeps the BEST (max) MB/s
+# per impl (noise is downward). Footprint is deterministic. Default 1.
+RUNS="${RUNS:-1}"
 
 export STATE_JSON="$ROOT/schema/state.json"
 export SOFABGEN="$ROOT/tools/sofabgen"
@@ -55,7 +59,7 @@ REF_PROTO_SHA="e8d391d98bc54c0ec24fff19ec96bb52114d9d34aed7d0f0023a0317bcfa5b3d"
 # one empty string in string_array — a documented leanness optimization — so its
 # wire is 434 B, not 436 B. This is the correct output of that backend, not drift.
 REF_SOFAB_C_SHA="e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d"
-expected_sofab_sha() { [ "$1" = c ] && echo "$REF_SOFAB_C_SHA" || echo "$REF_SOFAB_SHA"; }
+expected_sofab_sha() { [ "$1" = c-embedded ] && echo "$REF_SOFAB_C_SHA" || echo "$REF_SOFAB_SHA"; }
 # Every non-sofab impl (protobuf, protobuf-c, nanopb, ...) must match the proto wire.
 expected_sha() { [ "$2" = sofab ] && expected_sofab_sha "$1" || echo "$REF_PROTO_SHA"; }
 
@@ -74,10 +78,12 @@ parse_line() {   # <line>
     case "$line" in
         BENCH*)
             SER[$key]="$(field "$line" serialized_bytes)"
-            ITERS[$key]="$(field "$line" iters)"
-            CPU[$key]="$(field "$line" cpu_time_s)"
-            MBS[$key]="$(field "$line" throughput_mbs)"
             SHA[$key]="$(field "$line" sha256)"
+            local m; m="$(field "$line" throughput_mbs)"
+            # best-of-N: keep the max throughput seen across repeated runs
+            if [ -z "${MBS[$key]:-}" ] || awk -v a="$m" -v b="${MBS[$key]}" 'BEGIN{exit !(a+0>b+0)}'; then
+                MBS[$key]="$m"; CPU[$key]="$(field "$line" cpu_time_s)"; ITERS[$key]="$(field "$line" iters)"
+            fi
             ;;
         FOOTPRINT*)
             TEXT[$key]="$(field "$line" text)"
@@ -109,14 +115,14 @@ for lang in $LANGS; do
             echo "!! setup FAILED for $lang (see $RAW/$lang.setup.log)"; STATUS[$lang]=SETUP_FAIL; continue
         fi
     fi
-    echo "--- bench ($lang) ---"
-    if ! "$dir/bench.sh" >"$RAW/$lang.out" 2>"$RAW/$lang.err"; then
-        echo "!! bench FAILED for $lang (see $RAW/$lang.err)"; STATUS[$lang]=BENCH_FAIL
-    else
-        STATUS[$lang]=OK
-    fi
+    echo "--- bench ($lang)$([ "$RUNS" -gt 1 ] && echo " x$RUNS best-of") ---"
+    : > "$RAW/$lang.out"; : > "$RAW/$lang.err"; bok=1
+    for _r in $(seq 1 "$RUNS"); do
+        "$dir/bench.sh" >>"$RAW/$lang.out" 2>>"$RAW/$lang.err" || bok=0
+    done
+    if [ "$bok" = 1 ]; then STATUS[$lang]=OK; else echo "!! bench FAILED for $lang (see $RAW/$lang.err)"; STATUS[$lang]=BENCH_FAIL; fi
     while IFS= read -r line; do
-        case "$line" in BENCH*|FOOTPRINT*) parse_line "$line"; echo "  $line";; esac
+        case "$line" in BENCH*|FOOTPRINT*) parse_line "$line";; esac
     done < "$RAW/$lang.out"
 done
 
@@ -130,7 +136,7 @@ for lang in $LANGS; do
     for impl in $(ordered_impls "$lang"); do
         s="${SHA[$lang,$impl]:-}"; [ -n "$s" ] || continue
         ref="$(expected_sha "$lang" "$impl")"
-        note=""; [ "$lang" = c ] && [ "$impl" = sofab ] && note="  (object API: drops empty string)"
+        note=""; [ "$lang" = c-embedded ] && [ "$impl" = sofab ] && note="  (object API: drops empty string)"
         if [ "$s" = "$ref" ]; then mark="ok"; else mark="MISMATCH"; gate_ok=0; fi
         printf "  %-14s %-13s %s  %s%s\n" "$lang" "$impl" "${SER[$lang,$impl]:-?}B" "$mark" "$note"
     done
