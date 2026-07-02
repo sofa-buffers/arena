@@ -1,0 +1,23 @@
+# nanopb fixed-size options for the SofaBuffers FullScaleExample schema.
+# Sizes chosen >= the canonical values so the encoded wire matches protobuf-c.
+
+# FullScaleSeqStruct: string char[32] (incl. NUL), bytes uint8_t[4]
+fullscale.FullScaleSeqStruct.str          max_size:32
+fullscale.FullScaleSeqStruct.bytes_field  max_size:4
+
+# FullScaleSeqStructOfFpArrays: 5-element fp arrays
+fullscale.FullScaleSeqStructOfFpArrays.fp32 max_count:5
+fullscale.FullScaleSeqStructOfFpArrays.fp64 max_count:5
+
+# FullScaleSeqStructOfArrays: every repeated numeric array = 5 elements
+fullscale.FullScaleSeqStructOfArrays.u8  max_count:5
+fullscale.FullScaleSeqStructOfArrays.i8  max_count:5
+fullscale.FullScaleSeqStructOfArrays.u16 max_count:5
+fullscale.FullScaleSeqStructOfArrays.i16 max_count:5
+fullscale.FullScaleSeqStructOfArrays.u32 max_count:5
+fullscale.FullScaleSeqStructOfArrays.i32 max_count:5
+fullscale.FullScaleSeqStructOfArrays.u64 max_count:5
+fullscale.FullScaleSeqStructOfArrays.i64 max_count:5
+
+# FullScaleSeqArrayOfStrings: up to 5 strings, each char[64] (incl. NUL)
+fullscale.FullScaleSeqArrayOfStrings.strings max_count:5, max_size:64

@@ -1,0 +1,23 @@
+[package]
+name = "rust-embedded-micropb-bench"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
+
+[dependencies]
+# no_std, no-alloc protobuf runtime. Fixed-capacity containers come from
+# heapless (v0.8). enable-64bit gives us u64/i64/double support.
+micropb = { version = "0.6", default-features = false, features = ["encode", "decode", "container-heapless-0-8", "enable-64bit"] }
+heapless = "0.8"
+# Host-side harness only (timing/hash) — not part of the codec footprint.
+sha2 = "0.10"
+
+[build-dependencies]
+# Codegen: drives protoc + emits the no_std message module into OUT_DIR.
+micropb-gen = "0.6"
+
+[profile.release]
+opt-level = 3

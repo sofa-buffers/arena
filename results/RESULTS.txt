@@ -1,30 +1,51 @@
 
 ================================================================================
- SofaBuffers vs Protobuf — the big picture
-   same message, same values, every language. size in bytes; speed in MB/s
-   (encode+decode throughput). MB/s is within-language only (different runtimes).
+ MAXSPEED — SofaBuffers vs Protobuf, encode+decode throughput
+   same message, same values. size in bytes; speed in MB/s (higher is better).
+   MB/s is within-language only (different runtimes) — never compare rows.
 ================================================================================
   language    |  wire size (B) |      throughput MB/s |      sofab advantage
               |  sofab   proto |     sofab      proto |     size       speed
   ----------------------------------------------------------------------------
-  c           |    434     494 |    136.74     221.54 |    1.14x       0.62x
-  cpp         |    436     494 |    210.52     177.88 |    1.13x       1.18x
-  rust        |    436     494 |    165.18     152.21 |    1.13x       1.09x
-  go          |    436     494 |     33.73      86.44 |    1.13x       0.39x
-  csharp      |    436     494 |     85.54      98.90 |    1.13x       0.86x
-  java        |    436     494 |    111.50     155.69 |    1.13x       0.72x
-  typescript  |    436     494 |     22.12      41.00 |    1.13x       0.54x
-  python      |    436     494 |     17.40     143.47 |    1.13x       0.12x
+  cpp         |    436     494 |    207.76     173.48 |    1.13x       1.20x
+  rust        |    436     494 |    155.34     146.61 |    1.13x       1.06x
+  go          |    436     494 |     20.77      91.96 |    1.13x       0.23x
+  csharp      |    436     494 |     85.27     105.23 |    1.13x       0.81x
+  java        |    436     494 |    109.19     168.49 |    1.13x       0.65x
+  typescript  |    436     494 |     22.49      35.34 |    1.13x       0.64x
+  python      |    436     494 |     16.48     133.32 |    1.13x       0.12x
 
-  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers is smaller on the wire)
+  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
 
+================================================================================
+ EMBEDDED — SofaBuffers vs footprint-oriented Protobuf, code+RAM footprint
+   isolated codec built -Os (no harness/libc); bytes. LOWER is better.
+   static-RAM = .data + .bss.  '.text vs sofab' >1 means the baseline is fatter.
+================================================================================
+  target         impl          |  wire |    .text  .rodata  static-RAM |     MB/s | .text vs sofab
+  --------------------------------------------------------------------------------------
+  c              sofab         |   434 |     5918     1382         192 |   145.26 |         1.00x
+                 protobuf-c    |   494 |    26267     4006        2632 |   225.88 |         4.44x
+                 nanopb        |   494 |     9621     1057         248 |    62.39 |         1.63x
+  rust-embedded  sofab         |   436 |      –      –         – |   130.60 |           –
+                 micropb       |   494 |      –      –         – |   304.77 |           –
+  cpp-embedded   sofab         |   436 |    12187     1597         592 |   137.19 |         1.00x
+                 embeddedproto |   494 |     3276      261         352 |    82.59 |         0.27x
+
+  Footprint = object-sum of each library's OWN compiled code (no libc), built -Os.
+  It counts the whole library, so it over-counts generic runtimes that --gc-sections
+  would trim on real hardware; a bare-metal --gc-sections build is the fair metric (TODO).
+  MB/s = encode+decode throughput (secondary here).
+
   status per language:
-    c           OK
-    cpp         OK
-    rust        OK
-    go          OK
-    csharp      OK
-    java        OK
-    typescript  OK
-    python      OK
+    c              [embedded] OK
+    cpp            [maxspeed] OK
+    rust           [maxspeed] OK
+    go             [maxspeed] OK
+    csharp         [maxspeed] OK
+    java           [maxspeed] OK
+    typescript     [maxspeed] OK
+    python         [maxspeed] OK
+    rust-embedded  [embedded] OK
+    cpp-embedded   [embedded] OK
