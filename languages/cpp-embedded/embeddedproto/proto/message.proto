@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+// EmbeddedProto-annotated copy of /workspace/schema/message.proto.
+// The shared schema is proto3-only; EmbeddedProto needs a compile-time bound
+// for every repeated / string / bytes field (it uses no dynamic allocation),
+// supplied here via the (EmbeddedProto.options) custom field options. The wire
+// format is unchanged proto3, so encoding stays byte-identical to protobuf.
+//
+// Fixed sizes mirror schema/message.sofab.yaml:
+//   nested.str        maxLength 32
+//   nested.bytes      maxLength 4
+//   every repeated    maxLength 5
+//   string_array      maxLength 5 (array), nestedMaxLength 64 (each string)
+//
+// The signed fields i8/i16/i32 are declared int64 (not int32) here on purpose.
+// Canonical protobuf sign-extends a negative int32 to a 10-byte varint, whereas
+// EmbeddedProto encodes int32 in 5 bytes. A negative int64 and a negative int32
+// of the same value serialize to identical protobuf bytes, so using int64 keeps
+// the wire byte-identical to the reference protobuf output (the 494-byte gate)
+// while preserving values and field numbers.
+
+package fullscale;
+
+import "embedded_proto_options.proto";
+
+message FullScaleSeqStruct {
+  float f32 = 1;
+  double f64 = 2;
+  string str = 3 [(EmbeddedProto.options).maxLength = 32];
+  bytes bytes_field = 4 [(EmbeddedProto.options).maxLength = 4];
+}
+
+message FullScaleSeqStructOfFpArrays {
+  repeated float fp32 = 1 [(EmbeddedProto.options).maxLength = 5];
+  repeated double fp64 = 2 [(EmbeddedProto.options).maxLength = 5];
+}
+
+message FullScaleSeqStructOfArrays {
+  repeated uint32 u8 = 1 [(EmbeddedProto.options).maxLength = 5];
+  repeated int64 i8 = 2 [(EmbeddedProto.options).maxLength = 5];
+  repeated uint32 u16 = 3 [(EmbeddedProto.options).maxLength = 5];
+  repeated int64 i16 = 4 [(EmbeddedProto.options).maxLength = 5];
+  repeated uint32 u32 = 5 [(EmbeddedProto.options).maxLength = 5];
+  repeated int64 i32 = 6 [(EmbeddedProto.options).maxLength = 5];
+  repeated uint64 u64 = 7 [(EmbeddedProto.options).maxLength = 5];
+  repeated int64 i64 = 8 [(EmbeddedProto.options).maxLength = 5];
+  FullScaleSeqStructOfFpArrays nested = 10;
+}
+
+message FullScaleSeqArrayOfStrings {
+  repeated string strings = 1 [(EmbeddedProto.options).maxLength = 5, (EmbeddedProto.options).nestedMaxLength = 64];
+}
+
+message FullScaleExample {
+  uint32 u8 = 1;
+  int64 i8 = 2;
+  uint32 u16 = 3;
+  int64 i16 = 4;
+  uint32 u32 = 5;
+  int64 i32 = 6;
+  uint64 u64 = 7;
+  int64 i64 = 8;
+  FullScaleSeqStruct nested = 10;
+  FullScaleSeqStructOfArrays arrays = 100;
+  FullScaleSeqArrayOfStrings string_array = 200;
+}

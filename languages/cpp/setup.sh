@@ -7,7 +7,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 COMMON="$ROOT/languages/common"
 CXX="${CXX:-g++}"
-CXXFLAGS="-O2 -std=c++20"
+CXXFLAGS="-O3 -march=native -flto -std=c++20"
 
 # --- sofab: generate the typed C++ header against corelib-cpp ---------------
 mkdir -p "$HERE/sofab/gen"
