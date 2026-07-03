@@ -188,75 +188,42 @@ targets — the binaries are never executed. Ranked by **footprint** — everyth
 that ends up in flash: `.text` + `.rodata` + `.data` (the `.data` initializer
 images live in flash and are copied to RAM at boot; `.bss` is RAM-only).
 
-| target (ISA) | impl | `.text` | `.rodata` | **footprint** | static-RAM |
-|---|---|--:|--:|--:|--:|:--:|
-| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 060 | 344 | **3 404** | 0 |
-| | nanopb | 5 660 | 936 | 6 596 | 0 |
-| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 484 | 156 | **6 720** | 132 |
-| | embeddedproto | 8 412 | 908 | 9 404 | 364 |
-| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 5 720 | 328 | **6 048** | 0 |
-| | micropb | 8 236 | 261 | 8 497 | 0 |
-| **c-riscv** (rv32imac) | sofab | 3 128 | 488 | **3 616** | 0 |
-| | nanopb | 6 336 | 1 112 | 7 448 | 0 |
-| **cpp-riscv** (rv32imac) | sofab | 5 944 | 300 | **6 320** | 420 |
-| | embeddedproto | 8 898 | 1 012 | 9 986 | 652 |
-| **rust-riscv** (rv32imac) | sofab | 6 232 | 392 | **6 624** | 0 |
-| | micropb | 9 680 | 393 | 10 073 | 0 |
+| target (ISA) | impl | `.text` | `.rodata` | `.data` | **footprint** | static-RAM |
+|---|---|--:|--:|--:|--:|--:|
+| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 060 | 344 | 0 | **3 404** | 0 |
+| | nanopb | 5 660 | 936 | 0 | 6 596 | 0 |
+| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 484 | 156 | 80 | **6 720** | 132 |
+| | embeddedproto | 8 412 | 908 | 84 | 9 404 | 364 |
+| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 5 720 | 328 | 0 | **6 048** | 0 |
+| | micropb | 8 236 | 261 | 0 | 8 497 | 0 |
+| **c-riscv** (rv32imac) | sofab | 3 128 | 488 | 0 | **3 616** | 0 |
+| | nanopb | 6 336 | 1 112 | 0 | 7 448 | 0 |
+| **cpp-riscv** (rv32imac) | sofab | 5 944 | 300 | 76 | **6 320** | 420 |
+| | embeddedproto | 8 898 | 1 012 | 76 | 9 986 | 652 |
+| **rust-riscv** (rv32imac) | sofab | 6 232 | 392 | 0 | **6 624** | 0 |
+| | micropb | 9 680 | 393 | 0 | 10 073 | 0 |
 
 ***SofaBuffers wins all six rows — three languages × two ISAs** (1.40×–2.06×
 less flash than the smallest protobuf alternative).*
 
 ### The big picture
 
-- **On the wire, SofaBuffers wins everywhere — consistently ~13% smaller** (494 →
-  436 B; the C object API is leaner still at 434 B). Same message, every language.
-- **Maxspeed: after tuning the generated code, three languages beat or tie protobuf
-  and the rest are close.** The deficit was never the wire format — it was the
-  generated per-message code and its data model *above* the byte codec. Those fixes
-  now ship natively in **sofabgen v0.6.0** (full analysis:
-  [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md)).
-  - **C++ 1.43× and Rust 1.40× — SofaBuffers *beats* protobuf.** Lean wire + fixed
-    stack arrays + a direct switch-into-fields decode, vectorized under
-    `-O3 -march=native -flto` / `target-cpu=native` + LTO.
-  - **Go: ~parity (1.00×)** (was 0.40×): decode via the corelib's zero-copy cursor
-    instead of a byte-at-a-time reader, plus a byte-slice encoder.
-  - **C# 0.90×, Java 0.87×, TypeScript 0.80× — close** (were 0.79× / 0.65× / 0.66×):
-    primitive fixed arrays instead of boxed/heap collections, single-shot string
-    decode, and for TS a monomorphic decoder + allocation-free UTF-8 encode. The
-    residual gap tracks per-VM runtime maturity, not the format.
-  - **Python: 0.12× — the outlier.** protobuf-python is a thin shell over Google's C
-    **`upb`** engine, while SofaBuffers keeps a per-field Python driver (it *does* run
-    the native Cython accelerator, not a fallback). Full profile:
-    [`languages/python/README.md`](languages/python/README.md).
-- **Embedded, on the metric that matters — bare-metal flash footprint
-  (`.text`+`.rodata`+`.data` link delta) — SofaBuffers wins all six rows: three
-  languages × two ISAs.** C: **3.4 KB** vs nanopb 6.6 KB on Cortex-M4
-  (**1.94×**), **3.6 KB** vs 7.4 KB on rv32imac (**2.06×**). C++: **6.7 KB** vs
-  EmbeddedProto 9.4 KB on Cortex-M4 (**1.40×**, with less static RAM: 132 B vs
-  364 B), **6.3 KB** vs 10.0 KB on rv32imac (**1.58×**). Rust `no_std`:
-  **6.0 KB** vs micropb 8.5 KB on Cortex-M4 (**1.40×**), **6.6 KB** vs 10.1 KB
-  on rv32imac (**1.52×**). All drivers heap-free.
-  - Beware the naive host **object-sum** (an earlier interim metric): it counts
-    *compilation units*, not what the linker keeps, and told the opposite story
-    for C++ (EmbeddedProto's counted sources are just 3.3 KB). Linked into
-    firmware with `--gc-sections`, LTO and `-DNDEBUG`, the templates
-    EmbeddedProto instantiates across the message tree outweigh SofaBuffers'
-    shared C core — the link delta is the firmware-representative number and
-    the only footprint metric tabulated.
-  - **Rust:** since sofabgen 0.9.0 (closing generator issue #40) the generated
-    crate is genuinely `#![no_std]` and heap-free (heapless containers) under
-    `--no-default-features` — so the bare-metal rows measure the **real generated
-    code**, not a synthetic harness. Both Rust impls are heap-free staticlibs
-    (`opt-level=z`, LTO, `panic=abort`) linked through the same C driver/baseline.
-  - **Toolchains, kept fair:** ARM rows use `gcc-arm-none-eabi` (newlib-nano),
-    RISC-V C/Rust rows the apt `riscv64-unknown-elf` (picolibc), and `cpp-riscv`
-    the xpack `riscv-none-elf` GCC — the only RISC-V toolchain with a bare-metal
-    libstdc++. Each target's delta is measured against a baseline linked with its
-    **own** toolchain/libc, so CRT and libc differences cancel per target.
-  - **And they're fast anyway:** on the host the embedded SofaBuffers codecs
-    outrun nanopb and EmbeddedProto ~2× and beat micropb (1.13×) — despite being built
-    for size. Only `protobuf-c` is faster — a desktop library with a heap
-    requirement and several times the codec code, unfit for bare metal.
+- **Smaller on the wire, in every language.** The SofaBuffers encoding is about
+  13 % more compact than protobuf for the same message — the same win everywhere,
+  not a per-language accident.
+- **Faster than protobuf where it counts, close behind everywhere else.** The gap
+  was never the wire format but the per-message code above the byte codec; with
+  that tuned, C++, Rust and Go run at or ahead of Google's mature runtimes, while
+  C#, Java and TypeScript sit just behind — tracking each VM's maturity, not the
+  format. Python is the lone outlier, because its protobuf baseline is a thin shell
+  over Google's C `upb` engine while SofaBuffers still drives every field from
+  Python. *(How the codegen was tuned: [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md).)*
+- **The smallest embedded codec in every language, on both ISAs** — measured the
+  way firmware actually pays: the flash a codec adds once the linker drops what it
+  never calls. It undercuts nanopb, EmbeddedProto and micropb across the board,
+  with less static RAM, no heap, and — even built for size — more throughput than
+  any of them. *(A naïve object-sum flatters template-heavy libraries by counting
+  code `--gc-sections` later discards; the link-delta counts only what ships.)*
 
 > **Note — why C is 434 B.** The C target is the SofaBuffers *object API*
 > (`corelib-c-cpp`), a runtime-descriptor codec for constrained/embedded use. It
