@@ -3,8 +3,10 @@
 #
 # NOTE: FOOTPRINT is intentionally NOT emitted here. A host staticlib object-sum
 # for Rust is dominated by std/panic/fmt code (both impls landed ~78-81k .text),
-# so it is not a meaningful codec-footprint comparison. The fair metric is a
-# bare-metal ARM --gc-sections build (parked); footprint.sh is kept for that.
+# so it is not a meaningful codec-footprint comparison. The fair metric is the
+# bare-metal --gc-sections link delta the c-cortex-m / cpp-cortex-m / c-riscv
+# targets use — Rust joins them once sofabgen emits no_std code (generator#40);
+# footprint.sh is kept for that.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
