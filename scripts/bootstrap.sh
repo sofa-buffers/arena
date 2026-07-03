@@ -27,7 +27,11 @@ for r in $CORELIBS; do
     fi
 done
 
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.5.1}"
+# v0.6.0 is the first release whose codegen emits the Rust/Java/C#/Go decode
+# perf optimizations natively (previously re-applied as per-language *.patch by
+# languages/*/setup.sh). Must match the generator release tag that carries the
+# fold — bump together if it is cut under a different number.
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.6.0}"
 
 # --- host os/arch -> release asset name (mirrors the old CMake logic) ---------
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"

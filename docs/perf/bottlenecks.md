@@ -128,8 +128,9 @@ free wins here.
   for streaming). Generated `message.ts` now emits a **monomorphic `static
   decode` / `decodeFrom(Cursor)`** per type — one `switch(id)` reading straight into
   fields, no per-decode visitor closures or `ChunkAcc` (was megamorphic dispatch
-  across 5+ visitor shapes). Captured as
-  `languages/typescript/sofab/monomorphic-decode.patch`, re-applied by `setup.sh`.
+  across 5+ visitor shapes). **Now emitted by sofabgen** (folded into codegen
+  upstream, generator v0.6.0), so no arena patch is needed — a fresh generate
+  carries it.
   **Decode-only: 80.5 → 98.6 MB/s (+22%)**; corelib 379 tests pass; sha256 unchanged.
 - **Encode (corelib + generated-code):** the round-trip was encode-bound — encode
   was ~64% of the loop and ~8200 ns/op. ~60% of that was `writeString` deferring to
@@ -137,8 +138,9 @@ free wins here.
   string + a second copy). Fixed in corelib-ts (**PR #17**): an allocation-free
   two-pass `utf8Length`/`utf8Write` that reproduces `TextEncoder` byte-for-byte
   (incl. lone-surrogate → U+FFFD); streaming path unchanged. Plus generated-code
-  tweaks (`fast-encode.patch`: blob default-guard `!arrEq(...)` → `.length !== 0`,
-  string-list `forEach` → indexed `for`).
+  tweaks (blob default-guard `!arrEq(...)` → `.length !== 0`, string-list
+  `forEach` → indexed `for`) — **now emitted by sofabgen** (generator v0.6.0), no
+  arena patch needed.
   **Encode-only: 7250 → ~4000 ns/op (−45%)** — now *below* protobufjs encode (~5014).
 - **Combined result: TS 0.54× → ~0.81×** (≈35 → ≈51 MB/s), sha256 unchanged.
 
@@ -149,7 +151,8 @@ free wins here.
   just resets the index, and the struct default/marshal use the fixed arrays.
   Also folded in the string/blob single-shot path (skips the `acc` accumulate +
   `into_owned()` double copy). serde handles the JSON round-trip unchanged.
-  Re-applied by `languages/rust/setup.sh` after generation.
+  **Now emitted by sofabgen** (folded into codegen upstream, generator v0.6.0), so
+  no arena patch is needed — a fresh generate carries it.
 - Removes ~15–20 heap allocations per decode (the agent-identified dominant cost).
 - Result: arena **0.85× → 1.40×** (217 → 358 MB/s) — Rust now beats protobuf,
   like C++. Wire + sha256 unchanged.
@@ -162,7 +165,8 @@ free wins here.
   primitive array straight to `OStream` (no `Sbuf.toLongArray` temp + unbox);
   `Json.from/to` updated to match. Also folded in the string/blob single-shot
   path (skips the **synchronized** `ByteArrayOutputStream`) and an unboxed `int[]`
-  sequence stack. Re-applied by `languages/java/setup.sh` after generation.
+  sequence stack. **Now emitted by sofabgen** (folded into codegen upstream,
+  generator v0.6.0), so no arena patch is needed — a fresh generate carries it.
 - Removes ~50 boxing allocations per decode + 10 temp-array conversions per encode.
 - Result: arena **0.62× → 0.80×** (177 → 230 MB/s), wire + sha256 unchanged.
   (protobuf-java also scales with warmup, so the ratio lands at 0.80× at 2M iters.)
@@ -171,9 +175,9 @@ free wins here.
 - **Decode (generated-code):** generated `unmarshal` rewritten to implement
   `sofab.Visitor` and decode via the already-existing zero-copy
   `sofab.AcceptBytes` cursor instead of the pull API over `bufio` (kills per-byte
-  `ReadByte` + per-float `make()`). Captured as
-  `languages/go/sofab/decode-visitor.patch`, re-applied by `languages/go/setup.sh`
-  after generation (idempotent).
+  `ReadByte` + per-float `make()`). **Now emitted by sofabgen** (folded into
+  codegen upstream, generator v0.6.0), so no arena patch is needed — a fresh
+  generate carries it.
   - Split bench: decode **5135 → 2240 ns/op**, **5432 → 1280 B/op**, **41 → 28 allocs**.
 - **Encode (corelib):** `corelib-go`'s `Encoder` now accumulates into an internal
   byte slice (append) and writes once on `Flush`, instead of per-byte `WriteByte`
@@ -186,9 +190,9 @@ free wins here.
   (≈64 → ≈136 MB/s), wire + sha256 unchanged.
 
 ### C# — string/blob single-shot decode (Mistake 1) ✅
-- Change: `languages/csharp/sofab/gen/Message.cs` `ExampleVisitor.String/Blob`,
-  captured as `languages/csharp/sofab/single-shot-strings.patch` and re-applied by
-  `languages/csharp/setup.sh` after generation (idempotent).
+- Change: `ExampleVisitor.String/Blob` decode straight from the contiguous chunk.
+  **Now emitted by sofabgen** (folded into codegen upstream, generator v0.6.0), so
+  no arena patch is needed — a fresh generate carries it.
 - Result: arena **0.81× → 0.88×** (114.8 → 122.6 MB/s), wire + sha256 unchanged.
 - This is the smallest, safest of the fixes; the array-model and encode-buffer
   fixes below stack on top of it.
@@ -209,6 +213,8 @@ free wins here.
 | 8 | **all** | push/visitor → direct switch-into-fields decode | **design** | ✅ TS done (corelib-ts #16); other langs already switch-based |
 | 9 | **TS** | **encode** tuning — allocation-free UTF-8 `writeString` (corelib-ts #17) + generated-code guards | generated+corelib | ✅ done (0.58→0.81×) |
 
-Every generated-code fix should be captured as a `*.patch` beside the target and
-re-applied in that language's `setup.sh` (as C# and TS do), so the arena stays
-reproducible until the fixes land in the generator itself.
+All of these generated-code fixes have now landed in the generator (sofabgen
+v0.6.0), so the per-language `setup.sh` no longer re-applies any `*.patch` — a
+fresh generate emits the optimized form directly. The `*.patch` files and their
+re-apply blocks have been removed; `scripts/bootstrap.sh` pins the generator
+release that carries the fold.
