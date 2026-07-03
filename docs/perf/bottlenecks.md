@@ -131,11 +131,16 @@ free wins here.
   across 5+ visitor shapes). Captured as
   `languages/typescript/sofab/monomorphic-decode.patch`, re-applied by `setup.sh`.
   **Decode-only: 80.5 → 98.6 MB/s (+22%)**; corelib 379 tests pass; sha256 unchanged.
-- **⚠ The combined metric is encode-bound.** Split timing: sofab **encode** is ~64%
-  of the round-trip and, at ~8200 ns/op, alone exceeds protobufjs's *entire*
-  combined time. So decode-only work moves the arena number only **0.54× → ~0.58×** —
-  the ceiling with a free decode is ~0.63×. **Encode is the real remaining TS lever**
-  (it was out of scope for the decode redesign) — see backlog #9.
+- **Encode (corelib + generated-code):** the round-trip was encode-bound — encode
+  was ~64% of the loop and ~8200 ns/op. ~60% of that was `writeString` deferring to
+  `TextEncoder.encode()` (per-call WHATWG setup + a throwaway `Uint8Array` per
+  string + a second copy). Fixed in corelib-ts (**PR #17**): an allocation-free
+  two-pass `utf8Length`/`utf8Write` that reproduces `TextEncoder` byte-for-byte
+  (incl. lone-surrogate → U+FFFD); streaming path unchanged. Plus generated-code
+  tweaks (`fast-encode.patch`: blob default-guard `!arrEq(...)` → `.length !== 0`,
+  string-list `forEach` → indexed `for`).
+  **Encode-only: 7250 → ~4000 ns/op (−45%)** — now *below* protobufjs encode (~5014).
+- **Combined result: TS 0.54× → ~0.81×** (≈35 → ≈51 MB/s), sha256 unchanged.
 
 ### Rust — fixed-size arrays instead of `Vec<T>` ✅ (now *beats* protobuf)
 - **Decode (generated-code, `fixed-arrays.patch`):** `ExampleArrays` fields changed
@@ -202,7 +207,7 @@ free wins here.
 | 6 | C# | encode: `ArrayPool`/`Span` scratch, no double-copy; `List<T>` overloads to kill `.ToArray()` | generated+corelib | TODO |
 | 7 | Rust | fixed `[T;5]` arrays (kills per-array heap alloc) + string single-shot | generated-code | ✅ done (0.85→1.40×) |
 | 8 | **all** | push/visitor → direct switch-into-fields decode | **design** | ✅ TS done (corelib-ts #16); other langs already switch-based |
-| 9 | **TS** | **encode** tuning — the real TS lever (encode is ~64% of the loop and slower than protobufjs); decode is now done | generated+corelib | TODO — biggest TS win left |
+| 9 | **TS** | **encode** tuning — allocation-free UTF-8 `writeString` (corelib-ts #17) + generated-code guards | generated+corelib | ✅ done (0.58→0.81×) |
 
 Every generated-code fix should be captured as a `*.patch` beside the target and
 re-applied in that language's `setup.sh` (as C# and TS do), so the arena stays

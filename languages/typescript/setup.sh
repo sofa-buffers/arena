@@ -31,6 +31,15 @@ if ! grep -q "decodeFrom" "$GEN/message.ts"; then
     patch -p1 -d "$GEN" < "$HERE/sofab/monomorphic-decode.patch" >&2
 fi
 
+# Perf: encode-side tweaks (applied after the decode patch above — its context is
+# the decode-patched message.ts). Drops a per-encode Uint8Array alloc + arrEq for
+# the blob default-guard, and the string-list forEach closure. The decisive encode
+# win (allocation-free UTF-8 writeString) is in corelib-ts (PR #17). See
+# docs/perf-patches/typescript-fast-encode.md. Idempotent (marker-guarded).
+if ! grep -q "bytes_field.length !== 0" "$GEN/message.ts"; then
+    patch -p1 -d "$GEN" < "$HERE/sofab/fast-encode.patch" >&2
+fi
+
 node -e "const p=require('$GEN/package.json');p.dependencies['@sofa-buffers/corelib']='file:$CORELIB';require('fs').writeFileSync('$GEN/package.json',JSON.stringify(p,null,2))"
 ( cd "$GEN" && npm install --no-audit --no-fund --silent ) \
     || ( cd "$GEN" && npm install --no-audit --no-fund )
