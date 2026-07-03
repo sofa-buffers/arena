@@ -1,0 +1,24 @@
+# Bare-metal footprint FFI wrapper: exposes the sofabgen-generated no_std codec
+# (lib built with --no-default-features: heapless types, heap-free) through two
+# extern "C" entry points, as a staticlib the rust-cortex-m / rust-riscv
+# footprint targets link into the same C driver/baseline scheme the C targets
+# use. Never executed — size measurement only.
+[package]
+name = "sofab-ffi"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+name = "sofab_ffi"
+path = "src/lib.rs"
+crate-type = ["staticlib"]
+
+[dependencies]
+msgs = { package = "sofabuffers-generated", path = "../sofab/gen", default-features = false }
+sofab = { package = "sofa-buffers-corelib-no-std", path = "../../../vendor/corelib-rs-no-std", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

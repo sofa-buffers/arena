@@ -3,17 +3,29 @@ name = "rust-embedded-micropb-bench"
 version = "0.0.0"
 edition = "2021"
 
+# The generated message module lives in the lib (no_std under
+# --no-default-features) so the bare-metal footprint FFI wrapper can reuse the
+# identical codec; the bench binary is host/std-only.
+[lib]
+name = "micropb_msgs"
+path = "src/lib.rs"
+
 [[bin]]
 name = "bench"
 path = "src/main.rs"
+required-features = ["std"]
 
 [dependencies]
 # no_std, no-alloc protobuf runtime. Fixed-capacity containers come from
 # heapless (v0.8). enable-64bit gives us u64/i64/double support.
 micropb = { version = "0.6", default-features = false, features = ["encode", "decode", "container-heapless-0-8", "enable-64bit"] }
-heapless = "0.8"
+heapless = { version = "0.8", default-features = false }
 # Host-side harness only (timing/hash) — not part of the codec footprint.
-sha2 = "0.10"
+sha2 = { version = "0.10", optional = true }
+
+[features]
+default = ["std"]
+std = ["dep:sha2"]
 
 [build-dependencies]
 # Codegen: drives protoc + emits the no_std message module into OUT_DIR.
