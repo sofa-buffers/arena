@@ -7,13 +7,13 @@
   language    |  wire size (B) |      throughput MB/s |      sofab advantage
               |  sofab   proto |     sofab      proto |     size       speed
   ----------------------------------------------------------------------------
-  cpp         |    436     494 |    336.29     236.17 |    1.13x       1.42x
-  rust        |    436     494 |    353.36     245.68 |    1.13x       1.44x
-  go          |    436     494 |    141.19     140.43 |    1.13x       1.01x
-  csharp      |    436     494 |    122.44     135.61 |    1.13x       0.90x
-  java        |    436     494 |    231.06     282.40 |    1.13x       0.82x
-  typescript  |    436     494 |     50.82      62.40 |    1.13x       0.81x
-  python      |    436     494 |     21.11     193.26 |    1.13x       0.11x
+  cpp         |    436     494 |    321.70     234.52 |    1.13x       1.37x
+  rust        |    436     494 |    349.75     248.50 |    1.13x       1.41x
+  go          |    436     494 |    138.14     138.93 |    1.13x       0.99x
+  csharp      |    436     494 |    119.36     133.86 |    1.13x       0.89x
+  java        |    436     494 |    232.34     275.98 |    1.13x       0.84x
+  typescript  |    436     494 |     49.51      61.26 |    1.13x       0.81x
+  python      |    436     494 |     20.72     193.15 |    1.13x       0.11x
 
   size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
@@ -25,13 +25,13 @@
 ================================================================================
   target         impl          |  wire |    .text  .rodata  static-RAM |     MB/s | .text vs sofab
   --------------------------------------------------------------------------------------
-  c-embedded     sofab         |   434 |     5918     1382         192 |   124.12 |         1.00x
-                 protobuf-c    |   494 |    26267     4015        2632 |   300.74 |         4.44x
-                 nanopb        |   494 |     9621     1057         248 |    60.12 |         1.63x
-  rust-embedded  sofab         |   436 |      –      –         – |   140.20 |           –
-                 micropb       |   494 |      –      –         – |   129.96 |           –
-  cpp-embedded   sofab         |   436 |    12187     1597         592 |   118.07 |         1.00x
-                 embeddedproto |   494 |     3276      261         352 |    63.49 |         0.27x
+  c-embedded     sofab         |   434 |     5918     1382         192 |   122.82 |         1.00x
+                 protobuf-c    |   494 |    26267     4015        2632 |   299.45 |         4.44x
+                 nanopb        |   494 |     9621     1057         248 |    52.19 |         1.63x
+  rust-embedded  sofab         |   436 |      –      –         – |   139.20 |           –
+                 micropb       |   494 |      –      –         – |   128.60 |           –
+  cpp-embedded   sofab         |   436 |    10151     1572         712 |   131.94 |         1.00x
+                 embeddedproto |   494 |     3276      261         352 |    63.23 |         0.32x
 
   Footprint = object-sum of each library's OWN compiled code (no libc), built -Os.
   It counts the whole library, so it over-counts generic runtimes that --gc-sections
