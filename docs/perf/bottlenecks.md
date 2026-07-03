@@ -153,11 +153,12 @@ free wins here.
   `languages/go/sofab/decode-visitor.patch`, re-applied by `languages/go/setup.sh`
   after generation (idempotent).
   - Split bench: decode **5135 → 2240 ns/op**, **5432 → 1280 B/op**, **41 → 28 allocs**.
-- **Encode (corelib):** `vendor/corelib-go/encoder.go` `Encoder` now accumulates
-  into an internal byte slice (append) and writes once on `Flush`, instead of
-  per-byte `WriteByte` through `bufio.Writer`; `WriteString` appends the string
-  directly (no `[]byte(s)` copy). Streaming + sticky-error contracts preserved via
-  a 4 KB threshold flush — **all corelib-go tests pass**.
+- **Encode (corelib):** `corelib-go`'s `Encoder` now accumulates into an internal
+  byte slice (append) and writes once on `Flush`, instead of per-byte `WriteByte`
+  through `bufio.Writer`; `WriteString` appends the string directly (no `[]byte(s)`
+  copy). Streaming + sticky-error contracts preserved via a 4 KB threshold flush —
+  all corelib-go tests pass. **Merged upstream** (corelib-go PR #28), so no arena
+  patch is needed — a fresh clone carries it.
   - Split bench: encode **4062 → 1446 ns/op**, **4816 → 1008 B/op**, **13 → 3 allocs**.
 - **Combined arena result: go sofab 0.46× → ~1.0× — parity with protobuf**
   (≈64 → ≈136 MB/s), wire + sha256 unchanged.
