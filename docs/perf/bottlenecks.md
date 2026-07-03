@@ -120,6 +120,23 @@ free wins here.
 
 ## Measured proof so far
 
+### TypeScript — monomorphic pull decoder (design change) ✅ decode; ⚠ encode-bound
+- **Decode (corelib + generated-code):** implemented design C from
+  `decode-design.md`. New corelib `Cursor` pull decoder
+  (`vendor/corelib-ts/src/decode/cursor.ts`, **corelib-ts PR #16**) exposes typed
+  `read*` over a numeric cursor on the `Uint8Array` (visitor/`FastDecoder` API kept
+  for streaming). Generated `message.ts` now emits a **monomorphic `static
+  decode` / `decodeFrom(Cursor)`** per type — one `switch(id)` reading straight into
+  fields, no per-decode visitor closures or `ChunkAcc` (was megamorphic dispatch
+  across 5+ visitor shapes). Captured as
+  `languages/typescript/sofab/monomorphic-decode.patch`, re-applied by `setup.sh`.
+  **Decode-only: 80.5 → 98.6 MB/s (+22%)**; corelib 379 tests pass; sha256 unchanged.
+- **⚠ The combined metric is encode-bound.** Split timing: sofab **encode** is ~64%
+  of the round-trip and, at ~8200 ns/op, alone exceeds protobufjs's *entire*
+  combined time. So decode-only work moves the arena number only **0.54× → ~0.58×** —
+  the ceiling with a free decode is ~0.63×. **Encode is the real remaining TS lever**
+  (it was out of scope for the decode redesign) — see backlog #9.
+
 ### Rust — fixed-size arrays instead of `Vec<T>` ✅ (now *beats* protobuf)
 - **Decode (generated-code, `fixed-arrays.patch`):** `ExampleArrays` fields changed
   from `Vec<u8>`/`Vec<f32>`/… to stack `[T; 5]` (like C++'s `std::array<T,5>`);
@@ -184,8 +201,8 @@ free wins here.
 | 5 | C#/Java/Rust | string/blob single-shot (Java has `synchronized` BAOS!) | generated-code | Rust/Java TODO |
 | 6 | C# | encode: `ArrayPool`/`Span` scratch, no double-copy; `List<T>` overloads to kill `.ToArray()` | generated+corelib | TODO |
 | 7 | Rust | fixed `[T;5]` arrays (kills per-array heap alloc) + string single-shot | generated-code | ✅ done (0.85→1.40×) |
-| 8 | **all** | push/visitor → direct switch-into-fields decode | **design** | see `decode-design.md` |
-| 9 | TS | stop emitting dead `new ChunkAcc()` in string/blob-free visitors | generated-code | TODO (quick) |
+| 8 | **all** | push/visitor → direct switch-into-fields decode | **design** | ✅ TS done (corelib-ts #16); other langs already switch-based |
+| 9 | **TS** | **encode** tuning — the real TS lever (encode is ~64% of the loop and slower than protobufjs); decode is now done | generated+corelib | TODO — biggest TS win left |
 
 Every generated-code fix should be captured as a `*.patch` beside the target and
 re-applied in that language's `setup.sh` (as C# and TS do), so the arena stays
