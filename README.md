@@ -131,13 +131,13 @@ protobuf-family baseline emits the same **494-byte** wire.
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 436 | 494 | 229.9 | 176.5 | **1.13×** | **1.30×** |
-| Rust       | 436 | 494 | 174.7 | 192.3 | **1.13×** | 0.91× |
-| Go         | 436 | 494 |  44.4 | 111.0 | **1.13×** | 0.40× |
-| C#         | 436 | 494 |  91.8 | 116.1 | **1.13×** | 0.79× |
-| Java       | 436 | 494 | 133.6 | 205.8 | **1.13×** | 0.65× |
-| TypeScript | 436 | 494 |  25.4 |  38.8 | **1.13×** | 0.66× |
-| Python     | 436 | 494 |  17.1 | 153.9 | **1.13×** | 0.11× |
+| C++        | 436 | 494 | 336.3 | 236.2 | **1.13×** | **1.42×** |
+| Rust       | 436 | 494 | 353.4 | 245.7 | **1.13×** | **1.44×** |
+| Go         | 436 | 494 | 141.2 | 140.4 | **1.13×** | **1.01×** |
+| C#         | 436 | 494 | 122.4 | 135.6 | **1.13×** | 0.90× |
+| Java       | 436 | 494 | 231.1 | 282.4 | **1.13×** | 0.82× |
+| TypeScript | 436 | 494 |  50.8 |  62.4 | **1.13×** | 0.81× |
+| Python     | 436 | 494 |  21.1 | 193.3 | **1.13×** | 0.11× |
 
 *size adv = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed adv =
 sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-5**
@@ -164,24 +164,24 @@ means the baseline carries more code than SofaBuffers.*
 
 - **On the wire, SofaBuffers wins everywhere — consistently ~13% smaller** (494 →
   436 B; the C object API is leaner still at 434 B). Same message, every language.
-- **Maxspeed: a split decided by runtime maturity, not the format** (all targets
-  built/tuned for speed — see settings note above).
-  - **C++: SofaBuffers is faster — 1.30×.** A lean wire format plus low-overhead
-    codegen, and `-O3 -march=native -flto` vectorizes the hot loops.
-  - **Rust: near-parity, protobuf edges ahead (0.91×).** Both got `target-cpu=native`
-    + LTO; `prost`'s heavily-tuned generated code benefits a touch more (it led ~1.06×
-    before the aggressive flags — the optimization helped prost more than sofab-rust).
-  - **Elsewhere Google's protobuf runtimes lead** — a decade of hand-tuning and
-    per-VM codegen. The gap ranges from close (**C# 0.79×**, **Java 0.65×**,
-    **TypeScript 0.66×**) to wide (**Go 0.40×**, **Python 0.11×** — where protobuf
-    calls a C extension; **[profiled here](languages/python/README.md)** — the sofab
-    codec is native, but its per-field driver stays in Python). These track corelib
-    maturity, not the
-    wire format.
-  - **Corelib tuning moves the needle:** earlier work lifted **TypeScript** (pool the
-    encode buffer via `OStream.reset()` + a single-shot contiguous-decode path) and
-    **Python** (build corelib-py's native Cython accelerator) — evidence the gaps are
-    a maturity artifact, not a format limit.
+- **Maxspeed: after tuning the generated code, three languages beat or tie protobuf
+  and the rest are close.** The deficit was never the wire format — it was the
+  generated per-message code and its data model *above* the byte codec. Those fixes
+  now ship natively in **sofabgen v0.6.0** (full analysis:
+  [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md)).
+  - **C++ 1.42× and Rust 1.44× — SofaBuffers *beats* protobuf.** Lean wire + fixed
+    stack arrays + a direct switch-into-fields decode, vectorized under
+    `-O3 -march=native -flto` / `target-cpu=native` + LTO.
+  - **Go: 1.01× — parity** (was 0.40×): decode via the corelib's zero-copy cursor
+    instead of a byte-at-a-time reader, plus a byte-slice encoder.
+  - **C# 0.90×, Java 0.82×, TypeScript 0.81× — close** (were 0.79× / 0.65× / 0.66×):
+    primitive fixed arrays instead of boxed/heap collections, single-shot string
+    decode, and for TS a monomorphic decoder + allocation-free UTF-8 encode. The
+    residual gap tracks per-VM runtime maturity, not the format.
+  - **Python: 0.11× — the outlier.** protobuf-python is a thin shell over Google's C
+    **`upb`** engine, while SofaBuffers keeps a per-field Python driver (it *does* run
+    the native Cython accelerator, not a fallback). Full profile:
+    [`languages/python/README.md`](languages/python/README.md).
 - **Embedded: SofaBuffers wins in C, loses the C++ wrapper — honestly.**
   - **C:** the SofaBuffers object API has the **smallest codec** — **5.9 KB `.text`**,
     ~1.6× under nanopb and ~4.4× under `protobuf-c` (which also needs a heap).
