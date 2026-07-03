@@ -4,6 +4,13 @@ Status: **living document**, started 2026-07-03. Baseline is the arena run in
 `results/RESULTS.txt`. Python is out of scope here (see the README note — its
 ceiling is the CPython object model, tracked separately).
 
+> This document is the **benchmark-side analysis** — what was slow, what was
+> measured, and the resulting standings. The **codegen implementation guides**
+> (how each fix is emitted per language, plus the decode-design rationale and
+> reference patches) live in the generator repo:
+> [`sofa-buffers/generator` → `docs/perf-patches/`](https://github.com/sofa-buffers/generator/tree/main/docs/perf-patches).
+> Every fix below is now emitted natively by **sofabgen v0.6.0**.
+
 ## The standings we're closing
 
 `speed adv = sofab_MBps / protobuf_MBps` (within-language; >1 = SofaBuffers wins):
@@ -83,7 +90,9 @@ fields with no per-field call and no scratch objects.
   but the double-`switch` + scratch allocation remains.
 - In **Go** it's worse still — see below.
 
-**Fix is a design change** — covered in `docs/perf/decode-design.md`.
+**Fix is a design change** — the rationale and how it ports to every language lives
+with the codegen guides in the generator repo:
+[`docs/perf-patches/decode-design.md`](https://github.com/sofa-buffers/generator/blob/main/docs/perf-patches/decode-design.md).
 
 ## Go is a special case — it doesn't even use its own fast path
 
@@ -121,8 +130,9 @@ free wins here.
 ## Measured proof so far
 
 ### TypeScript — monomorphic pull decoder (design change) ✅ decode; ⚠ encode-bound
-- **Decode (corelib + generated-code):** implemented design C from
-  `decode-design.md`. New corelib `Cursor` pull decoder
+- **Decode (corelib + generated-code):** implemented design C (see the generator
+  repo's [`decode-design.md`](https://github.com/sofa-buffers/generator/blob/main/docs/perf-patches/decode-design.md)).
+  New corelib `Cursor` pull decoder
   (`vendor/corelib-ts/src/decode/cursor.ts`, **corelib-ts PR #16**) exposes typed
   `read*` over a numeric cursor on the `Uint8Array` (visitor/`FastDecoder` API kept
   for streaming). Generated `message.ts` now emits a **monomorphic `static
