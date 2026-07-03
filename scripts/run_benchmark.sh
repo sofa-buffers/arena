@@ -34,7 +34,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-LANGS="${LANGS:-c-embedded cpp rust go csharp java typescript python rust-embedded cpp-embedded c-cortex-m cpp-cortex-m rust-cortex-m c-riscv rust-riscv}"
+LANGS="${LANGS:-c-embedded cpp rust go csharp java typescript python rust-embedded cpp-embedded c-cortex-m cpp-cortex-m rust-cortex-m c-riscv cpp-riscv rust-riscv}"
 DO_SETUP=1
 [ "${1:-}" = "--no-setup" ] && DO_SETUP=0
 # Throughput is noisy; RUNS repeats each bench and keeps the BEST (max) MB/s per
@@ -215,10 +215,10 @@ echo
 echo "  Footprint, two methodologies:"
 echo "   * host targets (c-embedded, cpp-embedded): object-sum of each library's OWN"
 echo "     compiled code (no libc), built -Os — counts the whole library."
-echo "   * bare-metal targets (c-cortex-m, cpp-cortex-m, rust-cortex-m, c-riscv,"
-echo "     rust-riscv): --gc-sections LINK DELTA vs an empty baseline, -Os -DNDEBUG"
-echo "     (Rust: no_std staticlib, opt-level=z, LTO) — the flash/RAM the codec"
-echo "     actually adds to real firmware (the fair metric; build-only, never executed)."
+echo "   * bare-metal targets (c/cpp/rust-cortex-m, c/cpp/rust-riscv): --gc-sections"
+echo "     LINK DELTA vs an empty baseline, -Os -DNDEBUG (Rust: no_std staticlib,"
+echo "     opt-level=z, LTO) — the flash/RAM the codec actually adds to real"
+echo "     firmware (the fair metric; build-only, never executed)."
 echo "  MB/s = encode+decode throughput (host targets only; secondary here)."
 fi
 
