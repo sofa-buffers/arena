@@ -80,7 +80,8 @@ func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
 }
 
 func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
-	if id == 10 {
+	switch id {
+	case 10:
 		return &m.Nested, nil
 	}
 	return _visitorBase{}, nil
@@ -103,14 +104,16 @@ func (m *ExampleArraysNested) marshal(e *sofab.Encoder) {
 }
 
 func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
-	if id == 0 {
+	switch id {
+	case 0:
 		m.Fp32 = v
 	}
 	return nil
 }
 
 func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
-	if id == 1 {
+	switch id {
+	case 1:
 		m.Fp64 = v
 	}
 	return nil
@@ -141,29 +144,32 @@ func (m *ExampleNested) marshal(e *sofab.Encoder) {
 }
 
 func (m *ExampleNested) Float32(id sofab.ID, v float32) error {
-	if id == 0 {
+	switch id {
+	case 0:
 		m.F32 = v
 	}
 	return nil
 }
 
 func (m *ExampleNested) Float64(id sofab.ID, v float64) error {
-	if id == 1 {
+	switch id {
+	case 1:
 		m.F64 = v
 	}
 	return nil
 }
 
 func (m *ExampleNested) String(id sofab.ID, v string) error {
-	if id == 2 {
+	switch id {
+	case 2:
 		m.Str = v
 	}
 	return nil
 }
 
 func (m *ExampleNested) Bytes(id sofab.ID, v []byte) error {
-	if id == 3 {
-		// v aliases the decode buffer (AcceptBytes) — copy what we keep.
+	switch id {
+	case 3:
 		m.BytesField = append([]byte(nil), v...)
 	}
 	return nil

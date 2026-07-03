@@ -62,56 +62,6 @@ func (m *Example) marshal(e *sofab.Encoder) {
 	e.WriteSequenceEnd()
 }
 
-// --- decode via the corelib's zero-copy contiguous cursor (AcceptBytes) ------
-// The generated types implement sofab.Visitor and bind each field straight into
-// a struct member, so decode advances a cursor over the input buffer with no
-// per-byte reader calls and no per-element allocation in the byte codec (the
-// slow path was sofab.NewDecoder(bytes.NewReader(...)) pulling each varint byte
-// through bufio.ReadByte). _visitorBase supplies no-op defaults so each type
-// overrides only the callbacks it actually uses.
-
-type _visitorBase struct{}
-
-func (_visitorBase) Unsigned(sofab.ID, uint64) error              { return nil }
-func (_visitorBase) Signed(sofab.ID, int64) error                { return nil }
-func (_visitorBase) Float32(sofab.ID, float32) error             { return nil }
-func (_visitorBase) Float64(sofab.ID, float64) error             { return nil }
-func (_visitorBase) String(sofab.ID, string) error              { return nil }
-func (_visitorBase) Bytes(sofab.ID, []byte) error               { return nil }
-func (_visitorBase) UnsignedArray(sofab.ID, []uint64) error      { return nil }
-func (_visitorBase) SignedArray(sofab.ID, []int64) error         { return nil }
-func (_visitorBase) Float32Array(sofab.ID, []float32) error      { return nil }
-func (_visitorBase) Float64Array(sofab.ID, []float64) error      { return nil }
-func (_visitorBase) BeginSequence(sofab.ID) (sofab.Visitor, error) { return _visitorBase{}, nil }
-func (_visitorBase) EndSequence() error                          { return nil }
-
-func _narrowU[T ~uint8 | ~uint16 | ~uint32 | ~uint64](v []uint64) []T {
-	out := make([]T, len(v))
-	for i, x := range v {
-		out[i] = T(x)
-	}
-	return out
-}
-
-func _narrowS[T ~int8 | ~int16 | ~int32 | ~int64](v []int64) []T {
-	out := make([]T, len(v))
-	for i, x := range v {
-		out[i] = T(x)
-	}
-	return out
-}
-
-// _stringSeq collects the String elements of a string-array sequence.
-type _stringSeq struct {
-	_visitorBase
-	out *[]string
-}
-
-func (s *_stringSeq) String(_ sofab.ID, v string) error {
-	*s.out = append(*s.out, v)
-	return nil
-}
-
 func (m *Example) Unsigned(id sofab.ID, v uint64) error {
 	switch id {
 	case 0:
@@ -121,7 +71,7 @@ func (m *Example) Unsigned(id sofab.ID, v uint64) error {
 	case 4:
 		m.U32 = uint32(v)
 	case 6:
-		m.U64 = v
+		m.U64 = uint64(v)
 	}
 	return nil
 }
@@ -135,7 +85,7 @@ func (m *Example) Signed(id sofab.ID, v int64) error {
 	case 5:
 		m.I32 = int32(v)
 	case 7:
-		m.I64 = v
+		m.I64 = int64(v)
 	}
 	return nil
 }
@@ -148,7 +98,7 @@ func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 		return &m.Arrays, nil
 	case 200:
 		m.StringArray = m.StringArray[:0]
-		return &_stringSeq{out: &m.StringArray}, nil
+		return &_strSeq{out: &m.StringArray}, nil
 	}
 	return _visitorBase{}, nil
 }
@@ -171,6 +121,8 @@ func (m *Example) Encode() ([]byte, error) {
 }
 
 // DecodeExample parses bytes into a new message (with defaults pre-applied).
+// Decode runs the corelib's zero-copy AcceptBytes cursor over the buffer,
+// dispatching each field to the message's sofab.Visitor implementation.
 func DecodeExample(data []byte) (*Example, error) {
 	m := NewExample()
 	if err := sofab.AcceptBytes(data, m); err != nil {

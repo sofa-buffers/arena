@@ -210,7 +210,7 @@ struct V<'a> {
     stack: Vec<_Loc>,
     cur: _Loc,
     acc: Vec<u8>,
-    ai: usize, // index into the fixed array currently being filled
+    ai: usize, // index into the fixed native array currently being filled
 }
 
 impl<'a> Visitor for V<'a> {
@@ -255,8 +255,8 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn string(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
-        // Single-shot: whole payload in one chunk -> build straight from the slice,
-        // skipping the `acc` accumulate + second copy.
+        // Single-shot: whole payload in one chunk -> build straight from the
+        // slice, skipping the `acc` accumulate + second copy.
         let _s = if offset == 0 && chunk.len() >= total {
             String::from_utf8_lossy(&chunk[..total]).into_owned()
         } else {
@@ -288,8 +288,10 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn array_begin(&mut self, id: Id, _kind: ArrayKind, _count: usize) {
-        // Fixed-size arrays are pre-allocated in the struct; just reset the index.
         self.ai = 0;
+        match (self.cur, id) {
+            _ => {}
+        }
     }
     fn sequence_begin(&mut self, id: Id) {
         self.stack.push(self.cur);
