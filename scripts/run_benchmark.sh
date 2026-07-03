@@ -37,9 +37,10 @@ cd "$ROOT"
 LANGS="${LANGS:-c-embedded cpp rust go csharp java typescript python rust-embedded cpp-embedded}"
 DO_SETUP=1
 [ "${1:-}" = "--no-setup" ] && DO_SETUP=0
-# Throughput is noisy; RUNS>1 repeats each bench and keeps the BEST (max) MB/s
-# per impl (noise is downward). Footprint is deterministic. Default 1.
-RUNS="${RUNS:-1}"
+# Throughput is noisy; RUNS repeats each bench and keeps the BEST (max) MB/s per
+# impl (noise is downward). Footprint is deterministic. Default 5 (best-of-5, the
+# reported metric); set RUNS=1 for a quick single run while iterating.
+RUNS="${RUNS:-5}"
 
 export STATE_JSON="$ROOT/schema/state.json"
 export SOFABGEN="$ROOT/tools/sofabgen"

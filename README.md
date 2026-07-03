@@ -77,7 +77,7 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   TieredPGO). Embedded targets build for size — `-Os -flto`. Nothing pins a CPU/ISA
   level: `-march=native` is *adaptive* and the arena rebuilds on each host, so it runs
   anywhere; and within a row SofaBuffers and its baseline get the **same** flags.
-  Throughput is reported **best-of-5** (`RUNS=5`) since it is noisy.
+  Throughput is reported **best-of-5** (`RUNS=5`, the default) since it is noisy.
 
 > **Reading throughput (`MB/s`).** An encode+decode figure on **this host**, only
 > meaningful **within a language** (each runs on a different runtime — JIT, VM,
@@ -104,13 +104,13 @@ footprint metric), and a network fetch of nanopb / EmbeddedProto (build-time onl
 # one-time: fetch sofabgen + the corelibs + the python protobuf toolchain
 ./scripts/bootstrap.sh
 
-# build every target, run them, print both tables
+# build every target, run them, print both tables (best-of-5 throughput by default)
 ./scripts/run_benchmark.sh
 
 # handy variants
 LANGS="cpp rust c-embedded" ./scripts/run_benchmark.sh     # a subset (any category)
 BENCH_ITERS=100000 ./scripts/run_benchmark.sh     # fewer iterations
-RUNS=5 ./scripts/run_benchmark.sh                 # best-of-5 throughput (recommended)
+RUNS=1 ./scripts/run_benchmark.sh                 # single quick run (skip best-of-5)
 ./scripts/run_benchmark.sh --no-setup             # reuse existing builds
 ```
 
