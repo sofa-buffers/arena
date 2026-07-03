@@ -20,7 +20,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 CORELIB="${CORELIB:-$ROOT/vendor/corelib-c-cpp}"
 NANOPB="${NANOPB:-$ROOT/vendor/nanopb}"
 COMMON="$ROOT/languages/common"
-BENCHINC="$ROOT/old-repo/src/common"
+BENCHINC="$HERE"   # bench.h timing harness (lives with this target)
 
 CFLAGS="-Os -ffunction-sections -fdata-sections -std=c99"
 TMP="$(mktemp -d)"
