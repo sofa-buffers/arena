@@ -206,17 +206,17 @@ echo "   same message/values/columns as MAXSPEED, but embedded-friendly impls (-
 echo "   fixed capacity): speed is an interesting factor, NOT the ranking metric."
 echo "   MB/s is within-row only — never compare rows."
 echo "================================================================================"
-printf "  %-29s | %14s | %20s | %20s\n" "target vs baseline" "wire size (B)" "throughput MB/s" "sofab advantage"
-printf "  %-29s | %6s %7s | %9s %10s | %8s %11s\n" "" "sofab" "proto" "sofab" "proto" "size" "speed"
-printf '  '; printf -- '-%.0s' $(seq 1 94); printf '\n'
+printf "  %-37s | %14s | %20s | %20s\n" "opponent" "wire size (B)" "throughput MB/s" "sofab advantage"
+printf "  %-37s | %6s %7s | %9s %10s | %8s %11s\n" "" "sofab" "proto" "sofab" "proto" "size" "speed"
+printf '  '; printf -- '-%.0s' $(seq 1 102); printf '\n'
 for lang in $emb_host; do
     ss="${SER[$lang,sofab]:-}"; sm="$(mbps "$lang,sofab")"
     for impl in $(ordered_impls "$lang"); do
         [ "$impl" = sofab ] && continue
         ps="${SER[$lang,$impl]:-}"; pm="$(mbps "$lang,$impl")"
         [ -z "$ps$pm" ] && continue
-        printf "  %-29s | %6s %7s | %9s %10s | %7sx %10sx\n" \
-            "$lang vs $impl" \
+        printf "  %-37s | %6s %7s | %9s %10s | %7sx %10sx\n" \
+            "sofab-$lang vs. $impl" \
             "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" \
             "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")"
     done
@@ -231,21 +231,24 @@ echo " EMBEDDED — code footprint, bare-metal --gc-sections link delta"
 echo "   codec program minus empty baseline, cross-compiled -Os -flto -DNDEBUG"
 echo "   (Rust: no_std staticlib, opt-level=z, LTO) — the flash/RAM the codec"
 echo "   actually adds to real firmware. Build-only, never executed. bytes; LOWER"
-echo "   is better. static-RAM = .data + .bss. '.text vs sofab' >1: baseline fatter."
+echo "   is better. RANKED BY footprint = .text + .rodata + .data: everything that"
+echo "   ends up in flash (.data initializer images live in flash and are copied"
+echo "   to RAM at boot). static-RAM = .data + .bss (.bss is RAM-only, no flash)."
 echo "================================================================================"
-printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
-    "target" "impl" ".text" ".rodata" "static-RAM" ".text vs sofab"
-printf '  '; printf -- '-%.0s' $(seq 1 72); printf '\n'
+printf "  %-14s %-13s | %8s %8s %10s %11s | %11s\n" \
+    "target" "impl" ".text" ".rodata" "footprint" "static-RAM" "vs sofab"
+printf '  '; printf -- '-%.0s' $(seq 1 78); printf '\n'
 for lang in $emb_metal; do
-    st="${TEXT[$lang,sofab]:-}"
+    sfp="$(awk -v t="${TEXT[$lang,sofab]:-0}" -v r="${RODATA[$lang,sofab]:-0}" -v d="${DATA[$lang,sofab]:-0}" 'BEGIN{printf "%d", t+r+d}')"
     first=1
     for impl in $(ordered_impls "$lang"); do
         t="${TEXT[$lang,$impl]:-}"; [ -n "$t" ] || continue
-        r="${RODATA[$lang,$impl]:-–}"
+        r="${RODATA[$lang,$impl]:-0}"
+        fp="$(awk -v t="$t" -v r="$r" -v d="${DATA[$lang,$impl]:-0}" 'BEGIN{printf "%d", t+r+d}')"
         ram="$(awk -v d="${DATA[$lang,$impl]:-0}" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
-        if [ "$impl" = sofab ]; then tvs="1.00x"; elif [ -n "$st" ]; then tvs="$(ratio "$t" "$st")x"; else tvs="–"; fi
-        printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
-            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$ram" "$tvs"
+        if [ "$impl" = sofab ]; then fvs="1.00x"; elif [ "$sfp" -gt 0 ]; then fvs="$(ratio "$fp" "$sfp")x"; else fvs="–"; fi
+        printf "  %-14s %-13s | %8s %8s %10s %11s | %11s\n" \
+            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$fp" "$ram" "$fvs"
         first=0
     done
 done
