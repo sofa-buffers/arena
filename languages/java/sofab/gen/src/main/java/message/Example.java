@@ -121,7 +121,7 @@ public class Example {
 class ExampleVisitor implements Visitor {
     private final Example m;
     private int cur = 0;
-    private int ai = 0;                 // index into the array currently being filled
+    private int ai = 0;                 // index into the primitive array currently being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
     private int sp = 0;
     private final java.io.ByteArrayOutputStream acc = new java.io.ByteArrayOutputStream();
@@ -161,19 +161,25 @@ class ExampleVisitor implements Visitor {
     }
     public void fp32(int id, float value) {
         switch (cur) {
-        case 1: if (id == 0) m.nested.f32 = value; break;
-        case 3: if (id == 0) m.arrays.nested.fp32[ai++] = value; break;
+        case 1: switch (id) {
+            case 0: m.nested.f32 = value; break;
+        } break;
+        case 3: switch (id) {
+            case 0: m.arrays.nested.fp32[ai++] = value; break;
+        } break;
         }
     }
     public void fp64(int id, double value) {
         switch (cur) {
-        case 1: if (id == 1) m.nested.f64 = value; break;
-        case 3: if (id == 1) m.arrays.nested.fp64[ai++] = value; break;
+        case 1: switch (id) {
+            case 1: m.nested.f64 = value; break;
+        } break;
+        case 3: switch (id) {
+            case 1: m.arrays.nested.fp64[ai++] = value; break;
+        } break;
         }
     }
     public void string(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
-        // Single-shot: whole payload in one chunk -> build straight from the input
-        // slice, skipping the (synchronized) ByteArrayOutputStream accumulator.
         String _s;
         if (offset == 0 && chunkLength >= total) {
             _s = new String(data, chunkOffset, total, java.nio.charset.StandardCharsets.UTF_8);
@@ -184,14 +190,16 @@ class ExampleVisitor implements Visitor {
             acc.reset();
         }
         switch (cur) {
-        case 1: if (id == 2) m.nested.str = _s; break;
+        case 1: switch (id) {
+            case 2: m.nested.str = _s; break;
+        } break;
         case 4: m.string_array.add(_s); break;
         }
     }
     public void blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
         byte[] _b;
         if (offset == 0 && chunkLength >= total) {
-            _b = Arrays.copyOfRange(data, chunkOffset, chunkOffset + total);
+            _b = java.util.Arrays.copyOfRange(data, chunkOffset, chunkOffset + total);
         } else {
             acc.write(data, chunkOffset, chunkLength);
             if (acc.size() < total) return;
@@ -199,7 +207,9 @@ class ExampleVisitor implements Visitor {
             acc.reset();
         }
         switch (cur) {
-        case 1: if (id == 3) m.nested.bytes_field = _b; break;
+        case 1: switch (id) {
+            case 3: m.nested.bytes_field = _b; break;
+        } break;
         }
     }
     public void arrayBegin(int id, ArrayKind kind, int count) {
@@ -222,7 +232,7 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void sequenceBegin(int id) {
-        if (sp == stk.length) stk = Arrays.copyOf(stk, sp * 2);
+        if (sp == stk.length) stk = java.util.Arrays.copyOf(stk, sp * 2);
         stk[sp++] = cur;
         switch (cur) {
         case 0: switch (id) {

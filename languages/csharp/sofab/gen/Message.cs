@@ -172,8 +172,6 @@ internal sealed class ExampleVisitor : IVisitor {
     }
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
         string _s;
-        // Single-shot: the whole payload arrived in one chunk -> decode straight from
-        // the contiguous slice the corelib handed us; no per-byte List<byte> accumulate.
         if (offset == 0 && chunkLength >= total) {
             _s = Encoding.UTF8.GetString(data, chunkOffset, total);
         } else {

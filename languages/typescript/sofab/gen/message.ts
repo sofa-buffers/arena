@@ -74,11 +74,7 @@ export class ExampleArrays {
     return ExampleArrays.decodeFrom(new Cursor(bytes));
   }
 
-  // Monomorphic pull decode: one switch(id) reads straight into this type's
-  // fields off the shared cursor. Only this type calls these readers, so V8 can
-  // keep the sites monomorphic and inline the loop (unlike the megamorphic
-  // visitor path). A nested sequence recurses into the child's decodeFrom, which
-  // consumes through its own sequence-end; readHeader() returns false there.
+  // Monomorphic pull decode: one switch(id) reads straight into this type's fields.
   static decodeFrom(c: Cursor): ExampleArrays {
     const o = new ExampleArrays();
     while (c.readHeader()) {
@@ -130,6 +126,7 @@ export class ExampleArraysNested {
     return ExampleArraysNested.decodeFrom(new Cursor(bytes));
   }
 
+  // Monomorphic pull decode: one switch(id) reads straight into this type's fields.
   static decodeFrom(c: Cursor): ExampleArraysNested {
     const o = new ExampleArraysNested();
     while (c.readHeader()) {
@@ -186,6 +183,7 @@ export class ExampleNested {
     return ExampleNested.decodeFrom(new Cursor(bytes));
   }
 
+  // Monomorphic pull decode: one switch(id) reads straight into this type's fields.
   static decodeFrom(c: Cursor): ExampleNested {
     const o = new ExampleNested();
     while (c.readHeader()) {
@@ -289,6 +287,7 @@ export class Example {
     return Example.decodeFrom(new Cursor(bytes));
   }
 
+  // Monomorphic pull decode: one switch(id) reads straight into this type's fields.
   static decodeFrom(c: Cursor): Example {
     const o = new Example();
     while (c.readHeader()) {
@@ -315,3 +314,4 @@ export class Example {
     return o;
   }
 }
+
