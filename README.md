@@ -7,8 +7,6 @@
 
 ## Arena
 
-[![arena](https://github.com/sofa-buffers/arena/actions/workflows/arena.yml/badge.svg)](https://github.com/sofa-buffers/arena/actions/workflows/arena.yml)
-
 This is a **multi-language benchmark arena**: it builds **SofaBuffers** and a
 serialization baseline against one identical message and measures who is leanest
 and fastest — split into **two categories** so we compare like with like instead
