@@ -5,12 +5,12 @@ package message
 import (
 	"bytes"
 	"github.com/sofa-buffers/corelib-go"
-	"io"
 )
 
 // Example - This example demonstrates the use of SofaBuffers to encode and decode a message.
 // Example is a generated SofaBuffers object.
 type Example struct {
+	_visitorBase
 	U64         uint64        `json:"u64"`
 	I64         int64         `json:"i64"`
 	Nested      ExampleNested `json:"nested"`
@@ -62,67 +62,95 @@ func (m *Example) marshal(e *sofab.Encoder) {
 	e.WriteSequenceEnd()
 }
 
-func (m *Example) unmarshal(d *sofab.Decoder) error {
-	for {
-		fld, err := d.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if fld.Type == sofab.TypeSequenceEnd {
-			return nil
-		}
-		switch fld.ID {
-		case 0:
-			v, _ := d.Unsigned()
-			m.U8 = uint8(v)
-		case 1:
-			v, _ := d.Signed()
-			m.I8 = int8(v)
-		case 2:
-			v, _ := d.Unsigned()
-			m.U16 = uint16(v)
-		case 3:
-			v, _ := d.Signed()
-			m.I16 = int16(v)
-		case 4:
-			v, _ := d.Unsigned()
-			m.U32 = uint32(v)
-		case 5:
-			v, _ := d.Signed()
-			m.I32 = int32(v)
-		case 6:
-			v, _ := d.Unsigned()
-			m.U64 = uint64(v)
-		case 7:
-			v, _ := d.Signed()
-			m.I64 = int64(v)
-		case 10:
-			if err := m.Nested.unmarshal(d); err != nil {
-				return err
-			}
-		case 100:
-			if err := m.Arrays.unmarshal(d); err != nil {
-				return err
-			}
-		case 200:
-			m.StringArray = m.StringArray[:0]
-			for {
-				_ef0, _ := d.Next()
-				if _ef0.Type == sofab.TypeSequenceEnd {
-					break
-				}
-				_e0, _ := d.String()
-				m.StringArray = append(m.StringArray, _e0)
-			}
-		default:
-			if err := d.Skip(); err != nil {
-				return err
-			}
-		}
+// --- decode via the corelib's zero-copy contiguous cursor (AcceptBytes) ------
+// The generated types implement sofab.Visitor and bind each field straight into
+// a struct member, so decode advances a cursor over the input buffer with no
+// per-byte reader calls and no per-element allocation in the byte codec (the
+// slow path was sofab.NewDecoder(bytes.NewReader(...)) pulling each varint byte
+// through bufio.ReadByte). _visitorBase supplies no-op defaults so each type
+// overrides only the callbacks it actually uses.
+
+type _visitorBase struct{}
+
+func (_visitorBase) Unsigned(sofab.ID, uint64) error              { return nil }
+func (_visitorBase) Signed(sofab.ID, int64) error                { return nil }
+func (_visitorBase) Float32(sofab.ID, float32) error             { return nil }
+func (_visitorBase) Float64(sofab.ID, float64) error             { return nil }
+func (_visitorBase) String(sofab.ID, string) error              { return nil }
+func (_visitorBase) Bytes(sofab.ID, []byte) error               { return nil }
+func (_visitorBase) UnsignedArray(sofab.ID, []uint64) error      { return nil }
+func (_visitorBase) SignedArray(sofab.ID, []int64) error         { return nil }
+func (_visitorBase) Float32Array(sofab.ID, []float32) error      { return nil }
+func (_visitorBase) Float64Array(sofab.ID, []float64) error      { return nil }
+func (_visitorBase) BeginSequence(sofab.ID) (sofab.Visitor, error) { return _visitorBase{}, nil }
+func (_visitorBase) EndSequence() error                          { return nil }
+
+func _narrowU[T ~uint8 | ~uint16 | ~uint32 | ~uint64](v []uint64) []T {
+	out := make([]T, len(v))
+	for i, x := range v {
+		out[i] = T(x)
 	}
+	return out
+}
+
+func _narrowS[T ~int8 | ~int16 | ~int32 | ~int64](v []int64) []T {
+	out := make([]T, len(v))
+	for i, x := range v {
+		out[i] = T(x)
+	}
+	return out
+}
+
+// _stringSeq collects the String elements of a string-array sequence.
+type _stringSeq struct {
+	_visitorBase
+	out *[]string
+}
+
+func (s *_stringSeq) String(_ sofab.ID, v string) error {
+	*s.out = append(*s.out, v)
+	return nil
+}
+
+func (m *Example) Unsigned(id sofab.ID, v uint64) error {
+	switch id {
+	case 0:
+		m.U8 = uint8(v)
+	case 2:
+		m.U16 = uint16(v)
+	case 4:
+		m.U32 = uint32(v)
+	case 6:
+		m.U64 = v
+	}
+	return nil
+}
+
+func (m *Example) Signed(id sofab.ID, v int64) error {
+	switch id {
+	case 1:
+		m.I8 = int8(v)
+	case 3:
+		m.I16 = int16(v)
+	case 5:
+		m.I32 = int32(v)
+	case 7:
+		m.I64 = v
+	}
+	return nil
+}
+
+func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
+	switch id {
+	case 10:
+		return &m.Nested, nil
+	case 100:
+		return &m.Arrays, nil
+	case 200:
+		m.StringArray = m.StringArray[:0]
+		return &_stringSeq{out: &m.StringArray}, nil
+	}
+	return _visitorBase{}, nil
 }
 
 // NewExample returns a Example with schema defaults applied.
@@ -145,7 +173,7 @@ func (m *Example) Encode() ([]byte, error) {
 // DecodeExample parses bytes into a new message (with defaults pre-applied).
 func DecodeExample(data []byte) (*Example, error) {
 	m := NewExample()
-	if err := m.unmarshal(sofab.NewDecoder(bytes.NewReader(data))); err != nil {
+	if err := sofab.AcceptBytes(data, m); err != nil {
 		return nil, err
 	}
 	return m, nil

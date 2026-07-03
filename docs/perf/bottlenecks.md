@@ -120,11 +120,28 @@ free wins here.
 
 ## Measured proof so far
 
+### Go — use the corelib's contiguous fast path both ways ✅ (worst → parity)
+- **Decode (generated-code):** generated `unmarshal` rewritten to implement
+  `sofab.Visitor` and decode via the already-existing zero-copy
+  `sofab.AcceptBytes` cursor instead of the pull API over `bufio` (kills per-byte
+  `ReadByte` + per-float `make()`). Captured as
+  `languages/go/sofab/decode-visitor.patch`, re-applied by `languages/go/setup.sh`
+  after generation (idempotent).
+  - Split bench: decode **5135 → 2240 ns/op**, **5432 → 1280 B/op**, **41 → 28 allocs**.
+- **Encode (corelib):** `vendor/corelib-go/encoder.go` `Encoder` now accumulates
+  into an internal byte slice (append) and writes once on `Flush`, instead of
+  per-byte `WriteByte` through `bufio.Writer`; `WriteString` appends the string
+  directly (no `[]byte(s)` copy). Streaming + sticky-error contracts preserved via
+  a 4 KB threshold flush — **all corelib-go tests pass**.
+  - Split bench: encode **4062 → 1446 ns/op**, **4816 → 1008 B/op**, **13 → 3 allocs**.
+- **Combined arena result: go sofab 0.46× → ~1.0× — parity with protobuf**
+  (≈64 → ≈136 MB/s), wire + sha256 unchanged.
+
 ### C# — string/blob single-shot decode (Mistake 1) ✅
 - Change: `languages/csharp/sofab/gen/Message.cs` `ExampleVisitor.String/Blob`,
   captured as `languages/csharp/sofab/single-shot-strings.patch` and re-applied by
   `languages/csharp/setup.sh` after generation (idempotent).
-- Result (400k iters, local): **82.3 → 98.8 MB/s, +20%**, wire + sha256 unchanged.
+- Result: arena **0.81× → 0.88×** (114.8 → 122.6 MB/s), wire + sha256 unchanged.
 - This is the smallest, safest of the fixes; the array-model and encode-buffer
   fixes below stack on top of it.
 
@@ -134,10 +151,10 @@ free wins here.
 
 | # | language | fix | class | status |
 |---|----------|-----|-------|--------|
-| 1 | **Go** | decode via `AcceptBytes`+Visitor (use existing fast path) | generated-code | TODO — biggest headroom |
-| 2 | **Go** | `Encoder` → byte-slice buffer (drop `bufio`/`bytes.Buffer`) | corelib | TODO |
+| 1 | **Go** | decode via `AcceptBytes`+Visitor (use existing fast path) | generated-code | ✅ done |
+| 2 | **Go** | `Encoder` → byte-slice buffer (drop `bufio`/`bytes.Buffer`) | corelib | ✅ done (Go now ~1.0×) |
 | 3 | **Java** | primitive `long[]/float[]/double[]` arrays + bulk read/write (kills boxing) | design+corelib | TODO — biggest Java win |
-| 4 | **C#** | string/blob single-shot | generated-code | ✅ done (+20%) |
+| 4 | **C#** | string/blob single-shot | generated-code | ✅ done (0.81→0.88×) |
 | 5 | C#/Java/Rust | string/blob single-shot (Java has `synchronized` BAOS!) | generated-code | Rust/Java TODO |
 | 6 | C# | encode: `ArrayPool`/`Span` scratch, no double-copy; `List<T>` overloads to kill `.ToArray()` | generated+corelib | TODO |
 | 7 | Rust | drop per-decode `stack`/`acc` Vecs; `reserve(count)` arrays | generated-code | TODO |

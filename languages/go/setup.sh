@@ -26,6 +26,24 @@ if ! grep -q '"bytes"' "$HERE/sofab/message/types.go"; then
         "$HERE/sofab/message/types.go"
 fi
 
+# Perf: re-apply the visitor decode. sofabgen emits a pull-based unmarshal that
+# reads every varint byte through bufio.ReadByte and make()s a buffer per float;
+# this patch decodes via the corelib's zero-copy AcceptBytes cursor instead (see
+# docs/perf/bottlenecks.md). Generator-spec patch — fold into codegen upstream.
+# Idempotent (marker-guarded), applied after the bytes-import fixup above.
+if ! grep -q "AcceptBytes" "$HERE/sofab/message/example.go"; then
+    patch -p1 -d "$HERE/sofab/message" < "$HERE/sofab/decode-visitor.patch" >&2
+fi
+
+# Perf (corelib): the Encoder pushed each byte through a bufio.Writer; this patch
+# accumulates into an internal byte slice and writes once on Flush (a 4 KB
+# threshold keeps streaming + sticky-error semantics). Applied to the fetched
+# corelib clone; idempotent (marker-guarded). Upstream candidate — see
+# docs/perf/bottlenecks.md. Skipped if the clone already carries the change.
+if [ -f "$HERE/corelib-go-encoder.patch" ] && ! grep -q "maybeFlush" "$CORELIB/encoder.go"; then
+    patch -p1 -d "$CORELIB" < "$HERE/corelib-go-encoder.patch" >&2
+fi
+
 # Wire corelib-go via the go.mod placeholder (idempotent: no-op once replaced).
 sed -i "s#\${SOFAB_GO_CORELIB}#$CORELIB#" "$HERE/sofab/go.mod"
 
