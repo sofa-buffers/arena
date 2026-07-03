@@ -156,11 +156,8 @@ protobuf-family baseline emits the same **494-byte** wire.
 | TypeScript | 436 | 494 |  49.4 |  61.3 | **1.13×** | 0.80× |
 | Python     | 436 | 494 |  20.7 | 180.5 | **1.13×** | 0.11× |
 
-*size adv = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed adv =
-sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-5**
-(`RUNS=5`; noise is downward), machine-dependent, and comparable **only within a
-row**. Compiled targets build `-O3 -march=native -flto` (adaptive, rebuilt per
-host); VM targets use portable GC/JIT tuning — identical for both impls in a row.*
+***C++, Rust and Go beat or tie protobuf; the wire is ~13 % smaller everywhere.**
+adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
 
 ### Embedded — throughput (host build of the embedded codecs)
 
@@ -176,10 +173,9 @@ ranking metric** (that is footprint, below).
 | rust-embedded vs micropb    | 436 | 494 | 140.4 | 125.1 | **1.13×** | **1.12×** |
 | cpp-embedded vs embeddedproto | 436 | 494 | 131.7 |  63.1 | **1.13×** | **2.09×** |
 
-*Even built for size, the SofaBuffers codecs outrun the footprint-oriented
-protobuf libraries (nanopb ~2×, EmbeddedProto ~2×, micropb 1.13×). The one
-baseline that is faster — `protobuf-c` — is a heap-hungry desktop library that
-pays for it with over 4× the bare-metal-unfit code.*
+***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
+baseline** (~2× vs nanopb and EmbeddedProto) — only the desktop-class
+`protobuf-c` is faster.*
 
 ### Embedded — bare-metal footprint (`--gc-sections` link delta; **lower is better**)
 
@@ -203,13 +199,8 @@ targets — the binaries are never executed.
 | **rust-riscv** (rv32imac) | sofab | **6 232** | 392 | 0 | 1.00× |
 | | micropb | 9 680 | 393 | 0 | 1.55× |
 
-*Rust rows are the real sofabgen-generated `#![no_std]` code (heapless
-containers, sofabgen ≥ 0.9.0) vs micropb — both heap-free staticlibs
-(`opt-level=z`, LTO, `panic=abort`) linked through the same C driver/baseline.
-`cpp-riscv` uses the xpack `riscv-none-elf` toolchain (newlib + libstdc++) —
-Ubuntu's `riscv64-unknown-elf` ships no bare-metal libstdc++; each target's
-delta is against a baseline linked with its own toolchain/libc, so the numbers
-stay internally fair.*
+***SofaBuffers wins all six rows — three languages × two ISAs** (1.30×–2.03×
+less flash than the smallest protobuf alternative).*
 
 ### The big picture
 
@@ -250,7 +241,13 @@ stay internally fair.*
   - **Rust:** since sofabgen 0.9.0 (closing generator issue #40) the generated
     crate is genuinely `#![no_std]` and heap-free (heapless containers) under
     `--no-default-features` — so the bare-metal rows measure the **real generated
-    code**, not a synthetic harness.
+    code**, not a synthetic harness. Both Rust impls are heap-free staticlibs
+    (`opt-level=z`, LTO, `panic=abort`) linked through the same C driver/baseline.
+  - **Toolchains, kept fair:** ARM rows use `gcc-arm-none-eabi` (newlib-nano),
+    RISC-V C/Rust rows the apt `riscv64-unknown-elf` (picolibc), and `cpp-riscv`
+    the xpack `riscv-none-elf` GCC — the only RISC-V toolchain with a bare-metal
+    libstdc++. Each target's delta is measured against a baseline linked with its
+    **own** toolchain/libc, so CRT and libc differences cancel per target.
   - **And they're fast anyway:** on the host the embedded SofaBuffers codecs
     outrun nanopb and EmbeddedProto ~2× and beat micropb (1.12×) — despite being built
     for size. Only `protobuf-c` is faster — a desktop library with a heap
