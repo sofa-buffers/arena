@@ -172,8 +172,9 @@ means the baseline carries more code than SofaBuffers.*
   - **Elsewhere Google's protobuf runtimes lead** — a decade of hand-tuning and
     per-VM codegen. The gap ranges from close (**C# 0.79×**, **Java 0.65×**,
     **TypeScript 0.66×**) to wide (**Go 0.40×**, **Python 0.11×** — where protobuf
-    calls a C extension; **[profiled below](#results)** — the sofab codec is native,
-    but its per-field driver stays in Python). These track corelib maturity, not the
+    calls a C extension; **[profiled here](languages/python/README.md)** — the sofab
+    codec is native, but its per-field driver stays in Python). These track corelib
+    maturity, not the
     wire format.
   - **Corelib tuning moves the needle:** earlier work lifted **TypeScript** (pool the
     encode buffer via `OStream.reset()` + a single-shot contiguous-decode path) and
@@ -200,40 +201,12 @@ means the baseline carries more code than SofaBuffers.*
 > and the gate checks C against 434 B specifically. (The C++ wrapper of the same
 > corelib encodes all five strings, so `cpp-embedded` is 436 B.)
 
-> **Note — why Python is slowest (0.11×), and it's *not* a fallback.** The Python
-> sofab target runs the **compiled Cython accelerator**, not the pure-Python
-> engine — verified at runtime (`sofab.IMPL == "native"`, and the generated
-> `message.Encoder`/`Decoder` resolve to `sofab._speedups`). Native is doing real
-> work: forcing the pure-Python fallback with `SOFAB_PUREPYTHON=1` drops throughput
-> ~**7×** (≈3 MB/s), so the accelerator is the only reason Python is as fast as it is.
->
-> It still trails protobuf because protobuf-python is a thin shell over Google's C
-> **`upb`** engine — nearly all its encode/decode runs in C — whereas SofaBuffers
-> keeps the **per-field driver in Python**. A callgrind profile of the timed
-> encode+decode loop (instruction attribution, `scripts`-independent) shows where the
-> cost actually lands:
->
-> | origin | share of instructions |
-> |---|--:|
-> | CPython interpreter running the generated `message.py` driver + dataclasses | **~83%** |
-> | native `sofab._speedups` codec (the real serialization work) | **~14%** |
-> | libc / other | ~3% |
->
-> Inside that 83%: the bytecode eval loop (per-field `_marshal`/`_unmarshal`
-> `while/if-elif` dispatch), object churn (a fresh dataclass per nested message, a
-> boxed `Field` object returned per field by `Decoder.next()`, boxed `int`s for every
-> scalar), and attribute get/set on those objects — alloc/free/GC alone is ~16% of the
-> interpreter cost. The native codec is **not** the bottleneck; the Python↔C boundary
-> crossed once per field, plus the pure-Python object model, is. Even an infinitely
-> fast codec would only remove ~14%.
->
-> **Implication for optimization:** the lever is *not* the harness or the corelib's
-> byte-level codec (both already lean) — it's collapsing the per-field boundary. A
-> whole-message native path (walk the schema in C and populate the object in one
-> `_speedups` call, instead of returning a `Field` per field to a Python loop) is what
-> would close the gap. Reproduce with `valgrind --tool=callgrind` over an
-> encode+decode loop of `languages/python/sofab/gen/message.py`, or compare
-> `SOFAB_PUREPYTHON=1` vs unset to see the native contribution directly.
+> **Note — why Python is slowest (0.11×), and it's *not* a fallback.** Python trails
+> because protobuf-python is a thin shell over Google's C **`upb`** engine while
+> SofaBuffers keeps a **per-field Python driver** — it runs the native Cython
+> accelerator (`sofab.IMPL == "native"`), not a fallback. See
+> [`languages/python/README.md`](languages/python/README.md) for the full profile
+> (runtime verification + callgrind attribution table).
 <!-- RESULTS:END -->
 
 ## Repository layout
