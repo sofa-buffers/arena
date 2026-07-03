@@ -16,15 +16,6 @@ export SOFAB_CS_CORELIB="${SOFAB_CS_CORELIB:-$ROOT/vendor/corelib-cs}"
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang csharp \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >/dev/null
 
-# Perf: re-apply the single-shot string/blob decode optimization. sofabgen emits a
-# visitor that accumulates each string/blob payload byte-by-byte into a List<byte>
-# and then copies it out twice; this patch decodes straight from the contiguous
-# chunk the corelib already hands over in one call (see docs/perf/bottlenecks.md).
-# It is a generator-spec patch — fold it into codegen upstream. Idempotent.
-if ! grep -q "Single-shot" "$HERE/sofab/gen/Message.cs"; then
-    patch -p1 -d "$HERE/sofab/gen" < "$HERE/sofab/single-shot-strings.patch" >&2
-fi
-
 ( cd "$HERE/sofab/bench" && dotnet build -c Release -v q >/dev/null )
 
 # protobuf: generate C# bindings from message.proto into a Google.Protobuf project.

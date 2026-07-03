@@ -14,15 +14,6 @@ export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native"
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang rust \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >/dev/null
 
-# Perf: re-apply the fixed-size-array model. sofabgen maps fixed arrays to Vec<T>,
-# which heap-allocates each array on decode (the dominant per-decode cost); this
-# patch stores them as stack [T; N] filled by index (like C++'s std::array), and
-# adds the string/blob single-shot path (see docs/perf/bottlenecks.md). Generator-
-# spec patch — fold into codegen upstream. Idempotent (marker-guarded).
-if ! grep -q "index into the fixed array" "$HERE/sofab/gen/src/message.rs"; then
-    patch -p1 -d "$HERE/sofab/gen/src" < "$HERE/sofab/fixed-arrays.patch" >&2
-fi
-
 # Wire in the std corelib path (replace the ${SOFAB_RS_CORELIB} placeholder),
 # then rewrite Cargo.toml deterministically to add sha2 + our bench binary.
 cat > "$HERE/sofab/gen/Cargo.toml" <<EOF

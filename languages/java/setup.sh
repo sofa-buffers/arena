@@ -18,17 +18,6 @@ VER="$(grep -m1 '<version>' "$CORELIB/pom.xml" | sed 's/.*<version>\(.*\)<\/vers
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang java \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >/dev/null
 
-# Perf: re-apply the primitive-array model. sofabgen maps fixed-size arrays to
-# List<Long>/List<Float>, which box every element (~50 allocations per decode) and
-# need temp long[] conversions per encode; this patch stores them as primitive
-# long[]/float[]/double[] filled by index, and adds the string/blob single-shot
-# path (see docs/perf/bottlenecks.md). Generator-spec patch — fold into codegen
-# upstream. Idempotent (marker-guarded).
-MSGDIR="$HERE/sofab/gen/src/main/java/message"
-if ! grep -qF 'new long[count]' "$MSGDIR/Example.java"; then
-    patch -p1 -d "$MSGDIR" < "$HERE/sofab/primitive-arrays.patch" >&2
-fi
-
 cp "$HERE/sofab/Bench.java" "$HERE/sofab/gen/src/main/java/message/Bench.java"
 ( cd "$HERE/sofab/gen" && mvn -q -Dsofab.version="$VER" package )
 
