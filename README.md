@@ -22,7 +22,7 @@ of mixing goals:
 The point of the split: a throughput-tuned corelib is measured against a
 throughput-tuned protobuf runtime, and an *embedded* corelib against an *embedded*
 protobuf library. Same message, same values, everywhere. One runner collects it all
-into two side-by-side tables.
+into the result tables below.
 
 ## The message (identical everywhere)
 
@@ -135,7 +135,7 @@ RUNS=1 ./scripts/run_benchmark.sh                 # single quick run (skip best-
 `run_benchmark.sh` is the single entry point: per target it runs
 `languages/<name>/setup.sh` then `bench.sh`, reads its category from
 `languages/<name>/meta`, parses every `BENCH`/`FOOTPRINT` line, enforces the
-byte-identity gate, and prints — and writes to `results/RESULTS.txt` — the two
+byte-identity gate, and prints — and writes to `results/RESULTS.txt` — the
 tables below.
 
 <!-- RESULTS:BEGIN -->
@@ -149,13 +149,13 @@ protobuf-family baseline emits the same **494-byte** wire.
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 436 | 494 | 337.0 | 234.0 | **1.13×** | **1.44×** |
-| Rust       | 436 | 494 | 342.2 | 248.0 | **1.13×** | **1.38×** |
-| Go         | 436 | 494 | 138.4 | 139.1 | **1.13×** | 0.99× |
-| C#         | 436 | 494 | 120.5 | 133.7 | **1.13×** | 0.90× |
-| Java       | 436 | 494 | 230.3 | 269.8 | **1.13×** | 0.85× |
-| TypeScript | 436 | 494 |  49.4 |  60.8 | **1.13×** | 0.81× |
-| Python     | 436 | 494 |  20.8 | 182.6 | **1.13×** | 0.11× |
+| C++        | 436 | 494 | 334.9 | 228.9 | **1.13×** | **1.46×** |
+| Rust       | 436 | 494 | 345.6 | 246.5 | **1.13×** | **1.40×** |
+| Go         | 436 | 494 | 157.8 | 158.2 | **1.13×** | **1.00×** |
+| C#         | 436 | 494 | 135.5 | 144.4 | **1.13×** | 0.94× |
+| Java       | 436 | 494 | 247.7 | 298.0 | **1.13×** | 0.83× |
+| TypeScript | 436 | 494 |  52.4 |  65.1 | **1.13×** | 0.81× |
+| Python     | 436 | 494 |  20.9 | 185.8 | **1.13×** | 0.11× |
 
 *size adv = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed adv =
 sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-5**
@@ -163,21 +163,38 @@ sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-
 row**. Compiled targets build `-O3 -march=native -flto` (adaptive, rebuilt per
 host); VM targets use portable GC/JIT tuning — identical for both impls in a row.*
 
-### Embedded — code footprint (isolated codec, `-Os`, no libc; **lower is better**)
+### Embedded — throughput (host build of the embedded codecs)
 
-| target | impl | wire | `.text` | `.rodata` | static-RAM | `.text` vs sofab |
-|---|---|--:|--:|--:|--:|:--:|
-| **c-embedded** | sofab | 434 | **5 918** | 1 382 | 192 | 1.00× |
-| | nanopb | 494 | 9 621 | 1 057 | 248 | 1.63× |
-| | protobuf-c | 494 | 26 267 | 4 015 | 2 632 | 4.44× |
-| **cpp-embedded** | sofab | 436 | 10 151 | 1 572 | 712 | 1.00× |
-| | **embeddedproto** | 494 | **3 276** | 261 | 352 | **0.32×** |
-| **rust-embedded** | sofab | 436 | — | — | — | *(see rust-cortex-m / rust-riscv)* |
-| | micropb | 494 | — | — | — | |
+Same message, same values, same timing method as maxspeed — but these are the
+**embedded-friendly** implementations (fixed-capacity containers, built `-Os`),
+so speed is an interesting factor here, **not the ranking metric** (that is
+footprint, below).
 
-*Footprint is the host object-sum (whole library, no libc). `.text vs sofab` >1
-means the baseline carries more code than SofaBuffers. Rust footprint is only
-reported bare-metal — a host object-sum for Rust is std-dominated, not codec.*
+| target | vs baseline | sofab size | base size | sofab MB/s | base MB/s | **size** adv | **speed** adv |
+|---|---|--:|--:|--:|--:|:--:|:--:|
+| c-embedded    | protobuf-c    | 434 | 494 | 121.4 | 292.5 | **1.14×** | 0.41× |
+| c-embedded    | nanopb        | 434 | 494 | 121.4 |  59.2 | **1.14×** | **2.05×** |
+| rust-embedded | micropb       | 436 | 494 | 150.2 | 133.4 | **1.13×** | **1.13×** |
+| cpp-embedded  | embeddedproto | 436 | 494 | 133.2 |  63.4 | **1.13×** | **2.10×** |
+
+*Even built for size, the SofaBuffers codecs outrun the footprint-oriented
+protobuf libraries (nanopb ~2×, EmbeddedProto ~2×, micropb ~parity). The one
+baseline that is faster — `protobuf-c` — is a heap-hungry desktop library that
+pays for it with 4.4× the code (below).*
+
+### Embedded — code footprint, host object-sum (isolated codec, `-Os`, no libc; **lower is better**)
+
+| target | impl | `.text` | `.rodata` | static-RAM | `.text` vs sofab |
+|---|---|--:|--:|--:|:--:|
+| **c-embedded** | sofab | **5 918** | 1 382 | 192 | 1.00× |
+| | nanopb | 9 621 | 1 057 | 248 | 1.63× |
+| | protobuf-c | 26 267 | 4 015 | 2 632 | 4.44× |
+| **cpp-embedded** | sofab | 10 151 | 1 572 | 712 | 1.00× |
+| | **embeddedproto** | **3 276** | 261 | 352 | **0.32×** |
+
+*Host object-sum: whole library, no libc. `.text vs sofab` >1 means the baseline
+carries more code than SofaBuffers. Rust has no host row — an object-sum for
+Rust is std-dominated, not codec; its footprint lives in the bare-metal table.*
 
 ### Embedded — bare-metal footprint (`--gc-sections` link delta; **lower is better**)
 
@@ -217,12 +234,12 @@ stay internally fair.*
   generated per-message code and its data model *above* the byte codec. Those fixes
   now ship natively in **sofabgen v0.6.0** (full analysis:
   [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md)).
-  - **C++ 1.44× and Rust 1.38× — SofaBuffers *beats* protobuf.** Lean wire + fixed
+  - **C++ 1.46× and Rust 1.40× — SofaBuffers *beats* protobuf.** Lean wire + fixed
     stack arrays + a direct switch-into-fields decode, vectorized under
     `-O3 -march=native -flto` / `target-cpu=native` + LTO.
-  - **Go: ~parity (0.99×)** (was 0.40×): decode via the corelib's zero-copy cursor
+  - **Go: ~parity (1.00×)** (was 0.40×): decode via the corelib's zero-copy cursor
     instead of a byte-at-a-time reader, plus a byte-slice encoder.
-  - **C# 0.90×, Java 0.85×, TypeScript 0.81× — close** (were 0.79× / 0.65× / 0.66×):
+  - **C# 0.94×, Java 0.83×, TypeScript 0.81× — close** (were 0.79× / 0.65× / 0.66×):
     primitive fixed arrays instead of boxed/heap collections, single-shot string
     decode, and for TS a monomorphic decoder + allocation-free UTF-8 encode. The
     residual gap tracks per-VM runtime maturity, not the format.
@@ -249,8 +266,11 @@ stay internally fair.*
   - **Rust:** since sofabgen 0.9.0 (closing generator issue #40) the generated
     crate is genuinely `#![no_std]` and heap-free (heapless containers) under
     `--no-default-features` — so the bare-metal rows measure the **real generated
-    code**, not a synthetic harness. The host `rust-embedded` row still carries
-    wire + throughput (436 B, sofab faster than micropb there too).
+    code**, not a synthetic harness.
+  - **And they're fast anyway:** on the host the embedded SofaBuffers codecs
+    outrun nanopb and EmbeddedProto ~2× and beat micropb (1.13×) — despite being built
+    for size. Only `protobuf-c` is faster, and it pays with 4.4× the code and a
+    heap requirement.
 
 > **Note — why C is 434 B.** The C target is the SofaBuffers *object API*
 > (`corelib-c-cpp`), a runtime-descriptor codec for constrained/embedded use. It
