@@ -188,20 +188,20 @@ targets — the binaries are never executed. Ranked by **footprint** — everyth
 that ends up in flash: `.text` + `.rodata` + `.data` (the `.data` initializer
 images live in flash and are copied to RAM at boot; `.bss` is RAM-only).
 
-| target (ISA) | impl | `.text` | `.rodata` | **footprint** | static-RAM | vs sofab |
+| target (ISA) | impl | `.text` | `.rodata` | **footprint** | static-RAM |
 |---|---|--:|--:|--:|--:|:--:|
-| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 060 | 344 | **3 404** | 0 | 1.00× |
-| | nanopb | 5 660 | 936 | 6 596 | 0 | 1.94× |
-| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 484 | 156 | **6 720** | 132 | 1.00× |
-| | embeddedproto | 8 412 | 908 | 9 404 | 364 | 1.40× |
-| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 5 720 | 328 | **6 048** | 0 | 1.00× |
-| | micropb | 8 236 | 261 | 8 497 | 0 | 1.40× |
-| **c-riscv** (rv32imac) | sofab | 3 128 | 488 | **3 616** | 0 | 1.00× |
-| | nanopb | 6 336 | 1 112 | 7 448 | 0 | 2.06× |
-| **cpp-riscv** (rv32imac) | sofab | 5 944 | 300 | **6 320** | 420 | 1.00× |
-| | embeddedproto | 8 898 | 1 012 | 9 986 | 652 | 1.58× |
-| **rust-riscv** (rv32imac) | sofab | 6 232 | 392 | **6 624** | 0 | 1.00× |
-| | micropb | 9 680 | 393 | 10 073 | 0 | 1.52× |
+| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 060 | 344 | **3 404** | 0 |
+| | nanopb | 5 660 | 936 | 6 596 | 0 |
+| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 484 | 156 | **6 720** | 132 |
+| | embeddedproto | 8 412 | 908 | 9 404 | 364 |
+| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 5 720 | 328 | **6 048** | 0 |
+| | micropb | 8 236 | 261 | 8 497 | 0 |
+| **c-riscv** (rv32imac) | sofab | 3 128 | 488 | **3 616** | 0 |
+| | nanopb | 6 336 | 1 112 | 7 448 | 0 |
+| **cpp-riscv** (rv32imac) | sofab | 5 944 | 300 | **6 320** | 420 |
+| | embeddedproto | 8 898 | 1 012 | 9 986 | 652 |
+| **rust-riscv** (rv32imac) | sofab | 6 232 | 392 | **6 624** | 0 |
+| | micropb | 9 680 | 393 | 10 073 | 0 |
 
 ***SofaBuffers wins all six rows — three languages × two ISAs** (1.40×–2.06×
 less flash than the smallest protobuf alternative).*
