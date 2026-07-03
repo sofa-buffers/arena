@@ -27,7 +27,7 @@ for r in $CORELIBS; do
     fi
 done
 
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.5.0}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.5.1}"
 
 # --- host os/arch -> release asset name (mirrors the old CMake logic) ---------
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"

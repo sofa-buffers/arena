@@ -8,7 +8,7 @@ SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 CORELIB="${CORELIB:-$ROOT/vendor/corelib-c-cpp}"
 NANOPB="${NANOPB:-$ROOT/vendor/nanopb}"
 COMMON="$ROOT/languages/common"
-BENCHINC="$ROOT/old-repo/src/common"   # bench.h timing harness
+BENCHINC="$HERE"   # bench.h timing harness (lives with this target)
 
 # --- SofaBuffers C ---------------------------------------------------------
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang c \
