@@ -1,12 +1,14 @@
-<p align="center"><b>SofaBuffers Arena — Benchmark or Bust</b></p>
+<p align="center"><img src="assets/sofabuffers_logo.png" alt="SofaBuffers" height="140"></p>
 
-# SofaBuffers vs. Protobuf, in every language
+# SofaBuffers vs. The World
 
-The original [sofabuffers-comparison](https://github.com/Andste82/sofabuffers-comparison)
-was a **C/C++ arena**: it built a handful of serialization libraries against one
-identical message and measured who was leanest and fastest. This repo takes that
-idea and makes it **multi-language** — and splits it into **two categories** so we
-compare like with like instead of mixing goals:
+<b>Structured Objects For Anyone</b><br>
+<i>... so optimized, feels amazing.</i>
+
+This is a **multi-language benchmark arena**: it builds **SofaBuffers** and a
+serialization baseline against one identical message and measures who is leanest
+and fastest — split into **two categories** so we compare like with like instead
+of mixing goals:
 
 > - **Maxspeed** — for the **same message**, how fast does **SofaBuffers**
 >   encode+decode vs Google's **Protocol Buffers**, in **C++, Rust, Go, C#, Java,
@@ -264,5 +266,3 @@ vendor/            SofaBuffers corelibs + fetched baselines (nanopb, protobuf-c
 - Embedded protobuf baselines: **nanopb** (zlib), **micropb** (MIT/Apache-2.0),
   **protobuf-c** (BSD), and **EmbeddedProto** (GPLv3 — used build-time only, fetched
   into gitignored `vendor/`, never redistributed): https://github.com/Embedded-AMS/EmbeddedProto
-- The original C/C++ arena this grew out of:
-  https://github.com/Andste82/sofabuffers-comparison
