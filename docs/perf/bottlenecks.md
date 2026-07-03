@@ -120,6 +120,18 @@ free wins here.
 
 ## Measured proof so far
 
+### Rust — fixed-size arrays instead of `Vec<T>` ✅ (now *beats* protobuf)
+- **Decode (generated-code, `fixed-arrays.patch`):** `ExampleArrays` fields changed
+  from `Vec<u8>`/`Vec<f32>`/… to stack `[T; 5]` (like C++'s `std::array<T,5>`);
+  the visitor fills them by index (no per-array heap allocation), `array_begin`
+  just resets the index, and the struct default/marshal use the fixed arrays.
+  Also folded in the string/blob single-shot path (skips the `acc` accumulate +
+  `into_owned()` double copy). serde handles the JSON round-trip unchanged.
+  Re-applied by `languages/rust/setup.sh` after generation.
+- Removes ~15–20 heap allocations per decode (the agent-identified dominant cost).
+- Result: arena **0.85× → 1.40×** (217 → 358 MB/s) — Rust now beats protobuf,
+  like C++. Wire + sha256 unchanged.
+
 ### Java — primitive arrays instead of boxed `List<Long>` ✅
 - **Decode + encode (generated-code, `primitive-arrays.patch`):** `ExampleArrays`
   fields changed from `List<Long>`/`List<Float>`/`List<Double>` to primitive
@@ -170,7 +182,7 @@ free wins here.
 | 4 | **C#** | string/blob single-shot | generated-code | ✅ done (0.81→0.88×) |
 | 5 | C#/Java/Rust | string/blob single-shot (Java has `synchronized` BAOS!) | generated-code | Rust/Java TODO |
 | 6 | C# | encode: `ArrayPool`/`Span` scratch, no double-copy; `List<T>` overloads to kill `.ToArray()` | generated+corelib | TODO |
-| 7 | Rust | drop per-decode `stack`/`acc` Vecs; `reserve(count)` arrays | generated-code | TODO |
+| 7 | Rust | fixed `[T;5]` arrays (kills per-array heap alloc) + string single-shot | generated-code | ✅ done (0.85→1.40×) |
 | 8 | **all** | push/visitor → direct switch-into-fields decode | **design** | see `decode-design.md` |
 | 9 | TS | stop emitting dead `new ChunkAcc()` in string/blob-free visitors | generated-code | TODO (quick) |
 
