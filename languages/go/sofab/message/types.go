@@ -5,11 +5,11 @@ package message
 import (
 	"bytes"
 	"github.com/sofa-buffers/corelib-go"
-	"io"
 )
 
 // ExampleArrays is a generated SofaBuffers object.
 type ExampleArrays struct {
+	_visitorBase
 	U8     []uint8             `json:"u8"`
 	I8     []int8              `json:"i8"`
 	U16    []uint16            `json:"u16"`
@@ -51,49 +51,44 @@ func (m *ExampleArrays) marshal(e *sofab.Encoder) {
 	e.WriteSequenceEnd()
 }
 
-func (m *ExampleArrays) unmarshal(d *sofab.Decoder) error {
-	for {
-		fld, err := d.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if fld.Type == sofab.TypeSequenceEnd {
-			return nil
-		}
-		switch fld.ID {
-		case 0:
-			m.U8, _ = sofab.ReadUnsignedArray[uint8](d)
-		case 1:
-			m.I8, _ = sofab.ReadSignedArray[int8](d)
-		case 2:
-			m.U16, _ = sofab.ReadUnsignedArray[uint16](d)
-		case 3:
-			m.I16, _ = sofab.ReadSignedArray[int16](d)
-		case 4:
-			m.U32, _ = sofab.ReadUnsignedArray[uint32](d)
-		case 5:
-			m.I32, _ = sofab.ReadSignedArray[int32](d)
-		case 6:
-			m.U64, _ = sofab.ReadUnsignedArray[uint64](d)
-		case 7:
-			m.I64, _ = sofab.ReadSignedArray[int64](d)
-		case 10:
-			if err := m.Nested.unmarshal(d); err != nil {
-				return err
-			}
-		default:
-			if err := d.Skip(); err != nil {
-				return err
-			}
-		}
+func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
+	switch id {
+	case 0:
+		m.U8 = _narrowU[uint8](v)
+	case 2:
+		m.U16 = _narrowU[uint16](v)
+	case 4:
+		m.U32 = _narrowU[uint32](v)
+	case 6:
+		m.U64 = v
 	}
+	return nil
+}
+
+func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
+	switch id {
+	case 1:
+		m.I8 = _narrowS[int8](v)
+	case 3:
+		m.I16 = _narrowS[int16](v)
+	case 5:
+		m.I32 = _narrowS[int32](v)
+	case 7:
+		m.I64 = v
+	}
+	return nil
+}
+
+func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
+	if id == 10 {
+		return &m.Nested, nil
+	}
+	return _visitorBase{}, nil
 }
 
 // ExampleArraysNested is a generated SofaBuffers object.
 type ExampleArraysNested struct {
+	_visitorBase
 	Fp32 []float32 `json:"fp32"`
 	Fp64 []float64 `json:"fp64"`
 }
@@ -107,33 +102,23 @@ func (m *ExampleArraysNested) marshal(e *sofab.Encoder) {
 	}
 }
 
-func (m *ExampleArraysNested) unmarshal(d *sofab.Decoder) error {
-	for {
-		fld, err := d.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if fld.Type == sofab.TypeSequenceEnd {
-			return nil
-		}
-		switch fld.ID {
-		case 0:
-			m.Fp32, _ = d.ReadFloat32Array()
-		case 1:
-			m.Fp64, _ = d.ReadFloat64Array()
-		default:
-			if err := d.Skip(); err != nil {
-				return err
-			}
-		}
+func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
+	if id == 0 {
+		m.Fp32 = v
 	}
+	return nil
+}
+
+func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
+	if id == 1 {
+		m.Fp64 = v
+	}
+	return nil
 }
 
 // ExampleNested is a generated SofaBuffers object.
 type ExampleNested struct {
+	_visitorBase
 	F64        float64 `json:"f64"`
 	Str        string  `json:"str"`
 	BytesField []byte  `json:"bytes_field"`
@@ -155,31 +140,31 @@ func (m *ExampleNested) marshal(e *sofab.Encoder) {
 	}
 }
 
-func (m *ExampleNested) unmarshal(d *sofab.Decoder) error {
-	for {
-		fld, err := d.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if fld.Type == sofab.TypeSequenceEnd {
-			return nil
-		}
-		switch fld.ID {
-		case 0:
-			m.F32, _ = d.Float32()
-		case 1:
-			m.F64, _ = d.Float64()
-		case 2:
-			m.Str, _ = d.String()
-		case 3:
-			m.BytesField, _ = d.Bytes()
-		default:
-			if err := d.Skip(); err != nil {
-				return err
-			}
-		}
+func (m *ExampleNested) Float32(id sofab.ID, v float32) error {
+	if id == 0 {
+		m.F32 = v
 	}
+	return nil
+}
+
+func (m *ExampleNested) Float64(id sofab.ID, v float64) error {
+	if id == 1 {
+		m.F64 = v
+	}
+	return nil
+}
+
+func (m *ExampleNested) String(id sofab.ID, v string) error {
+	if id == 2 {
+		m.Str = v
+	}
+	return nil
+}
+
+func (m *ExampleNested) Bytes(id sofab.ID, v []byte) error {
+	if id == 3 {
+		// v aliases the decode buffer (AcceptBytes) — copy what we keep.
+		m.BytesField = append([]byte(nil), v...)
+	}
+	return nil
 }

@@ -19,6 +19,27 @@ GEN="$HERE/sofab/gen"
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang typescript \
     --in "$ROOT/schema/message.sofab.yaml" --out "$GEN" >/dev/null
 
+# Perf: re-apply the monomorphic pull-decode optimization. sofabgen emits a
+# push/visitor decoder (`decode(bytes, this._visitor())`) whose per-field call
+# sites go megamorphic once one decode routes through several visitor shapes, so
+# V8 cannot inline them; it also allocates ~5 visitor objects + ChunkAccs per
+# decode (two of them dead). This patch emits a monomorphic `decodeFrom(Cursor)`
+# per type — one `switch(id)` reading straight into fields off the corelib's
+# pull-style Cursor (see docs/perf-patches/typescript-monomorphic-decode.md).
+# Generator-spec patch — fold into codegen upstream. Idempotent (marker-guarded).
+if ! grep -q "decodeFrom" "$GEN/message.ts"; then
+    patch -p1 -d "$GEN" < "$HERE/sofab/monomorphic-decode.patch" >&2
+fi
+
+# Perf: encode-side tweaks (applied after the decode patch above — its context is
+# the decode-patched message.ts). Drops a per-encode Uint8Array alloc + arrEq for
+# the blob default-guard, and the string-list forEach closure. The decisive encode
+# win (allocation-free UTF-8 writeString) is in corelib-ts (PR #17). See
+# docs/perf-patches/typescript-fast-encode.md. Idempotent (marker-guarded).
+if ! grep -q "bytes_field.length !== 0" "$GEN/message.ts"; then
+    patch -p1 -d "$GEN" < "$HERE/sofab/fast-encode.patch" >&2
+fi
+
 node -e "const p=require('$GEN/package.json');p.dependencies['@sofa-buffers/corelib']='file:$CORELIB';require('fs').writeFileSync('$GEN/package.json',JSON.stringify(p,null,2))"
 ( cd "$GEN" && npm install --no-audit --no-fund --silent ) \
     || ( cd "$GEN" && npm install --no-audit --no-fund )
