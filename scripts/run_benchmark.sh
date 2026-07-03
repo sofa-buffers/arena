@@ -235,20 +235,18 @@ echo "   is better. RANKED BY footprint = .text + .rodata + .data: everything th
 echo "   ends up in flash (.data initializer images live in flash and are copied"
 echo "   to RAM at boot). static-RAM = .data + .bss (.bss is RAM-only, no flash)."
 echo "================================================================================"
-printf "  %-14s %-13s | %8s %8s %10s %11s | %11s\n" \
-    "target" "impl" ".text" ".rodata" "footprint" "static-RAM" "vs sofab"
-printf '  '; printf -- '-%.0s' $(seq 1 78); printf '\n'
+printf "  %-14s %-13s | %8s %8s %7s %10s %11s\n" \
+    "target" "impl" ".text" ".rodata" ".data" "footprint" "static-RAM"
+printf '  '; printf -- '-%.0s' $(seq 1 74); printf '\n'
 for lang in $emb_metal; do
-    sfp="$(awk -v t="${TEXT[$lang,sofab]:-0}" -v r="${RODATA[$lang,sofab]:-0}" -v d="${DATA[$lang,sofab]:-0}" 'BEGIN{printf "%d", t+r+d}')"
     first=1
     for impl in $(ordered_impls "$lang"); do
         t="${TEXT[$lang,$impl]:-}"; [ -n "$t" ] || continue
-        r="${RODATA[$lang,$impl]:-0}"
-        fp="$(awk -v t="$t" -v r="$r" -v d="${DATA[$lang,$impl]:-0}" 'BEGIN{printf "%d", t+r+d}')"
-        ram="$(awk -v d="${DATA[$lang,$impl]:-0}" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
-        if [ "$impl" = sofab ]; then fvs="1.00x"; elif [ "$sfp" -gt 0 ]; then fvs="$(ratio "$fp" "$sfp")x"; else fvs="–"; fi
-        printf "  %-14s %-13s | %8s %8s %10s %11s | %11s\n" \
-            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$fp" "$ram" "$fvs"
+        r="${RODATA[$lang,$impl]:-0}"; d="${DATA[$lang,$impl]:-0}"
+        fp="$(awk -v t="$t" -v r="$r" -v d="$d" 'BEGIN{printf "%d", t+r+d}')"
+        ram="$(awk -v d="$d" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
+        printf "  %-14s %-13s | %8s %8s %7s %10s %11s\n" \
+            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$d" "$fp" "$ram"
         first=0
     done
 done

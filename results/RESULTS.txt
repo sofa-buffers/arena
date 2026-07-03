@@ -7,13 +7,13 @@
   language    |  wire size (B) |      throughput MB/s |      sofab advantage
               |  sofab   proto |     sofab      proto |     size       speed
   ----------------------------------------------------------------------------
-  cpp         |    436     494 |    334.18     233.14 |    1.13x       1.43x
-  rust        |    436     494 |    341.33     243.68 |    1.13x       1.40x
-  go          |    436     494 |    138.66     138.21 |    1.13x       1.00x
-  csharp      |    436     494 |    119.19     133.13 |    1.13x       0.90x
-  java        |    436     494 |    236.37     272.01 |    1.13x       0.87x
-  typescript  |    436     494 |     49.03      61.22 |    1.13x       0.80x
-  python      |    436     494 |     20.88     177.54 |    1.13x       0.12x
+  cpp         |    436     494 |    334.90     236.40 |    1.13x       1.42x
+  rust        |    436     494 |    347.48     244.06 |    1.13x       1.42x
+  go          |    436     494 |    136.44     137.28 |    1.13x       0.99x
+  csharp      |    436     494 |    120.37     132.19 |    1.13x       0.91x
+  java        |    436     494 |    229.16     271.62 |    1.13x       0.84x
+  typescript  |    436     494 |     48.91      61.20 |    1.13x       0.80x
+  python      |    436     494 |     20.83     182.39 |    1.13x       0.11x
 
   size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
@@ -27,10 +27,10 @@
   opponent                              |  wire size (B) |      throughput MB/s |      sofab advantage
                                         |  sofab   proto |     sofab      proto |     size       speed
   ------------------------------------------------------------------------------------------------------
-  sofab-c-embedded vs. protobuf-c       |    434     494 |    122.39     298.78 |    1.14x       0.41x
-  sofab-c-embedded vs. nanopb           |    434     494 |    122.39      59.57 |    1.14x       2.05x
-  sofab-rust-embedded vs. micropb       |    436     494 |    141.51     125.60 |    1.13x       1.13x
-  sofab-cpp-embedded vs. embeddedproto  |    436     494 |    131.97      62.81 |    1.13x       2.10x
+  sofab-c-embedded vs. protobuf-c       |    434     494 |    121.54     290.33 |    1.14x       0.42x
+  sofab-c-embedded vs. nanopb           |    434     494 |    121.54      59.04 |    1.14x       2.06x
+  sofab-rust-embedded vs. micropb       |    436     494 |    140.80     123.64 |    1.13x       1.14x
+  sofab-cpp-embedded vs. embeddedproto  |    436     494 |    133.03      63.30 |    1.13x       2.10x
 
 ================================================================================
  EMBEDDED — code footprint, bare-metal --gc-sections link delta
@@ -41,20 +41,20 @@
    ends up in flash (.data initializer images live in flash and are copied
    to RAM at boot). static-RAM = .data + .bss (.bss is RAM-only, no flash).
 ================================================================================
-  target         impl          |    .text  .rodata  footprint  static-RAM |    vs sofab
-  ------------------------------------------------------------------------------
-  c-cortex-m     sofab         |     3060      344       3404           0 |       1.00x
-                 nanopb        |     5660      936       6596           0 |       1.94x
-  cpp-cortex-m   sofab         |     6484      156       6720         132 |       1.00x
-                 embeddedproto |     8412      908       9404         364 |       1.40x
-  rust-cortex-m  sofab         |     5720      328       6048           0 |       1.00x
-                 micropb       |     8236      261       8497           0 |       1.40x
-  c-riscv        sofab         |     3128      488       3616           0 |       1.00x
-                 nanopb        |     6336     1112       7448           0 |       2.06x
-  cpp-riscv      sofab         |     5944      300       6320         420 |       1.00x
-                 embeddedproto |     8898     1012       9986         652 |       1.58x
-  rust-riscv     sofab         |     6232      392       6624           0 |       1.00x
-                 micropb       |     9680      393      10073           0 |       1.52x
+  target         impl          |    .text  .rodata   .data  footprint  static-RAM
+  --------------------------------------------------------------------------
+  c-cortex-m     sofab         |     3060      344       0       3404           0
+                 nanopb        |     5660      936       0       6596           0
+  cpp-cortex-m   sofab         |     6484      156      80       6720         132
+                 embeddedproto |     8412      908      84       9404         364
+  rust-cortex-m  sofab         |     5720      328       0       6048           0
+                 micropb       |     8236      261       0       8497           0
+  c-riscv        sofab         |     3128      488       0       3616           0
+                 nanopb        |     6336     1112       0       7448           0
+  cpp-riscv      sofab         |     5944      300      76       6320         420
+                 embeddedproto |     8898     1012      76       9986         652
+  rust-riscv     sofab         |     6232      392       0       6624           0
+                 micropb       |     9680      393       0      10073           0
 
   status per language:
     c-embedded     [embedded] OK
