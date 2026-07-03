@@ -51,7 +51,7 @@ RAW="$ROOT/results/raw"; mkdir -p "$RAW"
 export PATH="$HOME/.cargo/bin:/usr/local/cargo/bin:/usr/local/dotnet:$PATH"
 export DOTNET_ROOT="${DOTNET_ROOT:-/usr/local/dotnet}"
 
-declare -A SER MBS ITERS SHA CPU STATUS
+declare -A SER MBS ITERS SHA CPU STATUS CODEC
 declare -A TEXT RODATA DATA BSS         # footprint sections (embedded targets)
 declare -A CATEGORY METRIC              # per-language, from languages/<lang>/meta
 declare -A IMPLS                        # lang -> space-separated impls seen
@@ -82,6 +82,7 @@ parse_line() {   # <line>
         BENCH*)
             SER[$key]="$(field "$line" serialized_bytes)"
             SHA[$key]="$(field "$line" sha256)"
+            local cd; cd="$(field "$line" codec)"; [ -n "$cd" ] && CODEC[$key]="$cd"
             local m; m="$(field "$line" throughput_mbs)"
             # best-of-N: keep the max throughput seen across repeated runs
             if [ -z "${MBS[$key]:-}" ] || awk -v a="$m" -v b="${MBS[$key]}" 'BEGIN{exit !(a+0>b+0)}'; then
@@ -181,6 +182,9 @@ done
 echo
 echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)"
 echo "  speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)"
+for lang in $maxspeed_langs; do
+    c="${CODEC[$lang,sofab]:-}"; [ -n "$c" ] && echo "  sofab codec ($lang): $c"
+done
 fi
 
 # ============================ embedded: two tables ============================
