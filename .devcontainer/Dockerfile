@@ -16,7 +16,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   libprotobuf-c-dev
 #   python3 + venv + pip       Python target + grpcio-tools protobuf compiler
 #   default-jdk + maven        Java target (SofaBuffers corelib-java + protobuf-java)
-#   golang-go                  Go target
+#   (Go tarball)               Go target — official 1.25.x baked below
+#                              (apt's golang-go is 1.22, too old for protobuf-go v1.36)
 #   (rustup)                   Rust target (SofaBuffers corelib-rs + prost)
 #   (dotnet 9)                 C# target (SofaBuffers corelib-cs + Google.Protobuf)
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
@@ -30,7 +31,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-c-compiler libprotobuf-c-dev \
     python3 python3-venv python3-pip python3-dev \
     default-jdk maven \
-    golang-go \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Rust (rustup, stable) ----------------------------------------------------
@@ -49,6 +49,18 @@ RUN curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && /tmp/dotnet-install.sh --channel 9.0 --install-dir /usr/local/dotnet \
     && rm /tmp/dotnet-install.sh \
     && dotnet --version
+
+# --- Go (official toolchain) --------------------------------------------------
+# apt's golang-go on Ubuntu 24.04 is 1.22; protoc-gen-go v1.36 and the Go target's
+# generated go.mod need >= 1.23 (it pins `toolchain go1.25.11`). Bake the matching
+# 1.25.x so the build needs no GOTOOLCHAIN auto-download (works offline /
+# GOTOOLCHAIN=local). arch derived so the image builds on amd64 and arm64.
+ENV PATH=/usr/local/go/bin:$PATH
+RUN GO_VERSION=1.25.11 && ARCH="$(dpkg --print-architecture)" \
+    && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tgz \
+    && tar -C /usr/local -xzf /tmp/go.tgz \
+    && rm /tmp/go.tgz \
+    && go version
 
 # --- protoc-gen-go (Go protobuf plugin) --------------------------------------
 ENV GOPATH=/root/go PATH=/root/go/bin:$PATH
