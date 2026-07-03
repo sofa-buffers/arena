@@ -49,6 +49,8 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 | **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
 | **Embedded** — cpp-embedded | `corelib-c-cpp` C++ wrapper (`corelib: c-cpp`) | **EmbeddedProto** | footprint |
 | **Embedded** — rust-embedded | `corelib-rs-no-std` (no_std, no-alloc) | **micropb** | footprint |
+| **Embedded** — c-cortex-m, c-riscv | `corelib-c-cpp` (C object API), **bare-metal cross-build** | **nanopb** | footprint |
+| **Embedded** — cpp-cortex-m | `corelib-c-cpp` C++ wrapper, **bare-metal cross-build** | **EmbeddedProto** | footprint |
 
 ## How the comparison is kept fair
 
@@ -84,21 +86,29 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
 > interpreter, native). It is machine-dependent and varies run-to-run. The columns
 > comparable *across* rows are **wire size** and the **per-target ratios**.
 
-> **Reading footprint (`.text`/RAM).** The **interim** metric is an *object-sum*:
-> each library's own compiled code (`-Os`, **no libc**) section-summed with `size`.
-> This counts the **whole library**, so it over-counts a generic runtime that
-> `--gc-sections` would trim in real firmware — it favors code-generation
-> (SofaBuffers) over generic runtimes. The **fair** metric is a bare-metal
-> (`arm-none-eabi`, newlib-nano, `--gc-sections`) build; that is a **TODO**, and
-> until then `rust-embedded` footprint is left blank (a host object-sum for Rust is
-> dominated by std, not codec).
+> **Reading footprint (`.text`/RAM).** Two methodologies, reported separately:
+> - **Host object-sum** (`c-embedded`, `cpp-embedded`): each library's own compiled
+>   code (`-Os`, **no libc**, x86-64) section-summed with `size`. Counts the **whole
+>   library**, so it over-counts a generic runtime that `--gc-sections` would trim
+>   in real firmware.
+> - **Bare-metal link delta** (`c-cortex-m`, `cpp-cortex-m`, `c-riscv`) — the
+>   **fair, firmware-representative** metric: each codec is cross-compiled
+>   (`-Os -DNDEBUG`) and linked into a minimal program with `-Wl,--gc-sections`;
+>   the figure is *codec program − empty baseline* — exactly the flash/RAM the
+>   codec adds to an application, including libc routines only it pulls in. These
+>   targets are **build-only** (never executed), so they emit no `BENCH` line.
+>
+> `rust-embedded` footprint stays blank until sofabgen can emit `no_std` Rust
+> (generator issue #40); a host object-sum for Rust is dominated by std, not codec.
 
 ## Quick start
 
 The [`.devcontainer`](.devcontainer) ships the full multi-language toolchain —
-`./.devcontainer/start.sh` builds and drops you into the image. Embedded baselines
-also need `protoc`, the ARM cross-toolchain (`gcc-arm-none-eabi`, for the future
-footprint metric), and a network fetch of nanopb / EmbeddedProto (build-time only).
+`./.devcontainer/start.sh` builds and drops you into the image, including the
+bare-metal cross toolchains (`gcc-arm-none-eabi` + newlib/libstdc++ and
+`gcc-riscv64-unknown-elf` + picolibc) used by the footprint-only targets. Embedded
+baselines also need `protoc` and a network fetch of nanopb / EmbeddedProto
+(build-time only).
 
 ```bash
 # one-time: fetch sofabgen + the corelibs + the python protobuf toolchain
@@ -131,13 +141,13 @@ protobuf-family baseline emits the same **494-byte** wire.
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 436 | 494 | 321.7 | 234.5 | **1.13×** | **1.37×** |
-| Rust       | 436 | 494 | 349.8 | 248.5 | **1.13×** | **1.41×** |
-| Go         | 436 | 494 | 138.1 | 138.9 | **1.13×** | 0.99× |
-| C#         | 436 | 494 | 119.4 | 133.9 | **1.13×** | 0.89× |
-| Java       | 436 | 494 | 232.3 | 276.0 | **1.13×** | 0.84× |
-| TypeScript | 436 | 494 |  49.5 |  61.3 | **1.13×** | 0.81× |
-| Python     | 436 | 494 |  20.7 | 193.2 | **1.13×** | 0.11× |
+| C++        | 436 | 494 | 331.1 | 232.8 | **1.13×** | **1.42×** |
+| Rust       | 436 | 494 | 342.0 | 243.2 | **1.13×** | **1.41×** |
+| Go         | 436 | 494 | 134.1 | 133.2 | **1.13×** | **1.01×** |
+| C#         | 436 | 494 | 117.4 | 131.9 | **1.13×** | 0.89× |
+| Java       | 436 | 494 | 231.5 | 271.2 | **1.13×** | 0.85× |
+| TypeScript | 436 | 494 |  49.4 |  59.7 | **1.13×** | 0.83× |
+| Python     | 436 | 494 |  20.1 | 187.6 | **1.13×** | 0.11× |
 
 *size adv = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed adv =
 sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-5**
@@ -154,11 +164,30 @@ host); VM targets use portable GC/JIT tuning — identical for both impls in a r
 | | protobuf-c | 494 | 26 267 | 4 015 | 2 632 | 4.44× |
 | **cpp-embedded** | sofab | 436 | 10 151 | 1 572 | 712 | 1.00× |
 | | **embeddedproto** | 494 | **3 276** | 261 | 352 | **0.32×** |
-| **rust-embedded** | sofab | 436 | — | — | — | *(pending ARM)* |
+| **rust-embedded** | sofab | 436 | — | — | — | *(pending no_std codegen)* |
 | | micropb | 494 | — | — | — | |
 
-*Footprint is the interim object-sum (whole library, no libc). `.text vs sofab` >1
+*Footprint is the host object-sum (whole library, no libc). `.text vs sofab` >1
 means the baseline carries more code than SofaBuffers.*
+
+### Embedded — bare-metal footprint (`--gc-sections` link delta; **lower is better**)
+
+What the codec **actually adds to firmware**: cross-compiled `-Os -DNDEBUG`, linked
+into a minimal program with `-Wl,--gc-sections`, reported as *codec program − empty
+baseline*. Build-only targets — the binaries are never executed.
+
+| target (ISA) | impl | `.text` | `.rodata` | static-RAM | `.text` vs sofab |
+|---|---|--:|--:|--:|:--:|
+| **c-cortex-m** (thumbv7e-m+fp) | sofab | **3 360** | 344 | 0 | 1.00× |
+| | nanopb | 5 860 | 933 | 0 | 1.74× |
+| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | **6 784** | 180 | 132 | 1.00× |
+| | embeddedproto | 8 568 | 908 | 364 | 1.26× |
+| **c-riscv** (rv32imac) | sofab | **3 528** | 488 | 0 | 1.00× |
+| | nanopb | 6 488 | 1 112 | 0 | 1.84× |
+
+*C++ on RISC-V: not measurable with the packaged toolchain — Ubuntu's
+`riscv64-unknown-elf` ships picolibc but no bare-metal libstdc++. Rust on both
+ISAs: parked until sofabgen emits `no_std` code (generator issue #40).*
 
 ### The big picture
 
@@ -169,12 +198,12 @@ means the baseline carries more code than SofaBuffers.*
   generated per-message code and its data model *above* the byte codec. Those fixes
   now ship natively in **sofabgen v0.6.0** (full analysis:
   [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md)).
-  - **C++ 1.37× and Rust 1.41× — SofaBuffers *beats* protobuf.** Lean wire + fixed
+  - **C++ 1.42× and Rust 1.41× — SofaBuffers *beats* protobuf.** Lean wire + fixed
     stack arrays + a direct switch-into-fields decode, vectorized under
     `-O3 -march=native -flto` / `target-cpu=native` + LTO.
-  - **Go: ~parity (0.99×)** (was 0.40×): decode via the corelib's zero-copy cursor
+  - **Go: ~parity (1.01×)** (was 0.40×): decode via the corelib's zero-copy cursor
     instead of a byte-at-a-time reader, plus a byte-slice encoder.
-  - **C# 0.89×, Java 0.84×, TypeScript 0.81× — close** (were 0.79× / 0.65× / 0.66×):
+  - **C# 0.89×, Java 0.85×, TypeScript 0.83× — close** (were 0.79× / 0.65× / 0.66×):
     primitive fixed arrays instead of boxed/heap collections, single-shot string
     decode, and for TS a monomorphic decoder + allocation-free UTF-8 encode. The
     residual gap tracks per-VM runtime maturity, not the format.
@@ -182,20 +211,23 @@ means the baseline carries more code than SofaBuffers.*
     **`upb`** engine, while SofaBuffers keeps a per-field Python driver (it *does* run
     the native Cython accelerator, not a fallback). Full profile:
     [`languages/python/README.md`](languages/python/README.md).
-- **Embedded: SofaBuffers wins in C, loses the C++ wrapper — honestly.**
-  - **C:** the SofaBuffers object API has the **smallest codec** — **5.9 KB `.text`**,
-    ~1.6× under nanopb and ~4.4× under `protobuf-c` (which also needs a heap).
-  - **cpp-embedded:** **EmbeddedProto is still smaller** (3.3 KB) than the SofaBuffers
-    C++ wrapper (**10.2 KB**, down from 12.2 KB via sofabgen v0.7.0's fixed-capacity
-    `FixedString`/`InlineVector` profile — heap-free inline containers; **0.32×**). The
-    wrapper's C++ template layer over the C object API still costs code; EmbeddedProto
-    is purpose-built for minimal `.text`. A real result, reported as-is.
+- **Embedded, on the metric that matters — bare-metal link delta — SofaBuffers wins
+  every measurable row.** On a Cortex-M4 the C codec adds **3.4 KB** of flash where
+  nanopb adds 5.9 KB (**1.74×**); on rv32imac it's **3.5 KB** vs 6.5 KB (**1.84×**);
+  and the C++ wrapper adds **6.8 KB** where EmbeddedProto adds 8.6 KB (**1.26×**) —
+  with less static RAM (132 B vs 364 B) and both drivers heap-free.
+  - The host **object-sum** tells a different story for C++ (EmbeddedProto's counted
+    sources are just 3.3 KB) — because it counts *compilation units*, not what the
+    linker actually keeps. Once both codecs are linked into firmware with
+    `--gc-sections` and asserts stripped (`-DNDEBUG`), the templates EmbeddedProto
+    instantiates across the message tree outweigh SofaBuffers' shared C core. Both
+    numbers are reported; the link delta is the firmware-representative one.
+  - **C:** the SofaBuffers object API is the smallest codec on **every** metric —
+    host object-sum (5.9 KB vs 9.6 KB nanopb / 26.3 KB `protobuf-c`) and both
+    bare-metal ISAs.
   - **rust-embedded:** wire + throughput land (sofab `corelib-rs-no-std` vs micropb,
-    both no_std/no-alloc); the **footprint number is deferred** to the bare-metal
-    metric — a host object-sum for Rust is std-dominated and not a codec comparison.
-- **Caveat that matters.** The embedded ranking is sensitive to methodology: the
-  interim object-sum favors code-generation over generic runtimes; a bare-metal
-  `--gc-sections` build (the TODO) is the fair, firmware-representative number.
+    both no_std/no-alloc); the **footprint rows stay blank until sofabgen emits
+    `no_std` Rust** (generator issue #40) — then rust joins the cortex-m/riscv table.
 
 > **Note — why C is 434 B.** The C target is the SofaBuffers *object API*
 > (`corelib-c-cpp`), a runtime-descriptor codec for constrained/embedded use. It
@@ -224,7 +256,8 @@ languages/
     bench.sh       run the impls; print BENCH (+ FOOTPRINT for embedded) lines
     sofab/         SofaBuffers driver + generated code
     protobuf/ | nanopb/ | micropb/ | embeddedproto/   the baseline driver(s)
-    footprint.sh   (embedded) object-sum the codec sections
+    footprint.sh   (embedded) object-sum — or bare-metal --gc-sections link
+                   delta on the cross targets (c-cortex-m, cpp-cortex-m, c-riscv)
   common/          shared SHA-256 helper for the C/C++ targets
 scripts/
   bootstrap.sh     fetch sofabgen + corelibs + python protobuf venv

@@ -21,6 +21,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   (rustup)                   Rust target (SofaBuffers corelib-rs + prost)
 #   (dotnet 9)                 C# target (SofaBuffers corelib-cs + Google.Protobuf)
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
+#   gcc-arm-none-eabi          bare-metal Cortex-M cross toolchain (c-cortex-m /
+#     + libnewlib + libstdc++    cpp-cortex-m footprint targets: --gc-sections
+#                                link-delta builds; binaries are never executed)
+#   gcc-riscv64-unknown-elf    bare-metal RISC-V cross toolchain (c-riscv target,
+#     + picolibc                 rv32imac multilib; C only — no bare-metal libstdc++)
 #   valgrind, time             optional CPU-independent / RSS measurement helpers
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -29,6 +34,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     valgrind \
     protobuf-compiler libprotobuf-dev libprotoc-dev \
     protobuf-c-compiler libprotobuf-c-dev \
+    gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+    gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf \
     python3 python3-venv python3-pip python3-dev \
     default-jdk maven \
     && rm -rf /var/lib/apt/lists/*
