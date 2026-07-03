@@ -1,0 +1,126 @@
+# SofaBuffers Arena — CI.
+#
+# Builds the full multi-language dev image (.devcontainer/Dockerfile) and runs
+# the whole benchmark arena inside it, then FAILS the job if any target did not
+# build or if the cross-language byte-identity gate is not green.
+#
+# CI is a CORRECTNESS check, not a throughput measurement: shared GitHub runners
+# are noisy and single-tenant timing is meaningless there. So we run best-of-1
+# with a reduced iteration count (fast) and only assert that every target builds
+# and every wire is byte-identical to the reference. The RESULTS + raw logs are
+# uploaded as an artifact for inspection; the printed MB/s are informational.
+name: arena
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "best-of-N throughput repeats (CI default 1; 5 = report-grade)"
+        required: false
+        default: "1"
+
+# One in-flight run per ref; a new push cancels the superseded run.
+concurrency:
+  group: arena-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arena:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # CI knobs (see header): correctness over stable numbers.
+      #  * RUNS=1        — one pass; footprint is deterministic, throughput is
+      #                    noise on shared runners anyway.
+      #  * BENCH_ITERS   — 100k instead of 500k keeps the timed loops short.
+      # workflow_dispatch can override RUNS (e.g. 5 for a report-grade run).
+      RUNS: ${{ github.event.inputs.runs || '1' }}
+      BENCH_ITERS: "100000"
+      # The arena pulls the sofa-buffers corelibs + the pinned sofabgen release
+      # from other repos in the org. If those are private, the default
+      # GITHUB_TOKEN (scoped to THIS repo only) cannot read them — set an
+      # org-scoped PAT as the ARENA_CI_TOKEN secret and it takes precedence.
+      ARENA_TOKEN: ${{ secrets.ARENA_CI_TOKEN || secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build the dev image once, cached in the GitHub Actions cache so repeat
+      # runs skip the (heavy) toolchain install. load: true keeps it in the local
+      # daemon so the next step can `docker run` it.
+      - name: Build dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: sofabuffers-arena:ci
+          load: true
+          cache-from: type=gha,scope=arena-devimage
+          cache-to: type=gha,scope=arena-devimage,mode=max
+
+      # Run bootstrap + the full arena inside the image. The workspace is mounted
+      # at /workspace (the image's WORKDIR); vendor/ + tools/ are written there.
+      # The token is wired two ways so private-repo fetches authenticate:
+      #   * git insteadOf  — for the corelib `git clone`s in bootstrap.sh
+      #   * .devcontainer/.env  — read by bootstrap.sh for the sofabgen download
+      # .env is gitignored, so writing it in-container never dirties the tree.
+      - name: Run arena
+        run: |
+          docker run --rm \
+            -v "$PWD:/workspace" -w /workspace \
+            -e RUNS -e BENCH_ITERS \
+            -e ARENA_TOKEN="$ARENA_TOKEN" \
+            sofabuffers-arena:ci \
+            bash -euo pipefail -c '
+              if [ -n "${ARENA_TOKEN:-}" ]; then
+                git config --global url."https://x-access-token:${ARENA_TOKEN}@github.com/".insteadOf "https://github.com/"
+                git config --global --add safe.directory /workspace
+                mkdir -p .devcontainer
+                printf "GITHUB_TOKEN=%s\n" "$ARENA_TOKEN" > .devcontainer/.env
+              fi
+              mkdir -p results
+              ./scripts/bootstrap.sh
+              ./scripts/run_benchmark.sh 2>&1 | tee results/ci-run.log
+            '
+
+      # run_benchmark.sh always exits 0 (it reports status in-band), so the gate
+      # is enforced here: fail on any divergence or per-target build/bench fail.
+      - name: Enforce correctness gate
+        if: always()
+        run: |
+          log=results/ci-run.log
+          if [ ! -f "$log" ]; then
+            echo "::error::no benchmark output — the arena did not run to completion"
+            exit 1
+          fi
+          fail=0
+          if grep -q "WARNING: some targets diverge" "$log"; then
+            echo "::error::byte-identity gate FAILED — a target's wire drifted"; fail=1
+          fi
+          # per-impl mismatch lines and per-target setup/bench failures
+          grep -n "MISMATCH"    "$log" && { echo "::error::wire MISMATCH above"; fail=1; } || true
+          grep -n "SETUP_FAIL"  "$log" && { echo "::error::target SETUP_FAIL above"; fail=1; } || true
+          grep -n "BENCH_FAIL"  "$log" && { echo "::error::target BENCH_FAIL above"; fail=1; } || true
+          if [ "$fail" = 0 ]; then
+            echo "arena gate green: all targets build and every wire is byte-identical."
+          fi
+          exit "$fail"
+
+      # Always publish the tables + per-target raw logs, pass or fail.
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arena-results
+          path: |
+            results/RESULTS.txt
+            results/ci-run.log
+            results/raw/
+          if-no-files-found: warn
