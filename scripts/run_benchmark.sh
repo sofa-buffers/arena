@@ -21,7 +21,9 @@
 #   BENCH     lang=<l> impl=<i> serialized_bytes=<n> iters=<n> \
 #             cpu_time_s=<f> throughput_mbs=<f> sha256=<hex>
 #   FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
-# (embedded targets emit both; maxspeed targets emit BENCH only.)
+# (maxspeed targets emit BENCH only; host embedded targets emit both — their
+# throughput gets its own maxspeed-style table; bare-metal embedded targets are
+# build-only and emit FOOTPRINT only.)
 #
 # Usage:
 #   ./scripts/run_benchmark.sh                 # setup + run every language
@@ -181,45 +183,72 @@ echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smalle
 echo "  speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)"
 fi
 
-# ============================ embedded: footprint ============================
+# ============================ embedded: two tables ============================
+# Host-run embedded targets (they emit BENCH lines) get a throughput table with
+# the IDENTICAL columns as MAXSPEED — kept separate because the impls are
+# embedded-friendly (fixed capacity, -Os), so speed is informational here, not
+# the ranking metric. Footprint is the bare-metal --gc-sections link delta
+# (targets without BENCH data are the build-only cross targets); the host
+# object-sum lines are still emitted/collected but no longer tabulated (raw
+# data in results/raw/) — the link delta is the number that matters.
 embedded_langs="$(langs_in embedded)"
-if [ -n "$embedded_langs" ]; then
+emb_host=""; emb_metal=""
+for lang in $embedded_langs; do
+    if [ -n "${SER[$lang,sofab]:-}" ]; then emb_host="$emb_host$lang "; else emb_metal="$emb_metal$lang "; fi
+done
+
+# ---- embedded table 1: throughput (host builds of the embedded codecs) ------
+if [ -n "$emb_host" ]; then
 echo
 echo "================================================================================"
-echo " EMBEDDED — SofaBuffers vs footprint-oriented Protobuf, code+RAM footprint"
-echo "   isolated codec built -Os (no harness/libc); bytes. LOWER is better."
-echo "   static-RAM = .data + .bss.  '.text vs sofab' >1 means the baseline is fatter."
+echo " EMBEDDED — throughput (host build of the embedded codecs)"
+echo "   same message/values/columns as MAXSPEED, but embedded-friendly impls (-Os,"
+echo "   fixed capacity): speed is an interesting factor, NOT the ranking metric."
+echo "   MB/s is within-row only — never compare rows."
 echo "================================================================================"
-printf "  %-14s %-13s | %5s | %8s %8s %11s | %8s | %13s\n" \
-    "target" "impl" "wire" ".text" ".rodata" "static-RAM" "MB/s" ".text vs sofab"
-printf '  '; printf -- '-%.0s' $(seq 1 86); printf '\n'
-for lang in $embedded_langs; do
+printf "  %-29s | %14s | %20s | %20s\n" "target vs baseline" "wire size (B)" "throughput MB/s" "sofab advantage"
+printf "  %-29s | %6s %7s | %9s %10s | %8s %11s\n" "" "sofab" "proto" "sofab" "proto" "size" "speed"
+printf '  '; printf -- '-%.0s' $(seq 1 94); printf '\n'
+for lang in $emb_host; do
+    ss="${SER[$lang,sofab]:-}"; sm="$(mbps "$lang,sofab")"
+    for impl in $(ordered_impls "$lang"); do
+        [ "$impl" = sofab ] && continue
+        ps="${SER[$lang,$impl]:-}"; pm="$(mbps "$lang,$impl")"
+        [ -z "$ps$pm" ] && continue
+        printf "  %-29s | %6s %7s | %9s %10s | %7sx %10sx\n" \
+            "$lang vs $impl" \
+            "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" \
+            "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")"
+    done
+done
+fi
+
+# ---- embedded table 2: bare-metal link-delta footprint ------------------------
+if [ -n "$emb_metal" ]; then
+echo
+echo "================================================================================"
+echo " EMBEDDED — code footprint, bare-metal --gc-sections link delta"
+echo "   codec program minus empty baseline, cross-compiled -Os -flto -DNDEBUG"
+echo "   (Rust: no_std staticlib, opt-level=z, LTO) — the flash/RAM the codec"
+echo "   actually adds to real firmware. Build-only, never executed. bytes; LOWER"
+echo "   is better. static-RAM = .data + .bss. '.text vs sofab' >1: baseline fatter."
+echo "================================================================================"
+printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
+    "target" "impl" ".text" ".rodata" "static-RAM" ".text vs sofab"
+printf '  '; printf -- '-%.0s' $(seq 1 72); printf '\n'
+for lang in $emb_metal; do
     st="${TEXT[$lang,sofab]:-}"
     first=1
     for impl in $(ordered_impls "$lang"); do
-        w="${SER[$lang,$impl]:-–}"; t="${TEXT[$lang,$impl]:-}"; m="$(mbps "$lang,$impl")"
-        if [ -n "$t" ]; then
-            r="${RODATA[$lang,$impl]:-–}"
-            ram="$(awk -v d="${DATA[$lang,$impl]:-0}" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
-            if [ "$impl" = sofab ]; then tvs="1.00x"; elif [ -n "$st" ]; then tvs="$(ratio "$t" "$st")x"; else tvs="–"; fi
-        else
-            t="–"; r="–"; ram="–"; tvs="–"       # footprint pending (e.g. Rust: needs bare-metal ARM)
-        fi
-        printf "  %-14s %-13s | %5s | %8s %8s %11s | %8s | %13s\n" \
-            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" \
-            "$w" "$t" "$r" "$ram" "${m:-–}" "$tvs"
+        t="${TEXT[$lang,$impl]:-}"; [ -n "$t" ] || continue
+        r="${RODATA[$lang,$impl]:-–}"
+        ram="$(awk -v d="${DATA[$lang,$impl]:-0}" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
+        if [ "$impl" = sofab ]; then tvs="1.00x"; elif [ -n "$st" ]; then tvs="$(ratio "$t" "$st")x"; else tvs="–"; fi
+        printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
+            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$ram" "$tvs"
         first=0
     done
 done
-echo
-echo "  Footprint, two methodologies:"
-echo "   * host targets (c-embedded, cpp-embedded): object-sum of each library's OWN"
-echo "     compiled code (no libc), built -Os — counts the whole library."
-echo "   * bare-metal targets (c/cpp/rust-cortex-m, c/cpp/rust-riscv): --gc-sections"
-echo "     LINK DELTA vs an empty baseline, -Os -DNDEBUG (Rust: no_std staticlib,"
-echo "     opt-level=z, LTO) — the flash/RAM the codec actually adds to real"
-echo "     firmware (the fair metric; build-only, never executed)."
-echo "  MB/s = encode+decode throughput (host targets only; secondary here)."
 fi
 
 # ------------------------------------------------------------------- status

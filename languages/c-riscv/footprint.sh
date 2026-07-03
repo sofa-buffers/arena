@@ -10,7 +10,7 @@
 #     baseline): the flash/RAM the codec actually adds to an application,
 #     including any libc routines only the codec pulls in.
 #   * Target: rv32imac/ilp32 (compressed instructions, like real RV32 MCUs),
-#     picolibc, -Os -DNDEBUG -ffunction-sections -fdata-sections.
+#     picolibc, -Os -flto -DNDEBUG -ffunction-sections -fdata-sections.
 #   * The driver calls the real encode+decode entry points (through a volatile
 #     sink); its own buffers/state live in a custom .harness section so driver
 #     data never counts toward the codec's .bss.
@@ -25,7 +25,7 @@ GEN_NANOPB="$ROOT/languages/c-embedded/nanopb/gen"
 
 CC=riscv64-unknown-elf-gcc
 CFLAGS="-march=rv32imac -mabi=ilp32 \
-        -Os -DNDEBUG -ffunction-sections -fdata-sections -std=c99"
+        -Os -flto -DNDEBUG -ffunction-sections -fdata-sections -std=c99"
 LDFLAGS="--specs=picolibc.specs -Wl,--gc-sections"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

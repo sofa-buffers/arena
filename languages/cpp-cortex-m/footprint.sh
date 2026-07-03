@@ -9,7 +9,7 @@
 #     -Wl,--gc-sections; the figure is section(codec program) - section(empty
 #     baseline): the flash/RAM the codec actually adds to an application.
 #   * Target: cortex-m4 hard-float (thumb/v7e-m+fp), newlib-nano + nosys stubs,
-#     -Os -DNDEBUG -fno-exceptions -fno-rtti (typical release firmware C++).
+#     -Os -flto -DNDEBUG -fno-exceptions -fno-rtti (typical release firmware C++).
 #   * sofab uses the fixed-capacity profile's heap-free entry points
 #     (encodeTo(buf,cap) / decode(buf,len) into FixedString/InlineVector
 #     members) — NOT the std::vector-returning encode(), which would drag the
@@ -28,7 +28,7 @@ GEN_EP="$ROOT/languages/cpp-embedded/embeddedproto/gen"
 CC=arm-none-eabi-gcc
 CXX=arm-none-eabi-g++
 ARCH="-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16"
-CFLAGS="$ARCH -Os -DNDEBUG -ffunction-sections -fdata-sections"
+CFLAGS="$ARCH -Os -flto -DNDEBUG -ffunction-sections -fdata-sections"
 CXXFLAGS="$CFLAGS -fno-exceptions -fno-rtti"
 LDFLAGS="--specs=nano.specs --specs=nosys.specs -Wl,--gc-sections"
 TMP="$(mktemp -d)"

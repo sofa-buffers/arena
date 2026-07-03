@@ -9,7 +9,7 @@
 # figure = section(codec program) - section(empty baseline).
 #   * Toolchain: xpack riscv-none-elf-gcc (Ubuntu ships no bare-metal libstdc++
 #     for RISC-V). newlib-nano + nosys, rv32imac/ilp32 (the xpack default
-#     multilib), -Os -DNDEBUG -fno-exceptions -fno-rtti.
+#     multilib), -Os -flto -DNDEBUG -fno-exceptions -fno-rtti.
 #   * The baseline is linked with the SAME toolchain/libc, so its CRT cancels
 #     out of the delta — c-riscv (apt toolchain, picolibc) stays comparable:
 #     each target's delta is against its own baseline.
@@ -27,7 +27,7 @@ source "$HERE/toolchain.sh"   # resolves + exports XPACK_GXX / XPACK_GCC
 CC="$XPACK_GCC"
 CXX="$XPACK_GXX"
 ARCH="-march=rv32imac -mabi=ilp32"
-CFLAGS="$ARCH -Os -DNDEBUG -ffunction-sections -fdata-sections"
+CFLAGS="$ARCH -Os -flto -DNDEBUG -ffunction-sections -fdata-sections"
 CXXFLAGS="$CFLAGS -fno-exceptions -fno-rtti"
 LDFLAGS="--specs=nano.specs --specs=nosys.specs -Wl,--gc-sections"
 TMP="$(mktemp -d)"
