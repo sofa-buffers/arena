@@ -5,9 +5,9 @@
 # if they are missing (idempotent). The cross toolchain is checked here so a
 # missing compiler fails loudly at setup, not mid-measurement.
 #
-# C only: Ubuntu's riscv64-unknown-elf toolchain ships picolibc but NO
-# bare-metal libstdc++ (no <cstdint>/<string> for rv32), so there is no
-# cpp-riscv sibling. C++ bare-metal figures come from cpp-cortex-m.
+# C only here: Ubuntu's riscv64-unknown-elf toolchain ships picolibc but NO
+# bare-metal libstdc++ (no <cstdint>/<string> for rv32). The cpp-riscv sibling
+# covers C++ via the xpack riscv-none-elf toolchain instead.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

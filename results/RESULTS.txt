@@ -7,13 +7,13 @@
   language    |  wire size (B) |      throughput MB/s |      sofab advantage
               |  sofab   proto |     sofab      proto |     size       speed
   ----------------------------------------------------------------------------
-  cpp         |    436     494 |    335.52     233.53 |    1.13x       1.44x
-  rust        |    436     494 |    347.75     245.56 |    1.13x       1.42x
-  go          |    436     494 |    136.78     137.81 |    1.13x       0.99x
-  csharp      |    436     494 |    119.63     133.86 |    1.13x       0.89x
-  java        |    436     494 |    234.82     275.23 |    1.13x       0.85x
-  typescript  |    436     494 |     49.89      62.05 |    1.13x       0.80x
-  python      |    436     494 |     20.94     192.59 |    1.13x       0.11x
+  cpp         |    436     494 |    336.99     233.96 |    1.13x       1.44x
+  rust        |    436     494 |    342.18     247.96 |    1.13x       1.38x
+  go          |    436     494 |    138.39     139.14 |    1.13x       0.99x
+  csharp      |    436     494 |    120.46     133.68 |    1.13x       0.90x
+  java        |    436     494 |    230.29     269.78 |    1.13x       0.85x
+  typescript  |    436     494 |     49.43      60.84 |    1.13x       0.81x
+  python      |    436     494 |     20.84     182.57 |    1.13x       0.11x
 
   size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
@@ -25,13 +25,13 @@
 ================================================================================
   target         impl          |  wire |    .text  .rodata  static-RAM |     MB/s | .text vs sofab
   --------------------------------------------------------------------------------------
-  c-embedded     sofab         |   434 |     5918     1382         192 |   121.60 |         1.00x
-                 protobuf-c    |   494 |    26267     4015        2632 |   294.84 |         4.44x
-                 nanopb        |   494 |     9621     1057         248 |    59.44 |         1.63x
-  rust-embedded  sofab         |   436 |      –      –         – |   141.91 |           –
-                 micropb       |   494 |      –      –         – |   125.57 |           –
-  cpp-embedded   sofab         |   436 |    10151     1573         712 |   132.37 |         1.00x
-                 embeddedproto |   494 |     3276      261         352 |    63.93 |         0.32x
+  c-embedded     sofab         |   434 |     5918     1382         192 |   121.97 |         1.00x
+                 protobuf-c    |   494 |    26267     4015        2632 |   295.83 |         4.44x
+                 nanopb        |   494 |     9621     1057         248 |    59.35 |         1.63x
+  rust-embedded  sofab         |   436 |      –      –         – |   140.59 |           –
+                 micropb       |   494 |      –      –         – |   125.31 |           –
+  cpp-embedded   sofab         |   436 |    10151     1573         712 |   131.88 |         1.00x
+                 embeddedproto |   494 |     3276      261         352 |    63.15 |         0.32x
   c-cortex-m     sofab         |   – |     3360      344           0 |      – |         1.00x
                  nanopb        |   – |     5860      933           0 |      – |         1.74x
   cpp-cortex-m   sofab         |   – |     6784      180         132 |      – |         1.00x
@@ -40,16 +40,18 @@
                  micropb       |   – |     8236      261           0 |      – |         1.44x
   c-riscv        sofab         |   – |     3528      488           0 |      – |         1.00x
                  nanopb        |   – |     6488     1112           0 |      – |         1.84x
+  cpp-riscv      sofab         |   – |     6202      324         420 |      – |         1.00x
+                 embeddedproto |   – |     8998     1012         652 |      – |         1.45x
   rust-riscv     sofab         |   – |     6232      392           0 |      – |         1.00x
                  micropb       |   – |     9680      393           0 |      – |         1.55x
 
   Footprint, two methodologies:
    * host targets (c-embedded, cpp-embedded): object-sum of each library's OWN
      compiled code (no libc), built -Os — counts the whole library.
-   * bare-metal targets (c-cortex-m, cpp-cortex-m, rust-cortex-m, c-riscv,
-     rust-riscv): --gc-sections LINK DELTA vs an empty baseline, -Os -DNDEBUG
-     (Rust: no_std staticlib, opt-level=z, LTO) — the flash/RAM the codec
-     actually adds to real firmware (the fair metric; build-only, never executed).
+   * bare-metal targets (c/cpp/rust-cortex-m, c/cpp/rust-riscv): --gc-sections
+     LINK DELTA vs an empty baseline, -Os -DNDEBUG (Rust: no_std staticlib,
+     opt-level=z, LTO) — the flash/RAM the codec actually adds to real
+     firmware (the fair metric; build-only, never executed).
   MB/s = encode+decode throughput (host targets only; secondary here).
 
   status per language:
@@ -67,4 +69,5 @@
     cpp-cortex-m   [embedded] OK
     rust-cortex-m  [embedded] OK
     c-riscv        [embedded] OK
+    cpp-riscv      [embedded] OK
     rust-riscv     [embedded] OK

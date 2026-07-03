@@ -27,8 +27,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 #     + libnewlib + libstdc++    cortex-m footprint targets: --gc-sections
 #                                link-delta builds; binaries are never executed)
 #   gcc-riscv64-unknown-elf    bare-metal RISC-V cross toolchain (c-riscv +
-#     + picolibc                 rust-riscv targets, rv32imac multilib; no C++ —
-#                                no bare-metal libstdc++ packaged)
+#     + picolibc                 rust-riscv targets, rv32imac multilib; ships no
+#                                bare-metal libstdc++ — hence xpack below)
+#   (xpack riscv-none-elf-gcc) bare-metal RISC-V toolchain WITH libstdc++
+#                                (cpp-riscv target; newlib, rv32imac default)
 #   valgrind, time             optional CPU-independent / RSS measurement helpers
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -72,6 +74,20 @@ RUN GO_VERSION=1.25.11 && ARCH="$(dpkg --print-architecture)" \
     && tar -C /usr/local -xzf /tmp/go.tgz \
     && rm /tmp/go.tgz \
     && go version
+
+# --- xpack riscv-none-elf-gcc (bare-metal RISC-V C++ toolchain) ---------------
+# Ubuntu's gcc-riscv64-unknown-elf ships picolibc but NO bare-metal libstdc++,
+# so the cpp-riscv footprint target uses the xpack distribution (newlib +
+# libstdc++; rv32imac/ilp32 is its default multilib). GCC 13.4 — same series as
+# the apt cross compilers. Pinned; arch derived (x64/arm64).
+ENV PATH=$PATH:/opt/xpack-riscv-none-elf-gcc-13.4.0-1/bin
+RUN XPACK_V=13.4.0-1 && case "$(dpkg --print-architecture)" in \
+        amd64) XA=x64;; arm64) XA=arm64;; *) XA=x64;; esac \
+    && curl -fsSL "https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_V}/xpack-riscv-none-elf-gcc-${XPACK_V}-linux-${XA}.tar.gz" \
+        -o /tmp/xpack-riscv.tgz \
+    && tar -C /opt -xzf /tmp/xpack-riscv.tgz \
+    && rm /tmp/xpack-riscv.tgz \
+    && riscv-none-elf-g++ --version | head -1
 
 # --- protoc-gen-go (Go protobuf plugin) --------------------------------------
 ENV GOPATH=/root/go PATH=/root/go/bin:$PATH
