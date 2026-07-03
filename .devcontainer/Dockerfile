@@ -18,14 +18,17 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   default-jdk + maven        Java target (SofaBuffers corelib-java + protobuf-java)
 #   (Go tarball)               Go target — official 1.25.x baked below
 #                              (apt's golang-go is 1.22, too old for protobuf-go v1.36)
-#   (rustup)                   Rust target (SofaBuffers corelib-rs + prost)
+#   (rustup)                   Rust target (SofaBuffers corelib-rs + prost); adds
+#                                thumbv7em/riscv32imac std libs for the no_std
+#                                staticlibs of the rust bare-metal footprint targets
 #   (dotnet 9)                 C# target (SofaBuffers corelib-cs + Google.Protobuf)
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
-#   gcc-arm-none-eabi          bare-metal Cortex-M cross toolchain (c-cortex-m /
-#     + libnewlib + libstdc++    cpp-cortex-m footprint targets: --gc-sections
+#   gcc-arm-none-eabi          bare-metal Cortex-M cross toolchain (c/cpp/rust-
+#     + libnewlib + libstdc++    cortex-m footprint targets: --gc-sections
 #                                link-delta builds; binaries are never executed)
-#   gcc-riscv64-unknown-elf    bare-metal RISC-V cross toolchain (c-riscv target,
-#     + picolibc                 rv32imac multilib; C only — no bare-metal libstdc++)
+#   gcc-riscv64-unknown-elf    bare-metal RISC-V cross toolchain (c-riscv +
+#     + picolibc                 rust-riscv targets, rv32imac multilib; no C++ —
+#                                no bare-metal libstdc++ packaged)
 #   valgrind, time             optional CPU-independent / RSS measurement helpers
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -46,6 +49,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:/usr/local/dotnet:$PATH
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --profile minimal --default-toolchain stable \
+    && rustup target add thumbv7em-none-eabihf riscv32imac-unknown-none-elf \
     && rustc --version
 
 # --- .NET SDK 9 ---------------------------------------------------------------

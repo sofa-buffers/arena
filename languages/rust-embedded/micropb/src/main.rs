@@ -8,12 +8,8 @@
 //
 // The harness itself uses std (timing/hash/env); the codec crate (micropb +
 // the generated module) is no_std, no-alloc.
-mod proto {
-    #![allow(clippy::all, dead_code, non_snake_case, non_camel_case_types, unused)]
-    include!(concat!(env!("OUT_DIR"), "/message.rs"));
-}
-
 use micropb::{MessageDecode, MessageEncode, PbEncoder};
+use micropb_msgs::proto;
 use proto::fullscale_::{
     FullScaleExample, FullScaleSeqArrayOfStrings, FullScaleSeqStruct, FullScaleSeqStructOfArrays,
     FullScaleSeqStructOfFpArrays,

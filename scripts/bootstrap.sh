@@ -27,11 +27,13 @@ for r in $CORELIBS; do
     fi
 done
 
-# v0.6.0 is the first release whose codegen emits the Rust/Java/C#/Go decode
-# perf optimizations natively (previously re-applied as per-language *.patch by
-# languages/*/setup.sh). Must match the generator release tag that carries the
-# fold — bump together if it is cut under a different number.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.7.0}"
+# v0.6.0 folded the Rust/Java/C#/Go decode perf patches into codegen; v0.7.0
+# added the cpp fixed-capacity (FixedString) profile; v0.8.0 moved
+# FixedBytes/InlineVector into corelib-c-cpp (needs a fresh corelib clone);
+# v0.9.0 makes `corelib: rs-no-std` emit genuinely no_std, heap-free Rust
+# (enables the rust bare-metal footprint targets). Bump together with whatever
+# generated-code contract the targets rely on.
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.9.0}"
 
 # --- host os/arch -> release asset name (mirrors the old CMake logic) ---------
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
