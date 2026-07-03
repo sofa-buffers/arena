@@ -5,7 +5,9 @@
 <b>Structured Objects For Anyone</b><br>
 <i>... so optimized, feels amazing.</i>
 
-## Overview
+## Arena
+
+[![arena](https://github.com/sofa-buffers/arena/actions/workflows/arena.yml/badge.svg)](https://github.com/sofa-buffers/arena/actions/workflows/arena.yml)
 
 This is a **multi-language benchmark arena**: it builds **SofaBuffers** and a
 serialization baseline against one identical message and measures who is leanest
