@@ -13,6 +13,83 @@ namespace fullscale {
 
 #ifndef SOFABUFFERS_GEN_PRELUDE
 #define SOFABUFFERS_GEN_PRELUDE
+template <std::size_t N>
+struct FixedBytes {
+    std::array<std::uint8_t, N> buf{};
+    std::size_t len_ = 0;
+    FixedBytes() = default;
+    FixedBytes(std::initializer_list<std::uint8_t> init) noexcept {
+        for (auto b : init) { if (len_ >= N) break; buf[len_++] = b; }
+    }
+    std::uint8_t *data() noexcept { return buf.data(); }
+    const std::uint8_t *data() const noexcept { return buf.data(); }
+    std::size_t size() const noexcept { return len_; }
+    void set_len(std::size_t n) noexcept { len_ = n < N ? n : N; }
+    void clear() noexcept { len_ = 0; }
+    void push_back(std::uint8_t b) noexcept { if (len_ < N) buf[len_++] = b; }
+    bool operator==(const FixedBytes &o) const noexcept {
+        if (len_ != o.len_) return false;
+        for (std::size_t i = 0; i < len_; ++i) { if (buf[i] != o.buf[i]) return false; }
+        return true;
+    }
+    bool operator!=(const FixedBytes &o) const noexcept { return !(*this == o); }
+};
+template <typename T, std::size_t N>
+struct InlineVector {
+    std::array<T, N> buf{};
+    std::size_t len_ = 0;
+    std::size_t size() const noexcept { return len_; }
+    static constexpr std::size_t capacity() noexcept { return N; }
+    void reserve(std::size_t) noexcept {}
+    void clear() noexcept { len_ = 0; }
+    T &emplace_back() noexcept {
+        std::size_t i = len_ < N ? len_++ : N - 1;
+        buf[i] = T{};
+        return buf[i];
+    }
+    void push_back(const T &v) noexcept { emplace_back() = v; }
+    void push_back(T &&v) noexcept { emplace_back() = static_cast<T &&>(v); }
+    T &back() noexcept { return buf[len_ - 1]; }
+    T &operator[](std::size_t i) noexcept { return buf[i]; }
+    const T &operator[](std::size_t i) const noexcept { return buf[i]; }
+    T *data() noexcept { return buf.data(); }
+    const T *data() const noexcept { return buf.data(); }
+    T *begin() noexcept { return buf.data(); }
+    T *end() noexcept { return buf.data() + len_; }
+    const T *begin() const noexcept { return buf.data(); }
+    const T *end() const noexcept { return buf.data() + len_; }
+    bool operator==(const InlineVector &o) const noexcept {
+        if (len_ != o.len_) return false;
+        for (std::size_t i = 0; i < len_; ++i) { if (!(buf[i] == o.buf[i])) return false; }
+        return true;
+    }
+    bool operator!=(const InlineVector &o) const noexcept { return !(*this == o); }
+};
+template <typename Container>
+struct _MsgSeqFixed : sofab::IStreamMessage {
+    Container *out = nullptr;
+    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t, std::size_t) noexcept override {
+        is.read(out->emplace_back());
+    }
+};
+template <typename Container>
+struct _FixedBlobSeq : sofab::IStreamMessage {
+    Container *out = nullptr;
+    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t _size, std::size_t) noexcept override {
+        auto &b = out->emplace_back();
+        b.set_len(_size);
+        if (_size) is.read(b.data(), _size);
+    }
+};
+template <typename Container>
+struct _FixedStrSeq : sofab::IStreamMessage {
+    Container *out = nullptr;
+    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t _size, std::size_t) noexcept override {
+        auto &s = out->emplace_back();
+        s.set_len(_size);
+        if (_size) is.read(s);
+    }
+};
 template <typename T>
 struct _MsgSeq : sofab::IStreamMessage {
     std::vector<T> *out = nullptr;
@@ -25,15 +102,15 @@ struct _MsgSeq : sofab::IStreamMessage {
 
 struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
     double f64 = 0.0;
-    std::string str = "";
-    std::vector<std::uint8_t> bytes_field = {};
+    sofab::FixedString<32> str = "";
+    FixedBytes<4> bytes_field = {};
     float f32 = 0.0f;
 
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (f32 != 0.0f) { (void)os.write(0, f32); }
         if (f64 != 0.0) { (void)os.write(1, f64); }
         if (str != "") { (void)os.write(2, str); }
-        if (bytes_field != std::vector<std::uint8_t>{}) { (void)os.write(3, bytes_field.data(), static_cast<std::int32_t>(bytes_field.size())); }
+        if (bytes_field != FixedBytes<4>{}) { (void)os.write(3, bytes_field.data(), static_cast<std::int32_t>(bytes_field.size())); }
         return os.writeIf(0, false, false);
     }
 
@@ -46,10 +123,10 @@ struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
             is.read(f64);
             break;
         case 2:
-            str.assign(_size, '\0'); if (_size) is.read(str);
+            str.set_len(_size); if (_size) is.read(str);
             break;
         case 3:
-            bytes_field.resize(_size); is.read(bytes_field.data(), _size);
+            bytes_field.set_len(_size); is.read(bytes_field.data(), _size);
             break;
         default: break;
         }
@@ -163,7 +240,7 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
     std::int64_t i64 = 0;
     ExampleNested nested = {};
     ExampleArrays arrays = {};
-    std::vector<std::string> string_array = {};
+    InlineVector<sofab::FixedString<64>, 5> string_array = {};
     std::uint32_t u32 = 0;
     std::int32_t i32 = 0;
     std::uint16_t u16 = 0;
@@ -176,6 +253,14 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
         sofab::OStreamInline<_maxSize> os;
         serialize(os);
         return std::vector<std::uint8_t>(os.data(), os.data() + os.bytesUsed());
+    }
+    std::size_t encodeTo(std::uint8_t *dst, std::size_t cap) const noexcept {
+        sofab::OStreamInline<_maxSize> os;
+        serialize(os);
+        std::size_t n = os.bytesUsed();
+        if (n > cap) { return 0; }
+        for (std::size_t i = 0; i < n; ++i) { dst[i] = os.data()[i]; }
+        return n;
     }
     static Example decode(const std::uint8_t *data, std::size_t len) {
         sofab::IStreamObject<Example> in;
@@ -233,7 +318,7 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
             is.read(arrays);
             break;
         case 200:
-            is.read(string_array);
+            { static _FixedStrSeq<InlineVector<sofab::FixedString<64>, 5>> _r0; _r0.out = &string_array; is.read(_r0); }
             break;
         default: break;
         }

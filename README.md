@@ -131,13 +131,13 @@ protobuf-family baseline emits the same **494-byte** wire.
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 436 | 494 | 336.3 | 236.2 | **1.13×** | **1.42×** |
-| Rust       | 436 | 494 | 353.4 | 245.7 | **1.13×** | **1.44×** |
-| Go         | 436 | 494 | 141.2 | 140.4 | **1.13×** | **1.01×** |
-| C#         | 436 | 494 | 122.4 | 135.6 | **1.13×** | 0.90× |
-| Java       | 436 | 494 | 231.1 | 282.4 | **1.13×** | 0.82× |
-| TypeScript | 436 | 494 |  50.8 |  62.4 | **1.13×** | 0.81× |
-| Python     | 436 | 494 |  21.1 | 193.3 | **1.13×** | 0.11× |
+| C++        | 436 | 494 | 321.7 | 234.5 | **1.13×** | **1.37×** |
+| Rust       | 436 | 494 | 349.8 | 248.5 | **1.13×** | **1.41×** |
+| Go         | 436 | 494 | 138.1 | 138.9 | **1.13×** | 0.99× |
+| C#         | 436 | 494 | 119.4 | 133.9 | **1.13×** | 0.89× |
+| Java       | 436 | 494 | 232.3 | 276.0 | **1.13×** | 0.84× |
+| TypeScript | 436 | 494 |  49.5 |  61.3 | **1.13×** | 0.81× |
+| Python     | 436 | 494 |  20.7 | 193.2 | **1.13×** | 0.11× |
 
 *size adv = protobuf_bytes / sofab_bytes (>1 → SofaBuffers smaller). speed adv =
 sofab_MBps / protobuf_MBps (>1 → SofaBuffers faster). Throughput is **best-of-5**
@@ -152,8 +152,8 @@ host); VM targets use portable GC/JIT tuning — identical for both impls in a r
 | **c-embedded** | sofab | 434 | **5 918** | 1 382 | 192 | 1.00× |
 | | nanopb | 494 | 9 621 | 1 057 | 248 | 1.63× |
 | | protobuf-c | 494 | 26 267 | 4 015 | 2 632 | 4.44× |
-| **cpp-embedded** | sofab | 436 | 12 187 | 1 597 | 592 | 1.00× |
-| | **embeddedproto** | 494 | **3 276** | 261 | 352 | **0.27×** |
+| **cpp-embedded** | sofab | 436 | 10 151 | 1 572 | 712 | 1.00× |
+| | **embeddedproto** | 494 | **3 276** | 261 | 352 | **0.32×** |
 | **rust-embedded** | sofab | 436 | — | — | — | *(pending ARM)* |
 | | micropb | 494 | — | — | — | |
 
@@ -169,12 +169,12 @@ means the baseline carries more code than SofaBuffers.*
   generated per-message code and its data model *above* the byte codec. Those fixes
   now ship natively in **sofabgen v0.6.0** (full analysis:
   [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md)).
-  - **C++ 1.42× and Rust 1.44× — SofaBuffers *beats* protobuf.** Lean wire + fixed
+  - **C++ 1.37× and Rust 1.41× — SofaBuffers *beats* protobuf.** Lean wire + fixed
     stack arrays + a direct switch-into-fields decode, vectorized under
     `-O3 -march=native -flto` / `target-cpu=native` + LTO.
-  - **Go: 1.01× — parity** (was 0.40×): decode via the corelib's zero-copy cursor
+  - **Go: ~parity (0.99×)** (was 0.40×): decode via the corelib's zero-copy cursor
     instead of a byte-at-a-time reader, plus a byte-slice encoder.
-  - **C# 0.90×, Java 0.82×, TypeScript 0.81× — close** (were 0.79× / 0.65× / 0.66×):
+  - **C# 0.89×, Java 0.84×, TypeScript 0.81× — close** (were 0.79× / 0.65× / 0.66×):
     primitive fixed arrays instead of boxed/heap collections, single-shot string
     decode, and for TS a monomorphic decoder + allocation-free UTF-8 encode. The
     residual gap tracks per-VM runtime maturity, not the format.
@@ -185,10 +185,11 @@ means the baseline carries more code than SofaBuffers.*
 - **Embedded: SofaBuffers wins in C, loses the C++ wrapper — honestly.**
   - **C:** the SofaBuffers object API has the **smallest codec** — **5.9 KB `.text`**,
     ~1.6× under nanopb and ~4.4× under `protobuf-c` (which also needs a heap).
-  - **cpp-embedded:** **EmbeddedProto is smaller** (3.3 KB) than the SofaBuffers C++
-    wrapper (12.2 KB, **0.27×**). The wrapper's C++ template layer over the C object
-    API costs code; EmbeddedProto is purpose-built for minimal `.text`. A real
-    result, reported as-is.
+  - **cpp-embedded:** **EmbeddedProto is still smaller** (3.3 KB) than the SofaBuffers
+    C++ wrapper (**10.2 KB**, down from 12.2 KB via sofabgen v0.7.0's fixed-capacity
+    `FixedString`/`InlineVector` profile — heap-free inline containers; **0.32×**). The
+    wrapper's C++ template layer over the C object API still costs code; EmbeddedProto
+    is purpose-built for minimal `.text`. A real result, reported as-is.
   - **rust-embedded:** wire + throughput land (sofab `corelib-rs-no-std` vs micropb,
     both no_std/no-alloc); the **footprint number is deferred** to the bare-metal
     metric — a host object-sum for Rust is std-dominated and not a codec comparison.

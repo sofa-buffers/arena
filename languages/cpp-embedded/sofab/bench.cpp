@@ -81,13 +81,15 @@ void fill(Example &m)
         m.arrays.nested.fp64[i] = fp64v[i];
     }
 
-    m.string_array = {
-        "Hello, Sofab!",
-        "",
-        "1234567890",
-        "\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F", // "äöüÄÖÜß"
-        "This_is_a_very_long_test_string_with_!@#$%^&*()_+-=[]{}",
-    };
+    // NOTE: string_array is an InlineVector<FixedString<64>,5> in the fixed-capacity
+    // (corelib: c-cpp) profile; `= { ... }` compiles but leaves its logical length 0
+    // (no initializer_list ctor), so fill via push_back to set the length correctly.
+    m.string_array.clear();
+    m.string_array.push_back("Hello, Sofab!");
+    m.string_array.push_back("");
+    m.string_array.push_back("1234567890");
+    m.string_array.push_back("\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F"); // "äöüÄÖÜß"
+    m.string_array.push_back("This_is_a_very_long_test_string_with_!@#$%^&*()_+-=[]{}");
 }
 
 } // namespace
