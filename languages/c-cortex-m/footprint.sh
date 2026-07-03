@@ -12,7 +12,7 @@
 #     exactly the flash/RAM the codec adds to an application, including any libc
 #     routines (memcpy, ...) only the codec pulls in.
 #   * Target: cortex-m4 hard-float (thumb/v7e-m+fp), newlib-nano + nosys stubs,
-#     -Os -DNDEBUG (release firmware build: asserts stripped) -ffunction-sections
+#     -Os -flto -DNDEBUG (release firmware build: asserts stripped) -ffunction-sections
 #     -fdata-sections.
 #   * The driver calls the real encode+decode entry points (through a volatile
 #     sink so nothing is optimized away); its own buffers/state live in a custom
@@ -28,7 +28,7 @@ GEN_NANOPB="$ROOT/languages/c-embedded/nanopb/gen"
 
 CC=arm-none-eabi-gcc
 CFLAGS="-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-        -Os -DNDEBUG -ffunction-sections -fdata-sections -std=c99"
+        -Os -flto -DNDEBUG -ffunction-sections -fdata-sections -std=c99"
 LDFLAGS="--specs=nano.specs --specs=nosys.specs -Wl,--gc-sections"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

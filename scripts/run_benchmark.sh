@@ -183,12 +183,14 @@ echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smalle
 echo "  speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)"
 fi
 
-# ============================ embedded: three tables ==========================
-# Host-run embedded targets (they emit BENCH lines) get a maxspeed-STYLE
-# throughput table of their own — the impls are embedded-friendly (fixed
-# capacity, -Os), so speed is informational here, not the ranking metric.
-# Footprint is then reported per methodology: host object-sum vs bare-metal
-# link delta (targets without BENCH data are the build-only cross targets).
+# ============================ embedded: two tables ============================
+# Host-run embedded targets (they emit BENCH lines) get a throughput table with
+# the IDENTICAL columns as MAXSPEED — kept separate because the impls are
+# embedded-friendly (fixed capacity, -Os), so speed is informational here, not
+# the ranking metric. Footprint is the bare-metal --gc-sections link delta
+# (targets without BENCH data are the build-only cross targets); the host
+# object-sum lines are still emitted/collected but no longer tabulated (raw
+# data in results/raw/) — the link delta is the number that matters.
 embedded_langs="$(langs_in embedded)"
 emb_host=""; emb_metal=""
 for lang in $embedded_langs; do
@@ -200,73 +202,53 @@ if [ -n "$emb_host" ]; then
 echo
 echo "================================================================================"
 echo " EMBEDDED — throughput (host build of the embedded codecs)"
-echo "   same message/values as maxspeed, but embedded-friendly impls (-Os, fixed"
-echo "   capacity): speed is an interesting factor, NOT the ranking metric."
-echo "   MB/s is within-target only — never compare rows."
+echo "   same message/values/columns as MAXSPEED, but embedded-friendly impls (-Os,"
+echo "   fixed capacity): speed is an interesting factor, NOT the ranking metric."
+echo "   MB/s is within-row only — never compare rows."
 echo "================================================================================"
-printf "  %-13s %-13s | %14s | %20s | %20s\n" "target" "vs baseline" "wire size (B)" "throughput MB/s" "sofab advantage"
-printf "  %-13s %-13s | %6s %7s | %9s %10s | %8s %11s\n" "" "" "sofab" "base" "sofab" "base" "size" "speed"
-printf '  '; printf -- '-%.0s' $(seq 1 80); printf '\n'
+printf "  %-29s | %14s | %20s | %20s\n" "target vs baseline" "wire size (B)" "throughput MB/s" "sofab advantage"
+printf "  %-29s | %6s %7s | %9s %10s | %8s %11s\n" "" "sofab" "proto" "sofab" "proto" "size" "speed"
+printf '  '; printf -- '-%.0s' $(seq 1 94); printf '\n'
 for lang in $emb_host; do
     ss="${SER[$lang,sofab]:-}"; sm="$(mbps "$lang,sofab")"
-    first=1
     for impl in $(ordered_impls "$lang"); do
         [ "$impl" = sofab ] && continue
         ps="${SER[$lang,$impl]:-}"; pm="$(mbps "$lang,$impl")"
         [ -z "$ps$pm" ] && continue
-        printf "  %-13s %-13s | %6s %7s | %9s %10s | %7sx %10sx\n" \
-            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" \
+        printf "  %-29s | %6s %7s | %9s %10s | %7sx %10sx\n" \
+            "$lang vs $impl" \
             "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" \
             "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")"
-        first=0
     done
 done
 fi
 
-# ---- embedded table 2: host object-sum footprint -----------------------------
-print_footprint_rows() {   # <langs...> — footprint rows for the given targets
-    local lang impl st t r ram tvs first
-    printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
-        "target" "impl" ".text" ".rodata" "static-RAM" ".text vs sofab"
-    printf '  '; printf -- '-%.0s' $(seq 1 72); printf '\n'
-    for lang in "$@"; do
-        st="${TEXT[$lang,sofab]:-}"
-        first=1
-        for impl in $(ordered_impls "$lang"); do
-            t="${TEXT[$lang,$impl]:-}"; [ -n "$t" ] || continue
-            r="${RODATA[$lang,$impl]:-–}"
-            ram="$(awk -v d="${DATA[$lang,$impl]:-0}" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
-            if [ "$impl" = sofab ]; then tvs="1.00x"; elif [ -n "$st" ]; then tvs="$(ratio "$t" "$st")x"; else tvs="–"; fi
-            printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
-                "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$ram" "$tvs"
-            first=0
-        done
-    done
-}
-
-# shellcheck disable=SC2086
-if [ -n "$emb_host" ]; then
-echo
-echo "================================================================================"
-echo " EMBEDDED — code footprint, host object-sum (isolated codec, -Os, no libc)"
-echo "   sum of each library's OWN object sections; counts the whole library, so it"
-echo "   over-counts generic runtimes vs --gc-sections. bytes; LOWER is better."
-echo "   static-RAM = .data + .bss.  '.text vs sofab' >1 means the baseline is fatter."
-echo "================================================================================"
-print_footprint_rows $emb_host
-fi
-
-# ---- embedded table 3: bare-metal link-delta footprint ------------------------
-# shellcheck disable=SC2086
+# ---- embedded table 2: bare-metal link-delta footprint ------------------------
 if [ -n "$emb_metal" ]; then
 echo
 echo "================================================================================"
 echo " EMBEDDED — code footprint, bare-metal --gc-sections link delta"
-echo "   codec program minus empty baseline, cross-compiled -Os -DNDEBUG (Rust:"
-echo "   no_std staticlib, opt-level=z, LTO) — the flash/RAM the codec actually adds"
-echo "   to real firmware. Build-only, never executed. bytes; LOWER is better."
+echo "   codec program minus empty baseline, cross-compiled -Os -flto -DNDEBUG"
+echo "   (Rust: no_std staticlib, opt-level=z, LTO) — the flash/RAM the codec"
+echo "   actually adds to real firmware. Build-only, never executed. bytes; LOWER"
+echo "   is better. static-RAM = .data + .bss. '.text vs sofab' >1: baseline fatter."
 echo "================================================================================"
-print_footprint_rows $emb_metal
+printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
+    "target" "impl" ".text" ".rodata" "static-RAM" ".text vs sofab"
+printf '  '; printf -- '-%.0s' $(seq 1 72); printf '\n'
+for lang in $emb_metal; do
+    st="${TEXT[$lang,sofab]:-}"
+    first=1
+    for impl in $(ordered_impls "$lang"); do
+        t="${TEXT[$lang,$impl]:-}"; [ -n "$t" ] || continue
+        r="${RODATA[$lang,$impl]:-–}"
+        ram="$(awk -v d="${DATA[$lang,$impl]:-0}" -v b="${BSS[$lang,$impl]:-0}" 'BEGIN{printf "%d", d+b}')"
+        if [ "$impl" = sofab ]; then tvs="1.00x"; elif [ -n "$st" ]; then tvs="$(ratio "$t" "$st")x"; else tvs="–"; fi
+        printf "  %-14s %-13s | %8s %8s %11s | %13s\n" \
+            "$([ "$first" = 1 ] && echo "$lang" || echo "")" "$impl" "$t" "$r" "$ram" "$tvs"
+        first=0
+    done
+done
 fi
 
 # ------------------------------------------------------------------- status
