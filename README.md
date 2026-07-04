@@ -141,9 +141,7 @@ tables below.
 ## Results
 
 Every target passes the byte-identity gate: all SofaBuffers targets emit the same
-**434-byte** wire (since sofabgen v0.11.0 every backend sparsely omits default
-wrapper-array elements — the C object API and every other corelib now agree to the
-byte; see note), and every protobuf-family baseline emits the same **494-byte** wire.
+**434-byte** wire, and every protobuf-family baseline emits the same **494-byte** wire.
 
 ### Maxspeed — throughput
 
@@ -228,14 +226,6 @@ less flash than the smallest protobuf alternative).*
   with less static RAM, no heap, and — even built for size — more throughput than
   any of them. *(A naïve object-sum flatters template-heavy libraries by counting
   code `--gc-sections` later discards; the link-delta counts only what ships.)*
-
-> **Note — the SofaBuffers wire is 434 B everywhere.** As of sofabgen v0.11.0 every
-> backend sparsely omits a wrapper-array element equal to its default (here the one
-> empty string in `string_array`), so all targets — the C object API (`corelib-c-cpp`),
-> its C++ wrapper, and every managed/desktop corelib — emit the identical 434-byte
-> wire. Previously only the C object API dropped that element (434 B); the others
-> encoded it positionally and were 436 B. The gate now checks every sofab target
-> against the one 434-byte reference.
 
 > **Note — why Python is slowest (0.10×), and it's *not* a fallback.** Python trails
 > because protobuf-python is a thin shell over Google's C **`upb`** engine while
