@@ -19,13 +19,6 @@ mkdir -p tools vendor
 
 # --- SofaBuffers corelibs (one per language backend) --------------------------
 CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-no-std corelib-java corelib-cs corelib-ts"
-for r in $CORELIBS; do
-    if [ ! -d "vendor/$r" ]; then
-        echo "==> cloning $r"
-        git clone --depth 1 "https://github.com/sofa-buffers/$r.git" "vendor/$r" >/dev/null 2>&1 \
-            || { echo "!! failed to clone $r"; exit 1; }
-    fi
-done
 
 # v0.6.0 folded the Rust/Java/C#/Go decode perf patches into codegen; v0.7.0
 # added the cpp fixed-capacity (FixedString) profile; v0.8.0 moved
@@ -38,6 +31,27 @@ done
 # so every sofab wire converges on one length. Bump together with whatever
 # generated-code contract the targets rely on.
 SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.11.0}"
+
+# A version bump must invalidate BOTH the prebuilt sofabgen binary and the
+# corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
+# stale corelib silently produces the wrong wire. The clone/download guards
+# below are purely presence-based, so without this stamp a checkout that already
+# ran an older bootstrap would keep serving the old toolchain. Re-run bootstrap
+# after bumping SOFABGEN_VERSION and the stamp mismatch forces a clean refresh.
+STAMP="tools/.sofabgen-version"
+if [ "$(cat "$STAMP" 2>/dev/null || true)" != "$SOFABGEN_VERSION" ]; then
+    [ -x tools/sofabgen ] && echo "==> sofabgen version -> $SOFABGEN_VERSION; refreshing binary + corelibs"
+    rm -f tools/sofabgen
+    for r in $CORELIBS; do rm -rf "vendor/$r"; done
+fi
+
+for r in $CORELIBS; do
+    if [ ! -d "vendor/$r" ]; then
+        echo "==> cloning $r"
+        git clone --depth 1 "https://github.com/sofa-buffers/$r.git" "vendor/$r" >/dev/null 2>&1 \
+            || { echo "!! failed to clone $r"; exit 1; }
+    fi
+done
 
 # --- host os/arch -> release asset name (mirrors the old CMake logic) ---------
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -64,6 +78,8 @@ if [ ! -x tools/sofabgen ]; then
     curl -fsSL "${AUTH[@]}" "$URL" -o tools/sofabgen
     chmod +x tools/sofabgen
 fi
+# Stamp the resolved version so a future bump (and only a bump) forces a refresh.
+echo "$SOFABGEN_VERSION" > "$STAMP"
 echo "==> sofabgen: $(tools/sofabgen -version 2>/dev/null || echo present)"
 
 # --- python venv for the protobuf compiler + runtime --------------------------
