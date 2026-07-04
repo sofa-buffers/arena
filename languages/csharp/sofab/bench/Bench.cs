@@ -29,21 +29,21 @@ static class Program {
             string_array = new List<string>(),
         };
         var a = m.arrays;
-        a.u8.AddRange(new byte[] { 0, 64, 128, 191, 255 });
-        a.i8.AddRange(new sbyte[] { -128, -64, 0, 63, 127 });
-        a.u16.AddRange(new ushort[] { 0, 16384, 32768, 49151, 65535 });
-        a.i16.AddRange(new short[] { -32768, -16384, 0, 16383, 32767 });
-        a.u32.AddRange(new uint[] { 0, 1073741824, 2147483648, 3221225471, 4294967295 });
-        a.i32.AddRange(new int[] { -2147483648, -1073741824, 0, 1073741823, 2147483647 });
-        a.u64.AddRange(new ulong[] {
+        a.u8 = new byte[] { 0, 64, 128, 191, 255 };
+        a.i8 = new sbyte[] { -128, -64, 0, 63, 127 };
+        a.u16 = new ushort[] { 0, 16384, 32768, 49151, 65535 };
+        a.i16 = new short[] { -32768, -16384, 0, 16383, 32767 };
+        a.u32 = new uint[] { 0, 1073741824, 2147483648, 3221225471, 4294967295 };
+        a.i32 = new int[] { -2147483648, -1073741824, 0, 1073741823, 2147483647 };
+        a.u64 = new ulong[] {
             0, 4611686018427387904, 9223372036854775808,
-            13835058055282163711, 18446744073709551615 });
-        a.i64.AddRange(new long[] {
+            13835058055282163711, 18446744073709551615 };
+        a.i64 = new long[] {
             -9223372036854775807, -4611686018427387904, 0,
-            4611686018427387903, 9223372036854775807 });
+            4611686018427387903, 9223372036854775807 };
         a.nested = new ExampleArraysNested();
-        a.nested.fp32.AddRange(new float[] { 1f, 2f, 3f, -float.MaxValue, float.MaxValue });
-        a.nested.fp64.AddRange(new double[] { 1d, 2d, 3d, -double.MaxValue, double.MaxValue });
+        a.nested.fp32 = new float[] { 1f, 2f, 3f, -float.MaxValue, float.MaxValue };
+        a.nested.fp64 = new double[] { 1d, 2d, 3d, -double.MaxValue, double.MaxValue };
         m.string_array.AddRange(new string[] {
             "Hello, Sofab!", "", "1234567890", "äöüÄÖÜß",
             "This_is_a_very_long_test_string_with_!@#$%^&*()_+-=[]{}" });

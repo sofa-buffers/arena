@@ -28,9 +28,12 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # defaults as a const image on the C path (non-zero defaults honored); v0.11.0
 # sparsely omits default string/blob wrapper-array elements across all backends
 # (needs fresh corelibs whose decoders place elements by id, not arrival order),
-# so every sofab wire converges on one length. Bump together with whatever
-# generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.11.0}"
+# so every sofab wire converges on one length; v0.12.0 emits allocation-light
+# Java/C# code — thread-local encode scratch buffers, and C# native numeric/fp
+# array fields become primitive T[] instead of List<T> (the csharp bench fill
+# uses array syntax; pairs with the corelib-java/-cs hot-path releases). Bump
+# together with whatever generated-code contract the targets rely on.
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.12.0}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a

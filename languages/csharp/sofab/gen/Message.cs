@@ -7,55 +7,55 @@ using sofab;
 namespace Sofabuffers;
 
 public sealed class ExampleArrays {
-    public List<byte> u8 = new();
-    public List<sbyte> i8 = new();
-    public List<ushort> u16 = new();
-    public List<short> i16 = new();
-    public List<uint> u32 = new();
-    public List<int> i32 = new();
-    public List<ulong> u64 = new();
-    public List<long> i64 = new();
+    public byte[] u8 = Array.Empty<byte>();
+    public sbyte[] i8 = Array.Empty<sbyte>();
+    public ushort[] u16 = Array.Empty<ushort>();
+    public short[] i16 = Array.Empty<short>();
+    public uint[] u32 = Array.Empty<uint>();
+    public int[] i32 = Array.Empty<int>();
+    public ulong[] u64 = Array.Empty<ulong>();
+    public long[] i64 = Array.Empty<long>();
     public ExampleArraysNested nested = new();
 
     public void Marshal(OStream os) {
-        if (this.u8.Count != 0) {
-            os.WriteArrayUnsigned(0, this.u8.ToArray());
+        if (this.u8 != null && this.u8.Length != 0) {
+            os.WriteArrayUnsigned(0, this.u8);
         }
-        if (this.i8.Count != 0) {
-            os.WriteArraySigned(1, this.i8.ToArray());
+        if (this.i8 != null && this.i8.Length != 0) {
+            os.WriteArraySigned(1, this.i8);
         }
-        if (this.u16.Count != 0) {
-            os.WriteArrayUnsigned(2, this.u16.ToArray());
+        if (this.u16 != null && this.u16.Length != 0) {
+            os.WriteArrayUnsigned(2, this.u16);
         }
-        if (this.i16.Count != 0) {
-            os.WriteArraySigned(3, this.i16.ToArray());
+        if (this.i16 != null && this.i16.Length != 0) {
+            os.WriteArraySigned(3, this.i16);
         }
-        if (this.u32.Count != 0) {
-            os.WriteArrayUnsigned(4, this.u32.ToArray());
+        if (this.u32 != null && this.u32.Length != 0) {
+            os.WriteArrayUnsigned(4, this.u32);
         }
-        if (this.i32.Count != 0) {
-            os.WriteArraySigned(5, this.i32.ToArray());
+        if (this.i32 != null && this.i32.Length != 0) {
+            os.WriteArraySigned(5, this.i32);
         }
-        if (this.u64.Count != 0) {
-            os.WriteArrayUnsigned(6, this.u64.ToArray());
+        if (this.u64 != null && this.u64.Length != 0) {
+            os.WriteArrayUnsigned(6, this.u64);
         }
-        if (this.i64.Count != 0) {
-            os.WriteArraySigned(7, this.i64.ToArray());
+        if (this.i64 != null && this.i64.Length != 0) {
+            os.WriteArraySigned(7, this.i64);
         }
         os.WriteSequenceBegin(10); (this.nested ?? new ExampleArraysNested()).Marshal(os); os.WriteSequenceEnd();
     }
 }
 
 public sealed class ExampleArraysNested {
-    public List<float> fp32 = new();
-    public List<double> fp64 = new();
+    public float[] fp32 = Array.Empty<float>();
+    public double[] fp64 = Array.Empty<double>();
 
     public void Marshal(OStream os) {
-        if (this.fp32.Count != 0) {
-            os.WriteArrayFp32(0, this.fp32.ToArray());
+        if (this.fp32 != null && this.fp32.Length != 0) {
+            os.WriteArrayFp32(0, this.fp32);
         }
-        if (this.fp64.Count != 0) {
-            os.WriteArrayFp64(1, this.fp64.ToArray());
+        if (this.fp64 != null && this.fp64.Length != 0) {
+            os.WriteArrayFp64(1, this.fp64);
         }
     }
 }
@@ -70,7 +70,7 @@ public sealed class ExampleNested {
         if (this.f32 != 0) { os.WriteFp32(0, this.f32); }
         if (this.f64 != 0) { os.WriteFp64(1, this.f64); }
         if (this.str != "") { os.WriteString(2, this.str ?? ""); }
-        if (!System.Linq.Enumerable.SequenceEqual(this.bytes_field ?? Array.Empty<byte>(), Array.Empty<byte>())) { os.WriteBlob(3, this.bytes_field ?? Array.Empty<byte>()); }
+        if (this.bytes_field != null && this.bytes_field.Length != 0) { os.WriteBlob(3, this.bytes_field); }
     }
 }
 
@@ -106,8 +106,13 @@ public sealed class Example {
         os.WriteSequenceEnd();
     }
     public const int MaxSize = 1011;
+    // Per-thread scratch buffer: Encode() marshals into it and returns an
+    // exact-size copy, so the worst-case buffer is not re-allocated (and
+    // zeroed) on every call. Do not call Encode() reentrantly from a
+    // Marshal() override on the same thread.
+    [ThreadStatic] private static byte[] _encScratch;
     public byte[] Encode() {
-        var buf = new byte[MaxSize];
+        var buf = _encScratch ??= new byte[MaxSize];
         var os = new OStream(buf);
         Marshal(os);
         var outp = new byte[os.BytesUsed];
@@ -125,8 +130,10 @@ public sealed class Example {
 internal sealed class ExampleVisitor : IVisitor {
     private readonly Example m;
     private int cur = 0;
-    private readonly Stack<int> stack = new();
-    private readonly List<byte> acc = new();
+    private int ai = 0;                // index into the primitive array currently being filled
+    private int[] stk = new int[16];   // sequence scope stack (unboxed, was Stack<int>)
+    private int sp = 0;
+    private List<byte> acc;            // lazy: only split string/blob payloads need it
     public ExampleVisitor(Example msg) { m = msg; }
     private const int Root = 0;
     private const int Root_nested = 1;
@@ -140,10 +147,10 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root, 2): m.u16 = (ushort)value; break;
             case (Root, 4): m.u32 = (uint)value; break;
             case (Root, 6): m.u64 = (ulong)value; break;
-            case (Root_arrays, 0): m.arrays.u8.Add((byte)value); break;
-            case (Root_arrays, 2): m.arrays.u16.Add((ushort)value); break;
-            case (Root_arrays, 4): m.arrays.u32.Add((uint)value); break;
-            case (Root_arrays, 6): m.arrays.u64.Add((ulong)value); break;
+            case (Root_arrays, 0): m.arrays.u8[ai++] = (byte)value; break;
+            case (Root_arrays, 2): m.arrays.u16[ai++] = (ushort)value; break;
+            case (Root_arrays, 4): m.arrays.u32[ai++] = (uint)value; break;
+            case (Root_arrays, 6): m.arrays.u64[ai++] = (ulong)value; break;
         }
     }
     public void Signed(int id, long value) {
@@ -152,22 +159,22 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root, 3): m.i16 = (short)value; break;
             case (Root, 5): m.i32 = (int)value; break;
             case (Root, 7): m.i64 = (long)value; break;
-            case (Root_arrays, 1): m.arrays.i8.Add((sbyte)value); break;
-            case (Root_arrays, 3): m.arrays.i16.Add((short)value); break;
-            case (Root_arrays, 5): m.arrays.i32.Add((int)value); break;
-            case (Root_arrays, 7): m.arrays.i64.Add((long)value); break;
+            case (Root_arrays, 1): m.arrays.i8[ai++] = (sbyte)value; break;
+            case (Root_arrays, 3): m.arrays.i16[ai++] = (short)value; break;
+            case (Root_arrays, 5): m.arrays.i32[ai++] = (int)value; break;
+            case (Root_arrays, 7): m.arrays.i64[ai++] = (long)value; break;
         }
     }
     public void Fp32(int id, float value) {
         switch ((cur, id)) {
             case (Root_nested, 0): m.nested.f32 = value; break;
-            case (Root_arrays_nested, 0): m.arrays.nested.fp32.Add(value); break;
+            case (Root_arrays_nested, 0): m.arrays.nested.fp32[ai++] = value; break;
         }
     }
     public void Fp64(int id, double value) {
         switch ((cur, id)) {
             case (Root_nested, 1): m.nested.f64 = value; break;
-            case (Root_arrays_nested, 1): m.arrays.nested.fp64.Add(value); break;
+            case (Root_arrays_nested, 1): m.arrays.nested.fp64[ai++] = value; break;
         }
     }
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
@@ -175,6 +182,7 @@ internal sealed class ExampleVisitor : IVisitor {
         if (offset == 0 && chunkLength >= total) {
             _s = Encoding.UTF8.GetString(data, chunkOffset, total);
         } else {
+            acc ??= new List<byte>();
             for (int _i = 0; _i < chunkLength; _i++) acc.Add(data[chunkOffset + _i]);
             if (acc.Count < total) return;
             _s = Encoding.UTF8.GetString(acc.ToArray());
@@ -191,6 +199,7 @@ internal sealed class ExampleVisitor : IVisitor {
             _b = new byte[total];
             System.Array.Copy(data, chunkOffset, _b, 0, total);
         } else {
+            acc ??= new List<byte>();
             for (int _i = 0; _i < chunkLength; _i++) acc.Add(data[chunkOffset + _i]);
             if (acc.Count < total) return;
             _b = acc.ToArray();
@@ -201,21 +210,23 @@ internal sealed class ExampleVisitor : IVisitor {
         }
     }
     public void ArrayBegin(int id, ArrayKind kind, int count) {
+        ai = 0;
         switch ((cur, id)) {
-            case (Root_arrays, 0): m.arrays.u8.Clear(); break;
-            case (Root_arrays, 1): m.arrays.i8.Clear(); break;
-            case (Root_arrays, 2): m.arrays.u16.Clear(); break;
-            case (Root_arrays, 3): m.arrays.i16.Clear(); break;
-            case (Root_arrays, 4): m.arrays.u32.Clear(); break;
-            case (Root_arrays, 5): m.arrays.i32.Clear(); break;
-            case (Root_arrays, 6): m.arrays.u64.Clear(); break;
-            case (Root_arrays, 7): m.arrays.i64.Clear(); break;
-            case (Root_arrays_nested, 0): m.arrays.nested.fp32.Clear(); break;
-            case (Root_arrays_nested, 1): m.arrays.nested.fp64.Clear(); break;
+            case (Root_arrays, 0): m.arrays.u8 = new byte[count]; break;
+            case (Root_arrays, 1): m.arrays.i8 = new sbyte[count]; break;
+            case (Root_arrays, 2): m.arrays.u16 = new ushort[count]; break;
+            case (Root_arrays, 3): m.arrays.i16 = new short[count]; break;
+            case (Root_arrays, 4): m.arrays.u32 = new uint[count]; break;
+            case (Root_arrays, 5): m.arrays.i32 = new int[count]; break;
+            case (Root_arrays, 6): m.arrays.u64 = new ulong[count]; break;
+            case (Root_arrays, 7): m.arrays.i64 = new long[count]; break;
+            case (Root_arrays_nested, 0): m.arrays.nested.fp32 = new float[count]; break;
+            case (Root_arrays_nested, 1): m.arrays.nested.fp64 = new double[count]; break;
         }
     }
     public void SequenceBegin(int id) {
-        stack.Push(cur);
+        if (sp == stk.Length) System.Array.Resize(ref stk, sp * 2);
+        stk[sp++] = cur;
         switch ((cur, id)) {
             case (Root, 10): cur = Root_nested; break;
             case (Root, 100): cur = Root_arrays; break;
@@ -223,6 +234,6 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root_arrays, 10): cur = Root_arrays_nested; break;
         }
     }
-    public void SequenceEnd() { cur = stack.Count > 0 ? stack.Pop() : 0; }
+    public void SequenceEnd() { cur = sp > 0 ? stk[--sp] : 0; }
 }
 

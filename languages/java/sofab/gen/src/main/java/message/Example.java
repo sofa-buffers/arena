@@ -8,19 +8,19 @@ class ExampleNested {
     public float f32;
     public double f64;
     public String str = "";
-    public byte[] bytes_field = new byte[0];
+    public byte[] bytes_field = Sbuf.EMPTY_BYTES;
 
     public void marshal(OStream os) throws IOException {
         if (this.f32 != 0f) { os.writeFp32(0, this.f32); }
         if (this.f64 != 0) { os.writeFp64(1, this.f64); }
-        if (!java.util.Objects.equals(this.str, "")) { os.writeString(2, this.str == null ? "" : this.str); }
-        if (!Arrays.equals(this.bytes_field, new byte[0])) { os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
+        if ((this.str == null || !this.str.isEmpty())) { os.writeString(2, this.str == null ? "" : this.str); }
+        if (this.bytes_field == null || this.bytes_field.length != 0) { os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
     }
 }
 
 class ExampleArraysNested {
-    public float[] fp32 = new float[0];
-    public double[] fp64 = new double[0];
+    public float[] fp32 = Sbuf.EMPTY_FLOATS;
+    public double[] fp64 = Sbuf.EMPTY_DOUBLES;
 
     public void marshal(OStream os) throws IOException {
         if (this.fp32 != null && this.fp32.length != 0) {
@@ -33,14 +33,14 @@ class ExampleArraysNested {
 }
 
 class ExampleArrays {
-    public long[] u8 = new long[0];
-    public long[] i8 = new long[0];
-    public long[] u16 = new long[0];
-    public long[] i16 = new long[0];
-    public long[] u32 = new long[0];
-    public long[] i32 = new long[0];
-    public long[] u64 = new long[0];
-    public long[] i64 = new long[0];
+    public long[] u8 = Sbuf.EMPTY_LONGS;
+    public long[] i8 = Sbuf.EMPTY_LONGS;
+    public long[] u16 = Sbuf.EMPTY_LONGS;
+    public long[] i16 = Sbuf.EMPTY_LONGS;
+    public long[] u32 = Sbuf.EMPTY_LONGS;
+    public long[] i32 = Sbuf.EMPTY_LONGS;
+    public long[] u64 = Sbuf.EMPTY_LONGS;
+    public long[] i64 = Sbuf.EMPTY_LONGS;
     public ExampleArraysNested nested = new ExampleArraysNested();
 
     public void marshal(OStream os) throws IOException {
@@ -102,9 +102,15 @@ public class Example {
         os.writeSequenceEnd();
     }
     public static final int MAX_SIZE = 1011;
+    // Per-thread scratch buffer: encode() marshals into it and returns an
+    // exact-size copy, so the worst-case buffer is not re-allocated (and
+    // zeroed) on every call. Do not call encode() reentrantly from a
+    // marshal() override on the same thread.
+    private static final ThreadLocal<byte[]> ENC_BUF =
+        ThreadLocal.withInitial(() -> new byte[MAX_SIZE]);
     public byte[] encode() {
         try {
-            byte[] buf = new byte[MAX_SIZE];
+            byte[] buf = ENC_BUF.get();
             OStream os = new OStream(buf);
             marshal(os);
             return Arrays.copyOf(buf, os.bytesUsed());
@@ -124,7 +130,7 @@ class ExampleVisitor implements Visitor {
     private int ai = 0;                 // index into the primitive array currently being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
     private int sp = 0;
-    private final java.io.ByteArrayOutputStream acc = new java.io.ByteArrayOutputStream();
+    private java.io.ByteArrayOutputStream acc; // lazy: only split string/blob payloads need it
     ExampleVisitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
@@ -184,6 +190,7 @@ class ExampleVisitor implements Visitor {
         if (offset == 0 && chunkLength >= total) {
             _s = new String(data, chunkOffset, total, java.nio.charset.StandardCharsets.UTF_8);
         } else {
+            if (acc == null) acc = new java.io.ByteArrayOutputStream();
             acc.write(data, chunkOffset, chunkLength);
             if (acc.size() < total) return;
             _s = new String(acc.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
@@ -201,6 +208,7 @@ class ExampleVisitor implements Visitor {
         if (offset == 0 && chunkLength >= total) {
             _b = java.util.Arrays.copyOfRange(data, chunkOffset, chunkOffset + total);
         } else {
+            if (acc == null) acc = new java.io.ByteArrayOutputStream();
             acc.write(data, chunkOffset, chunkLength);
             if (acc.size() < total) return;
             _b = acc.toByteArray();
