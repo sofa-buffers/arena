@@ -47,15 +47,13 @@ A divergent `sha256` means that language's message-fill drifted from the
 canonical state — a bug, caught automatically.
 
 Reference wires:
-- SofaBuffers: **436 bytes**, `sha256=db362bf24959b41fd153b59958e2afdf59020c6c3501fb60e189526659a72ed4`
+- SofaBuffers: **434 bytes**, `sha256=e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d`
 - Protobuf: **494 bytes**, `sha256=e8d391d98bc54c0ec24fff19ec96bb52114d9d34aed7d0f0023a0317bcfa5b3d`
 
-**One documented exception.** The **C** target is the SofaBuffers *object API*
-(corelib-c-cpp) — a runtime-descriptor codec for constrained/embedded use. It
-drops the single empty string in `string_array` (a deliberate leanness
-optimization), so its wire is **434 bytes**
-(`sha256=e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d`). This
-is the *correct* output of that backend — the same 2-byte difference the original
-C/C++ arena documented — not fill drift, so the gate expects 434 B specifically
-for C. Every other SofaBuffers backend encodes empty array elements positionally
-and lands on 436 B.
+Since **sofabgen v0.11.0** every SofaBuffers backend sparsely omits a wrapper-array
+element equal to its default (the single empty string in `string_array`), so all
+`impl=sofab` targets — the C object API (corelib-c-cpp), its C++ wrapper, and every
+other corelib — converge on the same **434-byte** wire. Before v0.11.0 only the C
+object API omitted that element (434 B); every other backend encoded it positionally
+and landed on 436 B. There is now no per-target exception — the gate checks all
+sofab targets against the single 434 B reference.

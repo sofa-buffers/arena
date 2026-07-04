@@ -32,9 +32,12 @@ done
 # FixedBytes/InlineVector into corelib-c-cpp (needs a fresh corelib clone);
 # v0.9.0 makes `corelib: rs-no-std` emit genuinely no_std, heap-free Rust
 # (enables the rust bare-metal footprint targets); v0.10.0 emits schema
-# defaults as a const image on the C path (non-zero defaults honored). Bump
-# together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.10.0}"
+# defaults as a const image on the C path (non-zero defaults honored); v0.11.0
+# sparsely omits default string/blob wrapper-array elements across all backends
+# (needs fresh corelibs whose decoders place elements by id, not arrival order),
+# so every sofab wire converges on one length. Bump together with whatever
+# generated-code contract the targets rely on.
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.11.0}"
 
 # --- host os/arch -> release asset name (mirrors the old CMake logic) ---------
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"

@@ -57,7 +57,9 @@ func (m *Example) marshal(e *sofab.Encoder) {
 	e.WriteSequenceEnd()
 	e.WriteSequenceBegin(200)
 	for _i0, _e0 := range m.StringArray {
-		e.WriteString(sofab.ID(_i0), _e0)
+		if _e0 != "" {
+			e.WriteString(sofab.ID(_i0), _e0)
+		}
 	}
 	e.WriteSequenceEnd()
 }

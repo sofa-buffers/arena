@@ -265,7 +265,8 @@ class Example:
         e.write_sequence_end()
         e.write_sequence_begin(200)
         for _i0, _e0 in enumerate(self.string_array):
-            e.write_string(_i0, _e0)
+            if _e0 != "":
+                e.write_string(_i0, _e0)
         e.write_sequence_end()
 
     def _unmarshal(self, d: Decoder) -> None:
@@ -299,7 +300,9 @@ class Example:
                     _ef0 = d.next()
                     if _ef0 is None or _ef0.type == WireType.SEQUENCE_END:
                         break
-                    self.string_array.append(d.string())
+                    while len(self.string_array) <= _ef0.id:
+                        self.string_array.append("")
+                    self.string_array[_ef0.id] = d.string()
             else:
                 d.skip()
 

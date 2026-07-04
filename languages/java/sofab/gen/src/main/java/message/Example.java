@@ -98,7 +98,7 @@ public class Example {
         os.writeSequenceBegin(10); (this.nested == null ? new ExampleNested() : this.nested).marshal(os); os.writeSequenceEnd();
         os.writeSequenceBegin(100); (this.arrays == null ? new ExampleArrays() : this.arrays).marshal(os); os.writeSequenceEnd();
         os.writeSequenceBegin(200);
-        for (int _i0 = 0; _i0 < this.string_array.size(); _i0++) os.writeString(_i0, this.string_array.get(_i0) == null ? "" : this.string_array.get(_i0));
+        for (int _i0 = 0; _i0 < this.string_array.size(); _i0++) { String _e0 = this.string_array.get(_i0); if (_e0 != null && !_e0.isEmpty()) os.writeString(_i0, _e0); }
         os.writeSequenceEnd();
     }
     public static final int MAX_SIZE = 1011;
@@ -193,7 +193,7 @@ class ExampleVisitor implements Visitor {
         case 1: switch (id) {
             case 2: m.nested.str = _s; break;
         } break;
-        case 4: m.string_array.add(_s); break;
+        case 4: while (m.string_array.size() <= id) m.string_array.add(""); m.string_array.set(id, _s); break;
         }
     }
     public void blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
