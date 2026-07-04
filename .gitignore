@@ -8,10 +8,7 @@ core
 *.core
 
 # === Bootstrapped tooling & vendored corelibs (fetched by scripts/bootstrap.sh)
-/tools/sofabgen
-/tools/sofabgen.exe
-/tools/venv/
-/tools/.sofabgen-version
+/tools/
 /vendor/
 
 # === Per-language build outputs ==============================================
