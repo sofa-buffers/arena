@@ -187,6 +187,11 @@ targets — the binaries are never executed. Ranked by **footprint** — everyth
 that ends up in flash: `.text` + `.rodata` + `.data` (the `.data` initializer
 images live in flash and are copied to RAM at boot; `.bss` is RAM-only).
 
+The embedded corelibs — [`corelib-c-cpp`](https://github.com/sofa-buffers/corelib-c-cpp)
+(C object API + C++ wrapper) and [`corelib-rs-no-std`](https://github.com/sofa-buffers/corelib-rs-no-std)
+(`#![no_std]`, no-alloc) — expose config options to shrink the footprint even
+further below the numbers reported here.
+
 | target (ISA) | impl | `.text` | `.rodata` | `.data` | **footprint** | static-RAM |
 |---|---|--:|--:|--:|--:|--:|
 | **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 200 | 344 | 0 | **3 544** | 0 |
