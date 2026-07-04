@@ -141,8 +141,13 @@ tables below.
 ## Results
 
 Every target passes the byte-identity gate: all SofaBuffers targets emit the same
-**436-byte** wire (the C object API is **434 B** — see note), and every
-protobuf-family baseline emits the same **494-byte** wire.
+**434-byte** wire (since sofabgen v0.11.0 every backend sparsely omits default
+wrapper-array elements — the C object API and every other corelib now agree to the
+byte; see note), and every protobuf-family baseline emits the same **494-byte** wire.
+
+*(Throughput figures below are from the last real-hardware run and predate the
+v0.11.0 wire convergence; the `sofab size` columns will refresh to a uniform 434 B
+on the next hardware run.)*
 
 ### Maxspeed — throughput
 
@@ -223,12 +228,13 @@ less flash than the smallest protobuf alternative).*
   any of them. *(A naïve object-sum flatters template-heavy libraries by counting
   code `--gc-sections` later discards; the link-delta counts only what ships.)*
 
-> **Note — why C is 434 B.** The C target is the SofaBuffers *object API*
-> (`corelib-c-cpp`), a runtime-descriptor codec for constrained/embedded use. It
-> omits the single empty string in `string_array` (a deliberate leanness
-> optimization), so its wire is 2 bytes smaller. It is a *correct, expected* variant,
-> and the gate checks C against 434 B specifically. (The C++ wrapper of the same
-> corelib encodes all five strings, so `cpp-embedded` is 436 B.)
+> **Note — the SofaBuffers wire is 434 B everywhere.** As of sofabgen v0.11.0 every
+> backend sparsely omits a wrapper-array element equal to its default (here the one
+> empty string in `string_array`), so all targets — the C object API (`corelib-c-cpp`),
+> its C++ wrapper, and every managed/desktop corelib — emit the identical 434-byte
+> wire. Previously only the C object API dropped that element (434 B); the others
+> encoded it positionally and were 436 B. The gate now checks every sofab target
+> against the one 434-byte reference.
 
 > **Note — why Python is slowest (0.12×), and it's *not* a fallback.** Python trails
 > because protobuf-python is a thin shell over Google's C **`upb`** engine while

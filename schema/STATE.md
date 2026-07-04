@@ -7,9 +7,10 @@ human reference used when hand-filling (e.g. the protobuf targets).
 
 If a target's serialized bytes don't match the reference SHA, its fill drifted.
 
-- Reference **sofab** wire: **436 bytes**, `sha256 db362bf24959b41fd153b59958e2afdf59020c6c3501fb60e189526659a72ed4`
-  (the **C** object-API backend drops the one empty string in `string_array` and is **434 bytes**,
-  `sha256 e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d` — a documented, correct variant)
+- Reference **sofab** wire: **434 bytes**, `sha256 e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d`
+  (since sofabgen v0.11.0 every backend sparsely omits the one empty string in `string_array`,
+  so all sofab targets — including the C object API — now share this single wire; before v0.11.0
+  only C was 434 B and the rest were 436 B)
 - Reference **protobuf** wire: **494 bytes**, `sha256 e8d391d98bc54c0ec24fff19ec96bb52114d9d34aed7d0f0023a0317bcfa5b3d`
 
 ## Top-level scalars (`FullScaleExample`)

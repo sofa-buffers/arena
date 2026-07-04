@@ -102,7 +102,7 @@ public sealed class Example {
         os.WriteSequenceBegin(10); (this.nested ?? new ExampleNested()).Marshal(os); os.WriteSequenceEnd();
         os.WriteSequenceBegin(100); (this.arrays ?? new ExampleArrays()).Marshal(os); os.WriteSequenceEnd();
         os.WriteSequenceBegin(200);
-        for (int _i0 = 0; _i0 < this.string_array.Count; _i0++) os.WriteString(_i0, this.string_array[_i0] ?? "");
+        for (int _i0 = 0; _i0 < this.string_array.Count; _i0++) { if ((this.string_array[_i0] ?? "") != "") os.WriteString(_i0, this.string_array[_i0] ?? ""); }
         os.WriteSequenceEnd();
     }
     public const int MaxSize = 1011;
@@ -182,7 +182,7 @@ internal sealed class ExampleVisitor : IVisitor {
         }
         switch ((cur, id)) {
             case (Root_nested, 2): m.nested.str = _s; break;
-            case (Root_string_array, _): m.string_array.Add(_s); break;
+            case (Root_string_array, _): while (m.string_array.Count <= id) m.string_array.Add(""); m.string_array[id] = _s; break;
         }
     }
     public void Blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {

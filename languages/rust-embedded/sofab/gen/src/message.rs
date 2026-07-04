@@ -175,7 +175,7 @@ impl Example {
         let _ = os.write_sequence_begin(10); self.nested.marshal(os); let _ = os.write_sequence_end();
         let _ = os.write_sequence_begin(100); self.arrays.marshal(os); let _ = os.write_sequence_end();
         let _ = os.write_sequence_begin(200);
-        for (_i0, _e0) in self.string_array.iter().enumerate() { let _ = os.write_str(_i0 as Id, _e0); }
+        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() { let _ = os.write_str(_i0 as Id, _e0); } }
         let _ = os.write_sequence_end();
     }
     pub fn encode(&self) -> heapless::Vec<u8, 1011> {
@@ -266,7 +266,7 @@ impl<'a> Visitor for V<'a> {
         let _s = core::str::from_utf8(&chunk[..total]).unwrap_or("");
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); }
-            (_Loc::Root_string_array, _) => { let _ = self.m.string_array.push(Default::default()); if let Some(_e) = self.m.string_array.last_mut() { let _ = _e.push_str(_s); } }
+            (_Loc::Root_string_array, _) => { while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { let _ = _e.push_str(_s); } }
             _ => {}
         }
     }

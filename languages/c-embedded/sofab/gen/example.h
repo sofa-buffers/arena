@@ -87,7 +87,7 @@ typedef struct {
 /*! Worst-case serialized size of example (every field present, all maxlen/count). */
 #define FULLSCALE_EXAMPLE_MAX_SIZE 731
 
-/*! Initialize a example with schema defaults (zeroed in this build). */
+/*! Initialize a example with its schema defaults (non-default fields zeroed). */
 void fullscale_example_init(fullscale_example_t *msg);
 /*! Encode msg into buf[buflen]; *used receives the byte count. Returns sofab_ret_t. */
 sofab_ret_t fullscale_example_encode(const fullscale_example_t *msg, uint8_t *buf, size_t buflen, size_t *used);

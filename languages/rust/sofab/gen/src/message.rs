@@ -168,7 +168,7 @@ impl Example {
         let _ = os.write_sequence_begin(10); self.nested.marshal(os); let _ = os.write_sequence_end();
         let _ = os.write_sequence_begin(100); self.arrays.marshal(os); let _ = os.write_sequence_end();
         let _ = os.write_sequence_begin(200);
-        for (_i0, _e0) in self.string_array.iter().enumerate() { let _ = os.write_str(_i0 as Id, _e0); }
+        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() { let _ = os.write_str(_i0 as Id, _e0); } }
         let _ = os.write_sequence_end();
     }
     pub fn encode(&self) -> Vec<u8> {
@@ -268,7 +268,7 @@ impl<'a> Visitor for V<'a> {
         };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => self.m.nested.str = _s,
-            (_Loc::Root_string_array, _) => self.m.string_array.push(_s),
+            (_Loc::Root_string_array, _) => { while self.m.string_array.len() <= id as usize { self.m.string_array.push(Default::default()); } self.m.string_array[id as usize] = _s; }
             _ => {}
         }
     }

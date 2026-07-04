@@ -20,11 +20,18 @@ struct _MsgSeqFixed : sofab::IStreamMessage {
         is.read(out->emplace_back());
     }
 };
+// _FixedBlobSeq / _FixedStrSeq place a blob / string element at its index id
+// (MESSAGE_SPEC S2): a default (empty) element is omitted on the wire, so the
+// inline vector is grown with empty-default slots up to id and the value is
+// stored at that index rather than appended in arrival order. Inline storage
+// never reallocates, so an earlier bound-then-filled element stays address-stable
+// while later slots grow.
 template <typename Container>
 struct _FixedBlobSeq : sofab::IStreamMessage {
     Container *out = nullptr;
-    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t _size, std::size_t) noexcept override {
-        auto &b = out->emplace_back();
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+        while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
+        auto &b = (*out)[id];
         b.set_len(_size);
         if (_size) is.read(b.data(), _size);
     }
@@ -32,8 +39,9 @@ struct _FixedBlobSeq : sofab::IStreamMessage {
 template <typename Container>
 struct _FixedStrSeq : sofab::IStreamMessage {
     Container *out = nullptr;
-    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t _size, std::size_t) noexcept override {
-        auto &s = out->emplace_back();
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+        while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
+        auto &s = (*out)[id];
         s.set_len(_size);
         if (_size) is.read(s);
     }
@@ -228,7 +236,7 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
         (void)os.write(10, nested);
         (void)os.write(100, arrays);
         (void)os.sequenceBegin(200);
-        { sofab::id _i0 = 0; for (const auto &_e0 : string_array) { (void)os.write(_i0++, _e0); } }
+        { sofab::id _i0 = 0; for (const auto &_e0 : string_array) { if (!_e0.empty()) { (void)os.write(_i0, _e0); } ++_i0; } }
         (void)os.sequenceEnd();
         return os.writeIf(0, false, false);
     }

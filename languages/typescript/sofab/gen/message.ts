@@ -246,7 +246,9 @@ export class Example {
     os.writeSequenceEnd();
     os.writeSequenceBegin(200);
     for (let _i0 = 0; _i0 < this.string_array.length; _i0++) {
-      os.writeString(_i0, this.string_array[_i0]!);
+      if (this.string_array[_i0]! !== "") {
+        os.writeString(_i0, this.string_array[_i0]!);
+      }
     }
     os.writeSequenceEnd();
   }
@@ -304,7 +306,7 @@ export class Example {
       case 100: o.arrays = ExampleArrays.decodeFrom(c); break;
       case 200: {
         const arr: string[] = [];
-        while (c.readHeader()) arr.push(c.readString());
+        while (c.readHeader()) { const _id = c.id; while (arr.length <= _id) arr.push(""); arr[_id] = c.readString(); }
         o.string_array = arr;
         break;
       }

@@ -56,13 +56,14 @@ declare -A TEXT RODATA DATA BSS         # footprint sections (embedded targets)
 declare -A CATEGORY METRIC              # per-language, from languages/<lang>/meta
 declare -A IMPLS                        # lang -> space-separated impls seen
 
-REF_SOFAB_SHA="db362bf24959b41fd153b59958e2afdf59020c6c3501fb60e189526659a72ed4"
+# Since sofabgen v0.11.0 every backend sparsely omits a wrapper-array element that
+# equals its default (here the one empty string in string_array), so all impl=sofab
+# targets — the C object API (corelib-c-cpp), its C++ wrapper, and every other
+# corelib that previously encoded that element positionally — now converge on one
+# 434-byte wire. (Before v0.11.0 only the C object API omitted it; others were 436 B.)
+REF_SOFAB_SHA="e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d"
 REF_PROTO_SHA="e8d391d98bc54c0ec24fff19ec96bb52114d9d34aed7d0f0023a0317bcfa5b3d"
-# The C backend is the SofaBuffers *object API* (corelib-c-cpp), which drops the
-# one empty string in string_array — a documented leanness optimization — so its
-# wire is 434 B, not 436 B. This is the correct output of that backend, not drift.
-REF_SOFAB_C_SHA="e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d"
-expected_sofab_sha() { [ "$1" = c-embedded ] && echo "$REF_SOFAB_C_SHA" || echo "$REF_SOFAB_SHA"; }
+expected_sofab_sha() { echo "$REF_SOFAB_SHA"; }
 # Every non-sofab impl (protobuf, protobuf-c, nanopb, ...) must match the proto wire.
 expected_sha() { [ "$2" = sofab ] && expected_sofab_sha "$1" || echo "$REF_PROTO_SHA"; }
 
@@ -140,9 +141,8 @@ for lang in $LANGS; do
     for impl in $(ordered_impls "$lang"); do
         s="${SHA[$lang,$impl]:-}"; [ -n "$s" ] || continue
         ref="$(expected_sha "$lang" "$impl")"
-        note=""; [ "$lang" = c-embedded ] && [ "$impl" = sofab ] && note="  (object API: drops empty string)"
         if [ "$s" = "$ref" ]; then mark="ok"; else mark="MISMATCH"; gate_ok=0; fi
-        printf "  %-14s %-13s %s  %s%s\n" "$lang" "$impl" "${SER[$lang,$impl]:-?}B" "$mark" "$note"
+        printf "  %-14s %-13s %s  %s\n" "$lang" "$impl" "${SER[$lang,$impl]:-?}B" "$mark"
     done
 done
 [ "$gate_ok" = 1 ] && echo "  => all present targets are byte-identical to the reference wire." \
