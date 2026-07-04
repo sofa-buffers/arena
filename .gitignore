@@ -11,6 +11,7 @@ core
 /tools/sofabgen
 /tools/sofabgen.exe
 /tools/venv/
+/tools/.sofabgen-version
 /vendor/
 
 # === Per-language build outputs ==============================================
