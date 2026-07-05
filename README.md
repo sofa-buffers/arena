@@ -141,24 +141,22 @@ tables below.
 ## Results
 
 Every target passes the byte-identity gate: all SofaBuffers targets emit the same
-**434-byte** wire (since sofabgen v0.11.0 every backend sparsely omits default
-wrapper-array elements — the C object API and every other corelib now agree to the
-byte; see note), and every protobuf-family baseline emits the same **494-byte** wire.
+**434-byte** wire, and every protobuf-family baseline emits the same **494-byte** wire.
 
 ### Maxspeed — throughput
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 434 | 494 | 354.4 | 234.7 | **1.14×** | **1.51×** |
-| Rust       | 434 | 494 | 356.9 | 251.6 | **1.14×** | **1.42×** |
-| Go         | 434 | 494 | 151.0 | 143.7 | **1.14×** | **1.05×** |
-| C#         | 434 | 494 | 123.4 | 136.7 | **1.14×** | 0.90× |
-| Java       | 434 | 494 | 243.1 | 283.1 | **1.14×** | 0.86× |
+| C++        | 434 | 494 | 354.4 | 235.8 | **1.14×** | **1.50×** |
+| Rust       | 434 | 494 | 347.5 | 243.9 | **1.14×** | **1.42×** |
+| Go         | 434 | 494 | 147.7 | 138.0 | **1.14×** | **1.07×** |
+| C#         | 434 | 494 | 194.8 | 131.5 | **1.14×** | **1.48×** |
+| Java       | 434 | 494 | 273.4 | 275.9 | **1.14×** | 0.99× |
 | TypeScript · Node/V8 † | 434 | 494 |  48.1 |  41.1 | **1.14×** | **1.17×** |
 | TypeScript · Bun/JSC † | 434 | 494 |  35.3 |  36.4 | **1.14×** | 0.97× |
-| Python     | 434 | 494 |  20.5 | 204.0 | **1.14×** | 0.10× |
+| Python     | 434 | 494 |  20.6 | 207.1 | **1.14×** | 0.10× |
 
-***C++, Rust and Go beat or tie protobuf; the wire is ~13 % smaller everywhere.**
+***C++, Rust, C# and Go all beat protobuf; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
 
 *† The two **TypeScript** rows are the **identical** codec on the two JavaScript
@@ -180,10 +178,10 @@ ranking metric** (that is footprint, below).
 
 | opponent | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 124.6 | 302.6 | **1.14×** | 0.41× |
-| sofab-c-embedded vs. nanopb        | 434 | 494 | 124.6 |  60.4 | **1.14×** | **2.06×** |
-| sofab-rust-embedded vs. micropb    | 434 | 494 | 144.2 | 128.2 | **1.14×** | **1.13×** |
-| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 132.4 |  63.3 | **1.14×** | **2.09×** |
+| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 123.4 | 290.6 | **1.14×** | 0.42× |
+| sofab-c-embedded vs. nanopb        | 434 | 494 | 123.4 |  60.0 | **1.14×** | **2.06×** |
+| sofab-rust-embedded vs. micropb    | 434 | 494 | 140.0 | 125.6 | **1.14×** | **1.11×** |
+| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 132.2 |  63.6 | **1.14×** | **2.08×** |
 
 ***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
 baseline** (~2× vs nanopb and EmbeddedProto) — only the desktop-class
@@ -228,8 +226,8 @@ less flash than the smallest protobuf alternative).*
   not a per-language accident.
 - **Faster than protobuf where it counts, close behind everywhere else.** The gap
   was never the wire format but the per-message code above the byte codec; with
-  that tuned, C++, Rust and Go run at or ahead of Google's mature runtimes, while
-  C#, Java and TypeScript sit just behind — tracking each VM's maturity, not the
+  that tuned, C++, Rust, C# and Go run at or ahead of Google's mature runtimes, while
+  Java and TypeScript sit just behind — tracking each VM's maturity, not the
   format. Python is the lone outlier, because its protobuf baseline is a thin shell
   over Google's C `upb` engine while SofaBuffers still drives every field from
   Python. *(How the codegen was tuned: [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md).)*
@@ -239,14 +237,6 @@ less flash than the smallest protobuf alternative).*
   with less static RAM, no heap, and — even built for size — more throughput than
   any of them. *(A naïve object-sum flatters template-heavy libraries by counting
   code `--gc-sections` later discards; the link-delta counts only what ships.)*
-
-> **Note — the SofaBuffers wire is 434 B everywhere.** As of sofabgen v0.11.0 every
-> backend sparsely omits a wrapper-array element equal to its default (here the one
-> empty string in `string_array`), so all targets — the C object API (`corelib-c-cpp`),
-> its C++ wrapper, and every managed/desktop corelib — emit the identical 434-byte
-> wire. Previously only the C object API dropped that element (434 B); the others
-> encoded it positionally and were 436 B. The gate now checks every sofab target
-> against the one 434-byte reference.
 
 > **Note — why Python is slowest (0.10×), and it's *not* a fallback.** Python trails
 > because protobuf-python is a thin shell over Google's C **`upb`** engine while
