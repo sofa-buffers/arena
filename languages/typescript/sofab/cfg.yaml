@@ -1,2 +1,2 @@
 generic: { emit: project, timestamp: false }
-targets: { typescript: {} }
+targets: { typescript: { int64: number } }

@@ -154,11 +154,21 @@ byte; see note), and every protobuf-family baseline emits the same **494-byte** 
 | Go         | 434 | 494 | 151.0 | 143.7 | **1.14×** | **1.05×** |
 | C#         | 434 | 494 | 123.4 | 136.7 | **1.14×** | 0.90× |
 | Java       | 434 | 494 | 243.1 | 283.1 | **1.14×** | 0.86× |
-| TypeScript | 434 | 494 |  51.9 |  63.4 | **1.14×** | 0.82× |
+| TypeScript · Node/V8 † | 434 | 494 |  51.6 |  44.0 | **1.14×** | **1.17×** |
+| TypeScript · Bun/JSC † | 434 | 494 |  42.5 |  40.5 | **1.14×** | **1.05×** |
 | Python     | 434 | 494 |  20.5 | 204.0 | **1.14×** | 0.10× |
 
-***C++, Rust and Go beat or tie protobuf; the wire is ~13 % smaller everywhere.**
+***C++, Rust, Go and TypeScript beat or tie protobuf; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
+
+*† The two **TypeScript** rows are the **identical** codec on the two JavaScript
+engines — Node (V8) and Bun (JavaScriptCore) — measured together on one machine
+(a VPS, so their absolute MB/s sits below the other rows' reference-hardware run;
+compare the ratio, not MB/s across rows). Both edge past protobufjs because 64-bit
+fields use corelib's `bigint`-free **`Long`** representation on the hot path,
+enabled by sofabgen's `int64: number` option (≥ 0.13.0) — byte-identical wire.
+Without it (plain `bigint`) Bun/JSC drops to ~0.62× (JavaScriptCore optimizes
+`bigint` far worse than V8).*
 
 ### Embedded — throughput (host build of the embedded codecs)
 
