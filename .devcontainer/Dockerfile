@@ -23,6 +23,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 #                                staticlibs of the rust bare-metal footprint targets
 #   (dotnet 9)                 C# target (SofaBuffers corelib-cs + Google.Protobuf)
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
+#   (bun)                      typescript-bun target — the same TS codec run on
+#                                Bun's JavaScriptCore engine (Node runs it on V8)
 #   gcc-arm-none-eabi          bare-metal Cortex-M cross toolchain (c/cpp/rust-
 #     + libnewlib + libstdc++    cortex-m footprint targets: --gc-sections
 #                                link-delta builds; binaries are never executed)
@@ -108,6 +110,14 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && npm install -g @anthropic-ai/claude-code
+
+# --- Bun (JavaScriptCore runtime for the typescript-bun target) ---------------
+# Same generated TypeScript codec as the `typescript` (Node/V8) target, run on
+# Bun's JavaScriptCore engine so the arena can compare the two JS runtimes.
+# Installed system-wide (BUN_INSTALL) so every user/shell finds it on PATH.
+ENV BUN_INSTALL=/usr/local/bun PATH=/usr/local/bun/bin:$PATH
+RUN curl -fsSL https://bun.sh/install | bash \
+    && bun --version
 
 WORKDIR /workspace
 

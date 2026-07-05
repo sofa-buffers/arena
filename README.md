@@ -152,11 +152,22 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 | Go         | 434 | 494 | 147.7 | 138.0 | **1.14×** | **1.07×** |
 | C#         | 434 | 494 | 194.8 | 131.5 | **1.14×** | **1.48×** |
 | Java       | 434 | 494 | 273.4 | 275.9 | **1.14×** | 0.99× |
-| TypeScript | 434 | 494 |  50.2 |  61.3 | **1.14×** | 0.82× |
+| TypeScript · Node/V8 † | 434 | 494 |  48.1 |  41.1 | **1.14×** | **1.17×** |
+| TypeScript · Bun/JSC † | 434 | 494 |  35.3 |  36.4 | **1.14×** | 0.97× |
 | Python     | 434 | 494 |  20.6 | 207.1 | **1.14×** | 0.10× |
 
 ***C++, Rust, C# and Go all beat protobuf; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
+
+*† The two **TypeScript** rows are the **identical** codec on the two JavaScript
+engines — Node (V8) and Bun (JavaScriptCore) — measured together on one machine
+(a VPS, so their absolute MB/s sits below the other rows' reference-hardware run;
+compare the ratio, not MB/s across rows). 64-bit fields use corelib's **`Long`**
+representation (`int64: long`, sofabgen ≥ 0.13.0): `u64`/`i64` **arrays** are
+`Long[]` on a `bigint`-free hot path — full 64-bit range, matching protobufjs's
+own full-range `Long`, so the comparison stays apples-to-apples. This lifts
+Bun/JSC from ~0.62× (plain `bigint`, which JavaScriptCore optimizes far worse than
+V8) to ~parity with protobufjs.*
 
 ### Embedded — throughput (host build of the embedded codecs)
 
