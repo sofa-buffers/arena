@@ -160,14 +160,7 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
 
 *† The two **TypeScript** rows are the **identical** codec on the two JavaScript
-engines — Node (V8) and Bun (JavaScriptCore) — measured together on one machine
-(a VPS, so their absolute MB/s sits below the other rows' reference-hardware run;
-compare the ratio, not MB/s across rows). 64-bit fields use corelib's **`Long`**
-representation (`int64: long`, sofabgen ≥ 0.13.0): `u64`/`i64` **arrays** are
-`Long[]` on a `bigint`-free hot path — full 64-bit range, matching protobufjs's
-own full-range `Long`, so the comparison stays apples-to-apples. This lifts
-Bun/JSC from ~0.62× (plain `bigint`, which JavaScriptCore optimizes far worse than
-V8) to ~parity with protobufjs.*
+engines — Node (V8) and Bun (JavaScriptCore)
 
 ### Embedded — throughput (host build of the embedded codecs)
 
