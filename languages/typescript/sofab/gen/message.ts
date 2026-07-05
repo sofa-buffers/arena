@@ -211,8 +211,8 @@ export class Example {
   i16: number = 0;
   u32: number = 0;
   i32: number = 0;
-  u64: number = 0;
-  i64: number = 0;
+  u64: bigint = 0n;
+  i64: bigint = 0n;
   nested: ExampleNested = new ExampleNested();
   arrays: ExampleArrays = new ExampleArrays();
   string_array: string[] = [];
@@ -236,10 +236,10 @@ export class Example {
     if (this.i32 !== 0) {
       os.writeSigned(5, this.i32);
     }
-    if (this.u64 !== 0) {
+    if (this.u64 !== 0n) {
       os.writeUnsigned(6, this.u64);
     }
-    if (this.i64 !== 0) {
+    if (this.i64 !== 0n) {
       os.writeSigned(7, this.i64);
     }
     os.writeSequenceBegin(10);
@@ -281,8 +281,8 @@ export class Example {
     if ("i16" in d) o.i16 = d["i16"] as number;
     if ("u32" in d) o.u32 = d["u32"] as number;
     if ("i32" in d) o.i32 = d["i32"] as number;
-    if ("u64" in d) o.u64 = Number(d["u64"] as string | number);
-    if ("i64" in d) o.i64 = Number(d["i64"] as string | number);
+    if ("u64" in d) o.u64 = BigInt(d["u64"] as string | number);
+    if ("i64" in d) o.i64 = BigInt(d["i64"] as string | number);
     if ("nested" in d) o.nested = ExampleNested.fromJSON(d["nested"] as Record<string, unknown>);
     if ("arrays" in d) o.arrays = ExampleArrays.fromJSON(d["arrays"] as Record<string, unknown>);
     if ("string_array" in d) o.string_array = d["string_array"] as string[];
@@ -304,8 +304,8 @@ export class Example {
       case 3: o.i16 = Number(c.readSigned()); break;
       case 4: o.u32 = Number(c.readUnsigned()); break;
       case 5: o.i32 = Number(c.readSigned()); break;
-      case 6: o.u64 = Number(c.readUnsigned()); break;
-      case 7: o.i64 = Number(c.readSigned()); break;
+      case 6: o.u64 = c.readUnsigned() as bigint; break;
+      case 7: o.i64 = c.readSigned() as bigint; break;
       case 10: o.nested = ExampleNested.decodeFrom(c); break;
       case 100: o.arrays = ExampleArrays.decodeFrom(c); break;
       case 200: {
