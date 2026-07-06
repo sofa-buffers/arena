@@ -31,9 +31,16 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # so every sofab wire converges on one length; v0.12.0 emits allocation-light
 # Java/C# code — thread-local encode scratch buffers, and C# native numeric/fp
 # array fields become primitive T[] instead of List<T> (the csharp bench fill
-# uses array syntax; pairs with the corelib-java/-cs hot-path releases). Bump
-# together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.13.0}"
+# uses array syntax; pairs with the corelib-java/-cs hot-path releases); v0.13.0
+# adds the typescript `int64: long` option (Long-backed 64-bit fields, used by
+# languages/typescript/sofab/cfg.yaml); v0.14.0 tightens config validation — the
+# config schema now lists ONLY honored options and rejects unknown keys hard
+# (they were silently ignored before), so the cfg.yaml files had to drop stale
+# no-op keys (generic.timestamp everywhere; the c target's string_storage /
+# buffer / c_standard / descriptor_profile; python's package). Codegen is
+# byte-identical to v0.13 across all targets — those keys already did nothing.
+# Bump together with whatever generated-code contract the targets rely on.
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.14.0}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a

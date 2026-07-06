@@ -1,2 +1,2 @@
-generic: { emit: sources, timestamp: false }
+generic: { emit: sources }
 targets: { csharp: { namespace: Sofabuffers } }

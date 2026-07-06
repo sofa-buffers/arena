@@ -1,2 +1,2 @@
-generic: { emit: project, timestamp: false }
+generic: { emit: project }
 targets: { rust: { corelib: rs } }

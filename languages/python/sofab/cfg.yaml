@@ -1,2 +1,2 @@
-generic: { emit: project, timestamp: false }
-targets: { python: { package: message } }
+generic: { emit: project }
+targets: { python: {} }
