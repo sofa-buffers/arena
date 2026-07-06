@@ -29,7 +29,14 @@ CC=arm-none-eabi-gcc
 CXX=arm-none-eabi-g++
 ARCH="-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16"
 CFLAGS="$ARCH -Os -flto -DNDEBUG -ffunction-sections -fdata-sections"
-CXXFLAGS="$CFLAGS -fno-exceptions -fno-rtti"
+# Embedded C++ release flags. Beyond -fno-exceptions/-fno-rtti: -fno-threadsafe-statics
+# drops the __cxa_guard_* guard on function-local statics (~64B .text here);
+# -fno-use-cxa-atexit drops the __cxa_atexit/__dso_handle dtor-registration table
+# for global objects (~84B .text + 264B .bss for EmbeddedProto) — dead weight in
+# firmware that never calls exit(); -fno-unwind-tables/-fno-asynchronous-unwind-tables
+# strip .ARM.exidx/.eh_frame. This matches languages/cpp-embedded/footprint.sh.
+CXXFLAGS="$CFLAGS -fno-exceptions -fno-rtti -fno-threadsafe-statics \
+          -fno-use-cxa-atexit -fno-unwind-tables -fno-asynchronous-unwind-tables"
 LDFLAGS="--specs=nano.specs --specs=nosys.specs -Wl,--gc-sections"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
