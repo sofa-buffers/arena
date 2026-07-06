@@ -27,6 +27,12 @@ EP="${EP:-$ROOT/vendor/EmbeddedProto}"
 COMMON="$ROOT/languages/common"
 
 CFLAGS="-Os -ffunction-sections -fdata-sections"
+# Embedded C++ footprint flags: no exceptions / RTTI / unwind tables. These strip
+# the exception machinery (.eh_frame/.gcc_except_table), typeinfo (.rodata) and
+# static-init guards (.data) that no real firmware build carries — how both
+# EmbeddedProto and the corelib C++ wrapper are meant to be compiled. C++-only, so
+# they are appended to the g++ invocations, NOT to the shared CFLAGS used by gcc.
+CXXEMB="-fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -54,7 +60,7 @@ using fullscale::Example;
 std::vector<std::uint8_t> fp_encode(const Example &m) { return m.encode(); }
 Example fp_decode(const std::uint8_t *d, std::size_t n) { return Example::decode(d, n); }
 EOF
-g++ $CFLAGS -std=c++20 -c "$TMP/drv_sofab.cpp" \
+g++ $CFLAGS $CXXEMB -std=c++20 -c "$TMP/drv_sofab.cpp" \
     -I "$HERE/sofab/gen" -I "$CORELIB/src/include" -o "$TMP/drv_sofab.o"
 gcc $CFLAGS -std=c99 -c \
     "$CORELIB/src/object.c" "$CORELIB/src/ostream.c" "$CORELIB/src/istream.c" \
@@ -72,9 +78,9 @@ using fullscale::FullScaleExample;
 ::EmbeddedProto::Error fp_encode(const FullScaleExample &m, ::EmbeddedProto::WriteBufferInterface &b) { return m.serialize(b); }
 ::EmbeddedProto::Error fp_decode(FullScaleExample &m, ::EmbeddedProto::ReadBufferInterface &b) { return m.deserialize(b); }
 EOF
-g++ $CFLAGS -std=c++17 -c "$TMP/drv_ep.cpp" \
+g++ $CFLAGS $CXXEMB -std=c++17 -c "$TMP/drv_ep.cpp" \
     -I "$HERE/embeddedproto/gen" -I "$EP/src" -o "$TMP/drv_ep.o"
-g++ $CFLAGS -std=c++17 -c \
+g++ $CFLAGS $CXXEMB -std=c++17 -c \
     "$EP/src/Fields.cpp" "$EP/src/MessageInterface.cpp" "$EP/src/ReadBufferSection.cpp" \
     -I "$EP/src"
 mv ./Fields.o ./MessageInterface.o ./ReadBufferSection.o "$TMP"/
