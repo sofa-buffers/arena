@@ -16,6 +16,10 @@ EP="${EP:-$ROOT/vendor/EmbeddedProto}"
 COMMON="$ROOT/languages/common"
 CXX="${CXX:-g++}"
 CC="${CC:-gcc}"
+# Embedded C++ flags: no exceptions / RTTI / unwind tables — how EmbeddedProto and
+# the corelib C++ wrapper are meant to be built for firmware. Applied only to the
+# C++ (bench) compiles, not the C corelib sources. Keep in sync with footprint.sh.
+CXXEMB="-fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics"
 
 # --- SofaBuffers C++ wrapper of corelib-c-cpp ------------------------------
 mkdir -p "$HERE/sofab/gen"
@@ -30,7 +34,7 @@ $CC -Os -flto -std=c99 -c \
     -I"$CORELIB/src/include"
 $CC -Os -flto -std=c99 -c "$COMMON/sha256.c" -I"$COMMON"
 mv ./*.o "$OBJ"/
-$CXX -Os -flto -std=c++20 \
+$CXX -Os -flto $CXXEMB -std=c++20 \
     -I"$HERE/sofab/gen" -I"$CORELIB/src/include" -I"$COMMON" \
     "$HERE/sofab/bench.cpp" "$OBJ"/*.o \
     -o "$HERE/sofab/bench" >&2
@@ -52,7 +56,7 @@ mkdir -p "$HERE/embeddedproto/gen"
     --eams_out="$HERE/embeddedproto/gen" \
     "$HERE/embeddedproto/proto/message.proto" >&2 )
 # 4) compile bench + generated header + EmbeddedProto runtime sources + sha256.
-$CXX -Os -flto -std=c++17 \
+$CXX -Os -flto $CXXEMB -std=c++17 \
     -I"$HERE/embeddedproto/gen" -I"$EP/src" -I"$COMMON" \
     "$HERE/embeddedproto/bench.cpp" \
     "$EP/src/Fields.cpp" "$EP/src/MessageInterface.cpp" "$EP/src/ReadBufferSection.cpp" \
