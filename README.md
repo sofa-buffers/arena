@@ -154,13 +154,20 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 | Java       | 434 | 494 | 282.2 | 289.7 | **1.14×** | 0.97× |
 | TypeScript · Node/V8 † | 434 | 494 |  69.9 |  64.0 | **1.14×** | **1.09×** |
 | TypeScript · Bun/JSC † | 434 | 494 |  56.4 |  61.1 | **1.14×** | 0.92× |
-| Python     | 434 | 494 |  20.5 | 207.7 | **1.14×** | 0.10× |
+| Python ‡   | 434 | 494 |  20.5 | 207.7 | **1.14×** | 0.10× |
 
 ***C++, Rust, C# and Go all beat protobuf; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
 
 *† The two **TypeScript** rows are the **identical** codec on the two JavaScript
 engines — Node (V8) and Bun (JavaScriptCore)
+
+*‡ **Python is slowest (0.10×), and it's not a fallback.** Python trails because
+protobuf-python is a thin shell over Google's C **`upb`** engine while SofaBuffers
+keeps a **per-field Python driver** — it runs the native Cython accelerator
+(`sofab.IMPL == "native"`), not a fallback. See
+[`languages/python/README.md`](languages/python/README.md) for the full profile
+(runtime verification + callgrind attribution table).*
 
 ### Embedded — throughput (host build of the embedded codecs)
 
@@ -230,13 +237,6 @@ less flash than the smallest protobuf alternative).*
   with less static RAM, no heap, and — even built for size — more throughput than
   any of them. *(A naïve object-sum flatters template-heavy libraries by counting
   code `--gc-sections` later discards; the link-delta counts only what ships.)*
-
-> **Note — why Python is slowest (0.10×), and it's *not* a fallback.** Python trails
-> because protobuf-python is a thin shell over Google's C **`upb`** engine while
-> SofaBuffers keeps a **per-field Python driver** — it runs the native Cython
-> accelerator (`sofab.IMPL == "native"`), not a fallback. See
-> [`languages/python/README.md`](languages/python/README.md) for the full profile
-> (runtime verification + callgrind attribution table).
 <!-- RESULTS:END -->
 
 ## Repository layout
