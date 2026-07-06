@@ -147,14 +147,14 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 434 | 494 | 351.6 | 234.2 | **1.14×** | **1.50×** |
-| Rust       | 434 | 494 | 363.3 | 255.7 | **1.14×** | **1.42×** |
-| Go         | 434 | 494 | 151.8 | 144.4 | **1.14×** | **1.05×** |
-| C#         | 434 | 494 | 209.1 | 137.4 | **1.14×** | **1.52×** |
-| Java       | 434 | 494 | 282.2 | 289.7 | **1.14×** | 0.97× |
-| TypeScript · Node/V8 † | 434 | 494 |  69.9 |  64.0 | **1.14×** | **1.09×** |
-| TypeScript · Bun/JSC † | 434 | 494 |  56.4 |  61.1 | **1.14×** | 0.92× |
-| Python     | 434 | 494 |  20.5 | 207.7 | **1.14×** | 0.10× |
+| C++        | 434 | 494 | 348.6 | 234.9 | **1.14×** | **1.48×** |
+| Rust       | 434 | 494 | 370.8 | 254.9 | **1.14×** | **1.45×** |
+| Go         | 434 | 494 | 156.1 | 147.2 | **1.14×** | **1.06×** |
+| C#         | 434 | 494 | 212.7 | 142.2 | **1.14×** | **1.50×** |
+| Java       | 434 | 494 | 294.3 | 295.4 | **1.14×** | 1.00× |
+| TypeScript · Node/V8 † | 434 | 494 |  72.5 |  79.2 | **1.14×** | 0.91× |
+| TypeScript · Bun/JSC † | 434 | 494 |  56.1 |  55.6 | **1.14×** | **1.01×** |
+| Python     | 434 | 494 |  20.5 | 204.1 | **1.14×** | 0.10× |
 
 ***C++, Rust, C# and Go all beat protobuf; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
@@ -171,10 +171,10 @@ ranking metric** (that is footprint, below).
 
 | opponent | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 126.4 | 306.3 | **1.14×** | 0.41× |
-| sofab-c-embedded vs. nanopb        | 434 | 494 | 126.4 |  61.3 | **1.14×** | **2.06×** |
-| sofab-rust-embedded vs. micropb    | 434 | 494 | 147.2 | 130.5 | **1.14×** | **1.13×** |
-| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 132.9 |  63.2 | **1.14×** | **2.10×** |
+| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 130.5 | 314.8 | **1.14×** | 0.41× |
+| sofab-c-embedded vs. nanopb        | 434 | 494 | 130.5 |  63.1 | **1.14×** | **2.07×** |
+| sofab-rust-embedded vs. micropb    | 434 | 494 | 150.9 | 130.1 | **1.14×** | **1.16×** |
+| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 130.7 |  64.4 | **1.14×** | **2.03×** |
 
 ***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
 baseline** (~2× vs nanopb and EmbeddedProto) — only the desktop-class
@@ -198,14 +198,14 @@ further below the numbers reported here.
 |---|---|--:|--:|--:|--:|--:|
 | **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 200 | 344 | 0 | **3 544** | 0 |
 | | nanopb | 5 660 | 936 | 0 | 6 596 | 0 |
-| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 548 | 156 | 80 | **6 784** | 132 |
-| | embeddedproto | 8 412 | 908 | 84 | 9 404 | 364 |
+| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 484 | 156 | 80 | **6 720** | 132 |
+| | embeddedproto | 8 328 | 904 | 80 | 9 312 | 96 |
 | **rust-cortex-m** (thumbv7e-m+fp) | sofab | 5 728 | 328 | 0 | **6 056** | 0 |
 | | micropb | 8 236 | 261 | 0 | 8 497 | 0 |
 | **c-riscv** (rv32imac) | sofab | 3 208 | 488 | 0 | **3 696** | 0 |
 | | nanopb | 6 336 | 1 112 | 0 | 7 448 | 0 |
-| **cpp-riscv** (rv32imac) | sofab | 5 970 | 300 | 76 | **6 346** | 420 |
-| | embeddedproto | 8 898 | 1 012 | 76 | 9 986 | 652 |
+| **cpp-riscv** (rv32imac) | sofab | 5 834 | 300 | 76 | **6 210** | 420 |
+| | embeddedproto | 8 824 | 1 012 | 76 | 9 912 | 388 |
 | **rust-riscv** (rv32imac) | sofab | 6 240 | 392 | 0 | **6 632** | 0 |
 | | micropb | 9 680 | 393 | 0 | 10 073 | 0 |
 

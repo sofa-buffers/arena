@@ -7,14 +7,14 @@
   language    |  wire size (B) |      throughput MB/s |      sofab advantage
               |  sofab   proto |     sofab      proto |     size       speed
   ----------------------------------------------------------------------------
-  cpp         |    434     494 |    351.58     234.19 |    1.14x       1.50x
-  rust        |    434     494 |    363.33     255.67 |    1.14x       1.42x
-  go          |    434     494 |    151.79     144.35 |    1.14x       1.05x
-  csharp      |    434     494 |    209.14     137.36 |    1.14x       1.52x
-  java        |    434     494 |    282.23     289.71 |    1.14x       0.97x
-  typescript  |    434     494 |     69.88      63.98 |    1.14x       1.09x
-  typescript-bun |    434     494 |     56.37      61.07 |    1.14x       0.92x
-  python      |    434     494 |     20.54     207.70 |    1.14x       0.10x
+  cpp         |    434     494 |    348.55     234.86 |    1.14x       1.48x
+  rust        |    434     494 |    370.77     254.91 |    1.14x       1.45x
+  go          |    434     494 |    156.12     147.17 |    1.14x       1.06x
+  csharp      |    434     494 |    212.73     142.17 |    1.14x       1.50x
+  java        |    434     494 |    294.25     295.40 |    1.14x       1.00x
+  typescript  |    434     494 |     72.50      79.24 |    1.14x       0.91x
+  typescript-bun |    434     494 |     56.07      55.64 |    1.14x       1.01x
+  python      |    434     494 |     20.52     204.11 |    1.14x       0.10x
 
   size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
@@ -29,10 +29,10 @@
   opponent                              |  wire size (B) |      throughput MB/s |      sofab advantage
                                         |  sofab   proto |     sofab      proto |     size       speed
   ------------------------------------------------------------------------------------------------------
-  sofab-c-embedded vs. protobuf-c       |    434     494 |    126.38     306.26 |    1.14x       0.41x
-  sofab-c-embedded vs. nanopb           |    434     494 |    126.38      61.31 |    1.14x       2.06x
-  sofab-rust-embedded vs. micropb       |    434     494 |    147.19     130.51 |    1.14x       1.13x
-  sofab-cpp-embedded vs. embeddedproto  |    434     494 |    132.93      63.23 |    1.14x       2.10x
+  sofab-c-embedded vs. protobuf-c       |    434     494 |    130.46     314.79 |    1.14x       0.41x
+  sofab-c-embedded vs. nanopb           |    434     494 |    130.46      63.05 |    1.14x       2.07x
+  sofab-rust-embedded vs. micropb       |    434     494 |    150.90     130.13 |    1.14x       1.16x
+  sofab-cpp-embedded vs. embeddedproto  |    434     494 |    130.69      64.39 |    1.14x       2.03x
 
 ================================================================================
  EMBEDDED — code footprint, bare-metal --gc-sections link delta
@@ -47,14 +47,14 @@
   --------------------------------------------------------------------------
   c-cortex-m     sofab         |     3200      344       0       3544           0
                  nanopb        |     5660      936       0       6596           0
-  cpp-cortex-m   sofab         |     6548      156      80       6784         132
-                 embeddedproto |     8412      908      84       9404         364
+  cpp-cortex-m   sofab         |     6484      156      80       6720         132
+                 embeddedproto |     8328      904      80       9312          96
   rust-cortex-m  sofab         |     5728      328       0       6056           0
                  micropb       |     8236      261       0       8497           0
   c-riscv        sofab         |     3208      488       0       3696           0
                  nanopb        |     6336     1112       0       7448           0
-  cpp-riscv      sofab         |     5970      300      76       6346         420
-                 embeddedproto |     8898     1012      76       9986         652
+  cpp-riscv      sofab         |     5834      300      76       6210         420
+                 embeddedproto |     8824     1012      76       9912         388
   rust-riscv     sofab         |     6240      392       0       6632           0
                  micropb       |     9680      393       0      10073           0
 
