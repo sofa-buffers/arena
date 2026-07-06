@@ -1,11 +1,6 @@
 generic:
   namespace: fullscale
-  timestamp: false
   license: MIT
 targets:
   c:
     symbol_prefix: fullscale_
-    c_standard: c99
-    descriptor_profile: auto
-    string_storage: fixed_inline
-    buffer: { mode: stack, size: auto }
