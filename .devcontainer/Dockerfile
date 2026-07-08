@@ -25,6 +25,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
 #   (bun)                      typescript-bun target — the same TS codec run on
 #                                Bun's JavaScriptCore engine (Node runs it on V8)
+#   (zig tarball)              Zig target (SofaBuffers corelib-zig + zig-protobuf)
+#                                — official 0.16.0 baked below
 #   gcc-arm-none-eabi          bare-metal Cortex-M cross toolchain (c/cpp/rust-
 #     + libnewlib + libstdc++    cortex-m footprint targets: --gc-sections
 #                                link-delta builds; binaries are never executed)
@@ -33,6 +35,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 #                                bare-metal libstdc++ — hence xpack below)
 #   (xpack riscv-none-elf-gcc) bare-metal RISC-V toolchain WITH libstdc++
 #                                (cpp-riscv target; newlib, rv32imac default)
+#   libicu-dev                 ICU for .NET globalization — with --no-install-
+#                                recommends nothing else pulls libicu in, and
+#                                dotnet aborts on startup without it
 #   valgrind, time             optional CPU-independent / RSS measurement helpers
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -45,6 +50,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf \
     python3 python3-venv python3-pip python3-dev \
     default-jdk maven \
+    libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Rust (rustup, stable) ----------------------------------------------------
@@ -76,6 +82,19 @@ RUN GO_VERSION=1.25.11 && ARCH="$(dpkg --print-architecture)" \
     && tar -C /usr/local -xzf /tmp/go.tgz \
     && rm /tmp/go.tgz \
     && go version
+
+# --- Zig (official toolchain) --------------------------------------------------
+# The zig maxspeed target: corelib-zig and zig-protobuf (the baseline) both
+# require Zig >= 0.16.0. Pinned; arch derived so the image builds on amd64 and
+# arm64 (ziglang.org tarball names use uname-style arch: x86_64 / aarch64).
+ENV PATH=/usr/local/zig:$PATH
+RUN ZIG_VERSION=0.16.0 && case "$(dpkg --print-architecture)" in \
+        amd64) ZA=x86_64;; arm64) ZA=aarch64;; *) ZA=x86_64;; esac \
+    && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZA}-linux-${ZIG_VERSION}.tar.xz" -o /tmp/zig.txz \
+    && mkdir -p /usr/local/zig \
+    && tar -C /usr/local/zig --strip-components=1 -xJf /tmp/zig.txz \
+    && rm /tmp/zig.txz \
+    && zig version
 
 # --- xpack riscv-none-elf-gcc (bare-metal RISC-V C++ toolchain) ---------------
 # Ubuntu's gcc-riscv64-unknown-elf ships picolibc but NO bare-metal libstdc++,
