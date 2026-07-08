@@ -320,7 +320,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_fp_arr
     offsetof(Fullscale__FullScaleSeqStructOfFpArrays, fp32),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -332,7 +332,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_fp_arr
     offsetof(Fullscale__FullScaleSeqStructOfFpArrays, fp64),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
@@ -371,7 +371,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, u8),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -383,7 +383,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, i8),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -395,7 +395,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, u16),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -407,7 +407,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, i16),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -419,7 +419,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, u32),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -431,7 +431,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, i32),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -443,7 +443,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, u64),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -455,7 +455,7 @@ static const ProtobufCFieldDescriptor fullscale__full_scale_seq_struct_of_arrays
     offsetof(Fullscale__FullScaleSeqStructOfArrays, i64),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {

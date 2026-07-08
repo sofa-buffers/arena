@@ -44,8 +44,11 @@ $CXX -Os -flto $CXXEMB -std=c++20 \
 if [ ! -d "$EP/.git" ]; then
     git clone --depth 1 https://github.com/Embedded-AMS/EmbeddedProto.git "$EP" >&2
 fi
-# 2) create the generator's self-contained python venv (idempotent).
-if [ ! -x "$EP/venv/bin/protoc-gen-eams" ]; then
+# 2) create the generator's self-contained python venv (idempotent). Recreate
+#    it when broken, not just missing — an image rebuild that upgrades the base
+#    Python leaves the venv present but unable to start its interpreter.
+if ! "$EP/venv/bin/python3" -c '' >/dev/null 2>&1; then
+    rm -rf "$EP/venv"
     ( cd "$EP" && python3 setup.py --ignore_version_diff >&2 )
 fi
 # 3) generate C++ from the EmbeddedProto-annotated local proto (custom field

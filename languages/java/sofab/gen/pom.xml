@@ -11,7 +11,7 @@
   </properties>
   <dependencies>
     <dependency><groupId>org.sofabuffers</groupId><artifactId>corelib</artifactId><version>${sofab.version}</version></dependency>
-    <dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId><version>2.14.0</version></dependency>
+    <dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId><version>2.11.0</version></dependency>
   </dependencies>
   <build>
     <finalName>harness</finalName>
@@ -19,12 +19,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.15.0</version>
+        <version>3.11.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.8.0</version>
+        <version>3.6.0</version>
         <configuration>
           <archive><manifest><mainClass>message.Main</mainClass></manifest></archive>
           <descriptorRefs><descriptorRef>jar-with-dependencies</descriptorRef></descriptorRefs>

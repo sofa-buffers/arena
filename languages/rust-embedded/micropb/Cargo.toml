@@ -19,9 +19,14 @@ required-features = ["std"]
 # no_std, no-alloc protobuf runtime. Fixed-capacity containers come from
 # heapless (v0.8). enable-64bit gives us u64/i64/double support.
 micropb = { version = "0.6", default-features = false, features = ["encode", "decode", "container-heapless-0-8", "enable-64bit"] }
-heapless = { version = "0.9", default-features = false }
+# micropb 0.6 wires its PbString/PbVec/PbBytes impls to heapless 0.8 (the
+# container-heapless-0-8 feature above); heapless 0.9 drops those impls and the
+# pb_push shim, so the generated codec fails to compile. Pin to 0.8.
+heapless = { version = "0.8", default-features = false }
 # Host-side harness only (timing/hash) — not part of the codec footprint.
-sha2 = { version = "0.11", optional = true }
+# sha2 0.11's digest() returns hybrid_array::Array (no LowerHex); matches the
+# sofab harness pin at 0.10.
+sha2 = { version = "0.10", optional = true }
 
 [features]
 default = ["std"]
