@@ -20,7 +20,7 @@ required-features = ["std"]
 
 [dependencies]
 sofab = { package = "sofa-buffers-corelib-no-std", path = "/workspace/vendor/corelib-rs-no-std", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64"] }
-heapless = { version = "0.8", default-features = false }
+heapless = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 sha2 = { version = "0.10", optional = true }
