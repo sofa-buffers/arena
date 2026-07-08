@@ -16,7 +16,7 @@ crate-type = ["staticlib"]
 [dependencies]
 micropb_msgs = { package = "rust-embedded-micropb-bench", path = "../micropb", default-features = false }
 micropb = { version = "0.6", default-features = false, features = ["encode", "decode", "container-heapless-0-8", "enable-64bit"] }
-heapless = { version = "0.8", default-features = false }
+heapless = { version = "0.9", default-features = false }
 
 [profile.release]
 opt-level = "z"
