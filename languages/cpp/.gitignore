@@ -1,0 +1,3 @@
+# compiled bench executables (one per impl dir: sofab/, protobuf/)
+/*/bench
+*.o

@@ -1,0 +1,5 @@
+# dotnet build outputs. sofab/bench/ itself is a source project directory —
+# its sources stay committed; only the bin/ and obj/ inside any project are
+# derived.
+bin/
+obj/

@@ -1,0 +1,4 @@
+# maven build outputs
+target/
+*.class
+*.jar

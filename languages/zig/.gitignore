@@ -1,0 +1,5 @@
+# zig build outputs and package fetch cache (deps are pinned by url+hash in
+# build.zig.zon)
+zig-out/
+.zig-cache/
+zig-pkg/
