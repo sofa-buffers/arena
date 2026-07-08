@@ -1,9 +1,8 @@
 # === Reference clones (not part of this repo) ================================
-/old-repo/
 /generator/
 
 # === Local editor / agent config & crash dumps ===============================
-/.claude-config/
+.claude*
 core
 *.core
 
@@ -44,6 +43,5 @@ Cargo.lock
 
 # === Secrets =================================================================
 .env
-.devcontainer/.env
 *.env
 /scratchpad/
