@@ -21,7 +21,7 @@ required-features = ["std"]
 micropb = { version = "0.6", default-features = false, features = ["encode", "decode", "container-heapless-0-8", "enable-64bit"] }
 heapless = { version = "0.9", default-features = false }
 # Host-side harness only (timing/hash) — not part of the codec footprint.
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 
 [features]
 default = ["std"]
