@@ -18,7 +18,7 @@ cd "$ROOT"
 mkdir -p tools vendor
 
 # --- SofaBuffers corelibs (one per language backend) --------------------------
-CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-no-std corelib-java corelib-cs corelib-ts"
+CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-no-std corelib-java corelib-cs corelib-ts corelib-zig"
 
 # v0.6.0 folded the Rust/Java/C#/Go decode perf patches into codegen; v0.7.0
 # added the cpp fixed-capacity (FixedString) profile; v0.8.0 moved
@@ -38,9 +38,11 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # (they were silently ignored before), so the cfg.yaml files had to drop stale
 # no-op keys (generic.timestamp everywhere; the c target's string_storage /
 # buffer / c_standard / descriptor_profile; python's package). Codegen is
-# byte-identical to v0.13 across all targets — those keys already did nothing.
+# byte-identical to v0.13 across all targets — those keys already did nothing;
+# v0.15.0 adds the Zig backend over corelib-zig (the max-speed Zig port —
+# enables the zig maxspeed target; corelib-zig joins CORELIBS above).
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.14.0}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.0}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
@@ -93,11 +95,15 @@ echo "$SOFABGEN_VERSION" > "$STAMP"
 echo "==> sofabgen: $(tools/sofabgen -version 2>/dev/null || echo present)"
 
 # --- python venv for the protobuf compiler + runtime --------------------------
-if [ ! -x tools/venv/bin/python ]; then
+# Recreate the venv when it's missing OR broken: an image rebuild that upgrades
+# the base Python leaves the venv present but unusable, which a bare [ -x ]
+# check doesn't catch. protobuf 4.x has no grpcio-tools build for Python 3.14+.
+if ! tools/venv/bin/python -c 'import grpc_tools.protoc' >/dev/null 2>&1; then
     echo "==> creating tools/venv (protobuf + grpcio-tools)"
+    rm -rf tools/venv
     python3 -m venv tools/venv
     tools/venv/bin/python -m pip install --upgrade pip >/dev/null
-    tools/venv/bin/python -m pip install "protobuf==4.25.3" grpcio-tools >/dev/null
+    tools/venv/bin/python -m pip install "protobuf==7.35.1" "grpcio-tools==1.82.1" >/dev/null
 fi
 echo "==> python protobuf: $(tools/venv/bin/python -c 'import google.protobuf as p; print(p.__version__)')"
 

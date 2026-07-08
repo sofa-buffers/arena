@@ -20,6 +20,8 @@ languages/**/obj/
 languages/**/build/
 languages/**/node_modules/
 languages/**/dist/
+languages/**/zig-out/
+languages/**/.zig-cache/
 languages/**/__pycache__/
 languages/**/*.class
 languages/**/*.jar

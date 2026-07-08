@@ -36,7 +36,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-LANGS="${LANGS:-c-embedded cpp rust go csharp java typescript typescript-bun python rust-embedded cpp-embedded c-cortex-m cpp-cortex-m rust-cortex-m c-riscv cpp-riscv rust-riscv}"
+LANGS="${LANGS:-c-embedded cpp rust zig go csharp java typescript typescript-bun python rust-embedded cpp-embedded c-cortex-m cpp-cortex-m rust-cortex-m c-riscv cpp-riscv rust-riscv}"
 DO_SETUP=1
 [ "${1:-}" = "--no-setup" ] && DO_SETUP=0
 # Throughput is noisy; RUNS repeats each bench and keeps the BEST (max) MB/s per

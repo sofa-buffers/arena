@@ -1,0 +1,17 @@
+// Protobuf Zig baseline: zig-protobuf (Arwalk), the Zig protocol-buffers-3
+// runtime + protoc plugin. Pinned release, fetched into the zig cache at build
+// time (the cargo/npm way) — protoc itself ships as a lazy dependency of the
+// package, so no system protoc is needed.
+.{
+    .name = .protobuf_baseline,
+    .version = "0.0.0",
+    .fingerprint = 0x905ee6664af544f7,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .protobuf = .{
+            .url = "https://github.com/Arwalk/zig-protobuf/archive/refs/tags/v5.0.0.tar.gz",
+            .hash = "protobuf-5.0.0-0e82avKUKAAVwTWJzTIEZ14Fu0zC11_lElR8tE6H__y1",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}
