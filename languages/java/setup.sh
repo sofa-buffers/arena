@@ -18,6 +18,18 @@ VER="$(grep -m1 '<version>' "$CORELIB/pom.xml" | sed 's/.*<version>\(.*\)<\/vers
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang java \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >/dev/null
 
+# sofabgen's Java template pins older tool/dep versions than the arena tracks.
+# Renovate bumps them in the committed (generated) pom.xml, but regenerating it
+# above would silently revert those merged bumps and leave a dirty tree. Until
+# the bumps land in a sofabgen release, re-apply the arena-pinned versions here
+# so setup stays idempotent (same pattern as typescript/setup.sh reconciling its
+# generated package.json). Keep these in sync with Renovate / protobuf/pom.xml.
+POM="$HERE/sofab/gen/pom.xml"
+sed -i \
+    -e 's#\(<artifactId>gson</artifactId><version>\)[^<]*#\12.14.0#' \
+    -e '/<artifactId>maven-assembly-plugin<\/artifactId>/{n;s#<version>[^<]*</version>#<version>3.8.0</version>#;}' \
+    "$POM"
+
 cp "$HERE/sofab/Bench.java" "$HERE/sofab/gen/src/main/java/message/Bench.java"
 ( cd "$HERE/sofab/gen" && mvn -q -Dsofab.version="$VER" package )
 

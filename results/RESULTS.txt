@@ -7,17 +7,19 @@
   language    |  wire size (B) |      throughput MB/s |      sofab advantage
               |  sofab   proto |     sofab      proto |     size       speed
   ----------------------------------------------------------------------------
-  cpp         |    434     494 |    249.37     190.32 |    1.14x       1.31x
-  rust        |    434     494 |    266.81     184.20 |    1.14x       1.45x
-  zig         |    434     494 |    416.77     183.79 |    1.14x       2.27x
-  go          |    434     494 |    109.96     105.00 |    1.14x       1.05x
-  csharp      |    434     494 |    163.91      99.18 |    1.14x       1.65x
-  java        |    434     494 |    204.25     183.67 |    1.14x       1.11x
-  typescript  |    434     494 |     50.76      53.04 |    1.14x       0.96x
-  typescript-bun |    434     494 |     36.54      32.15 |    1.14x       1.14x
+  cpp         |    434     494 |    356.96     262.01 |    1.14x       1.36x
+  rust        |    434     494 |    371.75     253.18 |    1.14x       1.47x
+  zig         |    434     494 |    553.85     261.95 |    1.14x       2.11x
+  go          |    434     494 |    152.15     143.43 |    1.14x       1.06x
+  csharp      |    434     494 |    204.65     130.68 |    1.14x       1.57x
+  java        |    434     494 |    276.56     266.29 |    1.14x       1.04x
+  typescript  |    434     494 |     69.53      78.12 |    1.14x       0.89x
+  typescript-bun |    434     494 |     55.13      53.65 |    1.14x       1.03x
+  python      |    434     494 |     21.64     224.39 |    1.14x       0.10x
 
   size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)
+  sofab codec (python): native
 
 ================================================================================
  EMBEDDED — throughput (host build of the embedded codecs)
@@ -28,9 +30,10 @@
   opponent                              |  wire size (B) |      throughput MB/s |      sofab advantage
                                         |  sofab   proto |     sofab      proto |     size       speed
   ------------------------------------------------------------------------------------------------------
-  sofab-c-embedded vs. protobuf-c       |    434     494 |     97.63     253.55 |    1.14x       0.39x
-  sofab-c-embedded vs. nanopb           |    434     494 |     97.63      53.11 |    1.14x       1.84x
-  sofab-rust-embedded vs. micropb       |    434     494 |     99.72     101.62 |    1.14x       0.98x
+  sofab-c-embedded vs. protobuf-c       |    434     494 |    126.55     335.61 |    1.14x       0.38x
+  sofab-c-embedded vs. nanopb           |    434     494 |    126.55      63.12 |    1.14x       2.00x
+  sofab-rust-embedded vs. micropb       |    434     494 |    145.31     128.79 |    1.14x       1.13x
+  sofab-cpp-embedded vs. embeddedproto  |    434     494 |    132.66      59.35 |    1.14x       2.24x
 
 ================================================================================
  EMBEDDED — code footprint, bare-metal --gc-sections link delta
@@ -66,9 +69,9 @@
     java           [maxspeed] OK
     typescript     [maxspeed] OK
     typescript-bun [maxspeed] OK
-    python         [maxspeed] SETUP_FAIL
+    python         [maxspeed] OK
     rust-embedded  [embedded] OK
-    cpp-embedded   [embedded] SETUP_FAIL
+    cpp-embedded   [embedded] OK
     c-cortex-m     [embedded] OK
     cpp-cortex-m   [embedded] OK
     rust-cortex-m  [embedded] OK
