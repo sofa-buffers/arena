@@ -22,6 +22,8 @@ languages/**/node_modules/
 languages/**/dist/
 languages/**/zig-out/
 languages/**/.zig-cache/
+# zig package fetch cache (deps are pinned by url+hash in build.zig.zon)
+languages/**/zig-pkg/
 languages/**/__pycache__/
 languages/**/*.class
 languages/**/*.jar
