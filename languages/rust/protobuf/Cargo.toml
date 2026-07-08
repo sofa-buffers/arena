@@ -8,7 +8,7 @@ name = "bench"
 path = "src/main.rs"
 
 [dependencies]
-prost = "0.13"
+prost = "0.14"
 sha2 = "0.10"
 
 [build-dependencies]
