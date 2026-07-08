@@ -22,6 +22,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 #                                thumbv7em/riscv32imac std libs for the no_std
 #                                staticlibs of the rust bare-metal footprint targets
 #   (dotnet 9)                 C# target (SofaBuffers corelib-cs + Google.Protobuf)
+#   libicu-dev                 ICU globalization libs the .NET runtime hard-requires
+#                                (else `dotnet` FailFasts: "valid ICU package")
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
 #   (bun)                      typescript-bun target — the same TS codec run on
 #                                Bun's JavaScriptCore engine (Node runs it on V8)
@@ -38,6 +40,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget unzip git jq time pkg-config \
     build-essential cmake make \
+    libicu-dev \
     valgrind \
     protobuf-compiler libprotobuf-dev libprotoc-dev \
     protobuf-c-compiler libprotobuf-c-dev \
