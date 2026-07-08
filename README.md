@@ -159,10 +159,10 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 ***C++, Rust, C# and Go all beat protobuf; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
 
-*† The two **TypeScript** rows are the **identical** codec on the two JavaScript
+- † The two **TypeScript** rows are the **identical** codec on the two JavaScript
 engines — Node (V8) and Bun (JavaScriptCore)
 
-*‡ **Python is slowest (0.10×), and it's not a fallback.** Python trails because
+- ‡ **Python is slowest (0.10×), and it's not a fallback.** Python trails because
 protobuf-python is a thin shell over Google's C **`upb`** engine while SofaBuffers
 keeps a **per-field Python driver** — it runs the native Cython accelerator
 (`sofab.IMPL == "native"`), not a fallback. See
