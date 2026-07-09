@@ -26,7 +26,7 @@ heapless = { version = "0.9", default-features = false }
 # Host-side harness only (timing/hash) — not part of the codec footprint.
 # sha2 0.11's digest() returns hybrid_array::Array (no LowerHex); matches the
 # sofab harness pin at 0.10.
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 
 [features]
 default = ["std"]
