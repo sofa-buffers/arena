@@ -5,6 +5,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 CORELIB="$ROOT/vendor/corelib-rs"
+# Central pins for the generated Cargo.toml (see versions.sh header);
+# renovate.json ignores sofab/gen so Renovate never fights these.
+. "$ROOT/languages/versions.sh"
 export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
 export PATH="/usr/local/cargo/bin:$HOME/.cargo/bin:$PATH"
@@ -27,8 +30,9 @@ edition = "2021"
 sofab = { package = "sofa-buffers-corelib", path = "$CORELIB" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Keep in lockstep with languages/rust/protobuf/Cargo.toml (same row, same dep).
-sha2 = "0.11"
+# Keep in lockstep with languages/rust/protobuf/Cargo.toml (same row, same dep);
+# pinned via RUST_SHA2 in languages/versions.sh.
+sha2 = "$RUST_SHA2"
 
 [[bin]]
 name = "harness"

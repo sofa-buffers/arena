@@ -8,6 +8,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 SOFAB_RS_CORELIB="$ROOT/vendor/corelib-rs-no-std"
+# Central pins for the generated Cargo.toml (see versions.sh header);
+# renovate.json ignores sofab/gen so Renovate never fights these.
+. "$ROOT/languages/versions.sh"
 
 # Toolchain env (defensive: works both under run_benchmark.sh and standalone).
 export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
@@ -48,10 +51,10 @@ required-features = ["std"]
 
 [dependencies]
 sofab = { package = "sofa-buffers-corelib-no-std", path = "$SOFAB_RS_CORELIB", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64"] }
-heapless = { version = "0.8", default-features = false }
+heapless = { version = "$RUST_HEAPLESS", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
-sha2 = { version = "0.11", optional = true }
+sha2 = { version = "$RUST_SHA2", optional = true }
 
 [features]
 default = ["std"]

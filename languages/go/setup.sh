@@ -6,6 +6,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 CORELIB="${SOFAB_GO_CORELIB:-$ROOT/vendor/corelib-go}"
+# Central pins for generated files (this go.mod is generated below); see the
+# file header. renovate.json ignores it so Renovate never fights this pin.
+. "$ROOT/languages/versions.sh"
 
 # Make go-installed tools (protoc-gen-go) visible to protoc.
 export PATH="$(go env GOPATH)/bin:$PATH"
@@ -45,13 +48,13 @@ protoc -I "$ROOT/schema" \
     "$ROOT/schema/message.proto"
 
 # Self-contained module. protobuf-go >= v1.36 needs a >= 1.23 toolchain;
-# go1.25.11 is what `go install ...@latest` pulls in this environment.
-cat > "$HERE/protobuf/go.mod" <<'EOF'
+# GO_TOOLCHAIN (versions.sh) is what `go install ...@latest` pulls here.
+cat > "$HERE/protobuf/go.mod" <<EOF
 module example.com/pbbench
 
 go 1.23
 
-toolchain go1.25.11
+toolchain ${GO_TOOLCHAIN}
 EOF
 ( cd "$HERE/protobuf" && GOFLAGS=-mod=mod go mod tidy >/dev/null 2>&1 && go build ./... )
 

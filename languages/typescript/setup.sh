@@ -6,6 +6,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 CORELIB="${SOFAB_TS_CORELIB:-$ROOT/vendor/corelib-ts}"
+# Central pins for the generated package.json (see versions.sh header);
+# renovate.json ignores sofab/gen so Renovate never fights these.
+. "$ROOT/languages/versions.sh"
 
 # (1) Build corelib-ts if its dist/ is missing.
 if [ ! -f "$CORELIB/dist/index.js" ]; then
@@ -19,7 +22,11 @@ GEN="$HERE/sofab/gen"
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang typescript \
     --in "$ROOT/schema/message.sofab.yaml" --out "$GEN" >/dev/null
 
-node -e "const p=require('$GEN/package.json');p.dependencies['@sofa-buffers/corelib']='file:$CORELIB';require('fs').writeFileSync('$GEN/package.json',JSON.stringify(p,null,2))"
+# Wire the corelib link and force the arena-pinned devDeps: sofabgen's template
+# ships older ranges than the arena tracks, and this file is Renovate-ignored
+# (renovate.json), so setup.sh is the source of truth. Keep @types/node /
+# typescript / tsx in lockstep with the hand-written protobuf/package.json.
+node -e "const p=require('$GEN/package.json');p.dependencies['@sofa-buffers/corelib']='file:$CORELIB';p.devDependencies={...p.devDependencies,'@types/node':'$TS_TYPES_NODE','typescript':'$TS_TYPESCRIPT','tsx':'$TS_TSX'};require('fs').writeFileSync('$GEN/package.json',JSON.stringify(p,null,2))"
 # Drop any stale lockfile/tree: it pins the checkout-specific vendor/corelib-ts
 # path via a `file:` link, so a re-cloned (or moved) vendor leaves the lock's
 # link target dangling and npm aborts with EMISSINGTARGET. sofabgen regenerates

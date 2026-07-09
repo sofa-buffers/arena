@@ -40,6 +40,14 @@ Everything below is only what is **not** written in those files.
 - The runner has **no impl registry**: impls appear by emitting
   `BENCH`/`FOOTPRINT` lines, which is why `bench.sh` stdout must contain
   nothing else (logs → stderr).
+- **Generated-manifest version pins**: the committed `sofab/gen/` manifests and
+  `go/protobuf/go.mod` are *generated* by `setup.sh`, so `languages/versions.sh`
+  (sourced by each `setup.sh`) is their single source of truth and
+  `.github/renovate.json` lists them under `ignorePaths` — Renovate must never
+  bump a generated file (the next `setup.sh` run reverts it = the drift this
+  removes). Deps shared with a hand-written protobuf/micropb manifest are a sync
+  point: bump `versions.sh` **and** the paired manifest together (listed in the
+  `versions.sh` header); Renovate still maintains the hand-written side.
 
 ## Checklists
 
