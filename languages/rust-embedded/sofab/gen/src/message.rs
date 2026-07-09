@@ -188,6 +188,9 @@ impl Example {
     pub fn decode(data: &[u8]) -> Self {
         example_dec::decode(data)
     }
+    pub fn try_decode(data: &[u8]) -> Result<Self, sofab::Error> {
+        example_dec::try_decode(data)
+    }
 }
 
 mod example_dec {
@@ -197,11 +200,26 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, ai: 0 };
+            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, ai: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
         m
+    }
+
+    pub fn try_decode(data: &[u8]) -> Result<Example, sofab::Error> {
+        let mut m = Example::default();
+        let overflow;
+        {
+            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, ai: 0 };
+            let mut is = IStream::new();
+            is.feed(data, &mut v)?;
+            overflow = v.err;
+        }
+        // A fixed-capacity field overflowed during the fill (generator#82):
+        // report it rather than return a silently-truncated value.
+        if overflow { return Err(sofab::Error::BufferFull); }
+        Ok(m)
     }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -217,6 +235,8 @@ struct V<'a> {
     m: &'a mut Example,
     stack: heapless::Vec<_Loc, 5>,
     cur: _Loc,
+    acc: heapless::Vec<u8, 1011>,
+    err: bool,
     ai: usize, // index into the fixed native array currently being filled
 }
 
@@ -227,10 +247,10 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 2) => self.m.u16 = value as u16,
             (_Loc::Root, 4) => self.m.u32 = value as u32,
             (_Loc::Root, 6) => self.m.u64 = value as u64,
-            (_Loc::Root_arrays, 0) => { self.m.arrays.u8[self.ai] = value as u8; self.ai += 1; }
-            (_Loc::Root_arrays, 2) => { self.m.arrays.u16[self.ai] = value as u16; self.ai += 1; }
-            (_Loc::Root_arrays, 4) => { self.m.arrays.u32[self.ai] = value as u32; self.ai += 1; }
-            (_Loc::Root_arrays, 6) => { self.m.arrays.u64[self.ai] = value as u64; self.ai += 1; }
+            (_Loc::Root_arrays, 0) => { if self.ai < 5 { self.m.arrays.u8[self.ai] = value as u8; self.ai += 1; } }
+            (_Loc::Root_arrays, 2) => { if self.ai < 5 { self.m.arrays.u16[self.ai] = value as u16; self.ai += 1; } }
+            (_Loc::Root_arrays, 4) => { if self.ai < 5 { self.m.arrays.u32[self.ai] = value as u32; self.ai += 1; } }
+            (_Loc::Root_arrays, 6) => { if self.ai < 5 { self.m.arrays.u64[self.ai] = value as u64; self.ai += 1; } }
             _ => {}
         }
     }
@@ -240,40 +260,53 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 3) => self.m.i16 = value as i16,
             (_Loc::Root, 5) => self.m.i32 = value as i32,
             (_Loc::Root, 7) => self.m.i64 = value as i64,
-            (_Loc::Root_arrays, 1) => { self.m.arrays.i8[self.ai] = value as i8; self.ai += 1; }
-            (_Loc::Root_arrays, 3) => { self.m.arrays.i16[self.ai] = value as i16; self.ai += 1; }
-            (_Loc::Root_arrays, 5) => { self.m.arrays.i32[self.ai] = value as i32; self.ai += 1; }
-            (_Loc::Root_arrays, 7) => { self.m.arrays.i64[self.ai] = value as i64; self.ai += 1; }
+            (_Loc::Root_arrays, 1) => { if self.ai < 5 { self.m.arrays.i8[self.ai] = value as i8; self.ai += 1; } }
+            (_Loc::Root_arrays, 3) => { if self.ai < 5 { self.m.arrays.i16[self.ai] = value as i16; self.ai += 1; } }
+            (_Loc::Root_arrays, 5) => { if self.ai < 5 { self.m.arrays.i32[self.ai] = value as i32; self.ai += 1; } }
+            (_Loc::Root_arrays, 7) => { if self.ai < 5 { self.m.arrays.i64[self.ai] = value as i64; self.ai += 1; } }
             _ => {}
         }
     }
     fn fp32(&mut self, id: Id, value: f32) {
         match (self.cur, id) {
             (_Loc::Root_nested, 0) => self.m.nested.f32 = value,
-            (_Loc::Root_arrays_nested, 0) => { self.m.arrays.nested.fp32[self.ai] = value; self.ai += 1; }
+            (_Loc::Root_arrays_nested, 0) => { if self.ai < 5 { self.m.arrays.nested.fp32[self.ai] = value; self.ai += 1; } }
             _ => {}
         }
     }
     fn fp64(&mut self, id: Id, value: f64) {
         match (self.cur, id) {
             (_Loc::Root_nested, 1) => self.m.nested.f64 = value,
-            (_Loc::Root_arrays_nested, 1) => { self.m.arrays.nested.fp64[self.ai] = value; self.ai += 1; }
+            (_Loc::Root_arrays_nested, 1) => { if self.ai < 5 { self.m.arrays.nested.fp64[self.ai] = value; self.ai += 1; } }
             _ => {}
         }
     }
     fn string(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
-        if offset != 0 || chunk.len() < total { return; }
-        let _s = core::str::from_utf8(&chunk[..total]).unwrap_or("");
+        if offset == 0 { self.acc.clear(); }
+        let _s = if offset == 0 && chunk.len() >= total {
+            core::str::from_utf8(&chunk[..total]).unwrap_or("")
+        } else {
+            let _ = self.acc.extend_from_slice(chunk);
+            if self.acc.len() < total { return; }
+            core::str::from_utf8(&self.acc[..total]).unwrap_or("")
+        };
         match (self.cur, id) {
-            (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); }
-            (_Loc::Root_string_array, _) => { while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { let _ = _e.push_str(_s); } }
+            (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }
+            (_Loc::Root_string_array, _) => { while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
             _ => {}
         }
     }
     fn blob(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
-        if offset != 0 || chunk.len() < total { return; }
+        if offset == 0 { self.acc.clear(); }
+        let _b: &[u8] = if offset == 0 && chunk.len() >= total {
+            &chunk[..total]
+        } else {
+            let _ = self.acc.extend_from_slice(chunk);
+            if self.acc.len() < total { return; }
+            &self.acc[..total]
+        };
         match (self.cur, id) {
-            (_Loc::Root_nested, 3) => { self.m.nested.bytes_field.clear(); let _ = self.m.nested.bytes_field.extend_from_slice(&chunk[..total]); }
+            (_Loc::Root_nested, 3) => { self.m.nested.bytes_field.clear(); let _ = self.m.nested.bytes_field.extend_from_slice(_b); if self.m.nested.bytes_field.len() != total { self.err = true; } }
             _ => {}
         }
     }

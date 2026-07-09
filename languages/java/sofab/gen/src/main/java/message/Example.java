@@ -128,6 +128,8 @@ class ExampleVisitor implements Visitor {
     private final Example m;
     private int cur = 0;
     private int ai = 0;                 // index into the primitive array currently being filled
+    private static final int ARRAY_INIT_CAP = 16; // bounded eager reservation; grow lazily
+    private int acap = 0;               // declared element count = growth ceiling for the array being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
     private int sp = 0;
     private java.io.ByteArrayOutputStream acc; // lazy: only split string/blob payloads need it
@@ -142,10 +144,10 @@ class ExampleVisitor implements Visitor {
             case 6: m.u64 = value; break;
         } break;
         case 2: switch (id) {
-            case 0: m.arrays.u8[ai++] = value; break;
-            case 2: m.arrays.u16[ai++] = value; break;
-            case 4: m.arrays.u32[ai++] = value; break;
-            case 6: m.arrays.u64[ai++] = value; break;
+            case 0: m.arrays.u8 = ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = value; break;
+            case 2: m.arrays.u16 = ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = value; break;
+            case 4: m.arrays.u32 = ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = value; break;
+            case 6: m.arrays.u64 = ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; break;
         } break;
         }
     }
@@ -158,10 +160,10 @@ class ExampleVisitor implements Visitor {
             case 7: m.i64 = value; break;
         } break;
         case 2: switch (id) {
-            case 1: m.arrays.i8[ai++] = value; break;
-            case 3: m.arrays.i16[ai++] = value; break;
-            case 5: m.arrays.i32[ai++] = value; break;
-            case 7: m.arrays.i64[ai++] = value; break;
+            case 1: m.arrays.i8 = ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = value; break;
+            case 3: m.arrays.i16 = ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = value; break;
+            case 5: m.arrays.i32 = ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = value; break;
+            case 7: m.arrays.i64 = ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; break;
         } break;
         }
     }
@@ -171,7 +173,7 @@ class ExampleVisitor implements Visitor {
             case 0: m.nested.f32 = value; break;
         } break;
         case 3: switch (id) {
-            case 0: m.arrays.nested.fp32[ai++] = value; break;
+            case 0: m.arrays.nested.fp32 = ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; break;
         } break;
         }
     }
@@ -181,7 +183,7 @@ class ExampleVisitor implements Visitor {
             case 1: m.nested.f64 = value; break;
         } break;
         case 3: switch (id) {
-            case 1: m.arrays.nested.fp64[ai++] = value; break;
+            case 1: m.arrays.nested.fp64 = ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; break;
         } break;
         }
     }
@@ -222,20 +224,21 @@ class ExampleVisitor implements Visitor {
     }
     public void arrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
+        acap = count;
         switch (cur) {
         case 2: switch (id) {
-            case 0: m.arrays.u8 = new long[count]; break;
-            case 1: m.arrays.i8 = new long[count]; break;
-            case 2: m.arrays.u16 = new long[count]; break;
-            case 3: m.arrays.i16 = new long[count]; break;
-            case 4: m.arrays.u32 = new long[count]; break;
-            case 5: m.arrays.i32 = new long[count]; break;
-            case 6: m.arrays.u64 = new long[count]; break;
-            case 7: m.arrays.i64 = new long[count]; break;
+            case 0: m.arrays.u8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 1: m.arrays.i8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 2: m.arrays.u16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 3: m.arrays.i16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 4: m.arrays.u32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 5: m.arrays.i32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 6: m.arrays.u64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 7: m.arrays.i64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
         } break;
         case 3: switch (id) {
-            case 0: m.arrays.nested.fp32 = new float[count]; break;
-            case 1: m.arrays.nested.fp64 = new double[count]; break;
+            case 0: m.arrays.nested.fp32 = new float[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 1: m.arrays.nested.fp64 = new double[Math.min(count, ARRAY_INIT_CAP)]; break;
         } break;
         }
     }
@@ -254,5 +257,26 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void sequenceEnd() { cur = sp > 0 ? stk[--sp] : 0; }
+    private static long[] ensureCap(long[] a, int i, int cap) {
+        if (i < a.length) return a;
+        long n = (long) a.length * 2;
+        if (n < i + 1) n = i + 1;
+        if (n > cap) n = cap;
+        return java.util.Arrays.copyOf(a, (int) n);
+    }
+    private static float[] ensureCap(float[] a, int i, int cap) {
+        if (i < a.length) return a;
+        long n = (long) a.length * 2;
+        if (n < i + 1) n = i + 1;
+        if (n > cap) n = cap;
+        return java.util.Arrays.copyOf(a, (int) n);
+    }
+    private static double[] ensureCap(double[] a, int i, int cap) {
+        if (i < a.length) return a;
+        long n = (long) a.length * 2;
+        if (n < i + 1) n = i + 1;
+        if (n > cap) n = cap;
+        return java.util.Arrays.copyOf(a, (int) n);
+    }
 }
 
