@@ -33,7 +33,7 @@ struct _FixedBlobSeq : sofab::IStreamMessage {
         while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
         auto &b = (*out)[id];
         b.set_len(_size);
-        if (_size) is.read(b.data(), _size);
+        if (_size) is.read(b.data(), b.size());
     }
 };
 template <typename Container>
@@ -82,7 +82,7 @@ struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
             str.set_len(_size); if (_size) is.read(str);
             break;
         case 3:
-            bytes_field.set_len(_size); is.read(bytes_field.data(), _size);
+            bytes_field.set_len(_size); is.read(bytes_field.data(), bytes_field.size());
             break;
         default: break;
         }
@@ -222,6 +222,13 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
         sofab::IStreamObject<Example> in;
         in.feed(data, len);
         return *in;
+    }
+
+    static sofab::IStreamImpl::Result try_decode(const std::uint8_t *data, std::size_t len, Example &out) {
+        sofab::IStreamObject<Example> in;
+        sofab::IStreamImpl::Result r = in.feed(data, len);
+        if (r.ok()) { out = *in; }
+        return r;
     }
 
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {

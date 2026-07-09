@@ -45,9 +45,14 @@ if [ ! -d "$EP/.git" ]; then
     git clone --depth 1 https://github.com/Embedded-AMS/EmbeddedProto.git "$EP" >&2
 fi
 # 2) create the generator's self-contained python venv (idempotent). Recreate
-#    it when broken, not just missing — an image rebuild that upgrades the base
-#    Python leaves the venv present but unable to start its interpreter.
-if ! "$EP/venv/bin/python3" -c '' >/dev/null 2>&1; then
+#    it when broken, not just missing — two ways it breaks: (a) an image rebuild
+#    that upgrades the base Python leaves the venv present but unable to start
+#    its interpreter; (b) a venv created under a different absolute path (the
+#    tree was moved/renamed) keeps stale shebangs in venv/bin/* — the copied
+#    interpreter still starts, but the plugin console script points at a
+#    non-existent python and dies "bad interpreter". Rebuild on either.
+if ! "$EP/venv/bin/python3" -c '' >/dev/null 2>&1 \
+   || ! head -1 "$EP/venv/bin/protoc-gen-eams" 2>/dev/null | grep -qxF "#!$EP/venv/bin/python3"; then
     rm -rf "$EP/venv"
     ( cd "$EP" && python3 setup.py --ignore_version_diff >&2 )
 fi

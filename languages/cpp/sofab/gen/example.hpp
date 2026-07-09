@@ -201,6 +201,13 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
         return *in;
     }
 
+    static sofab::IStreamImpl::Result try_decode(const std::uint8_t *data, std::size_t len, Example &out) {
+        sofab::IStreamObject<Example> in;
+        sofab::IStreamImpl::Result r = in.feed(data, len);
+        if (r.ok()) { out = *in; }
+        return r;
+    }
+
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (u8 != 0) { (void)os.write(0, u8); }
         if (i8 != 0) { (void)os.write(1, i8); }
