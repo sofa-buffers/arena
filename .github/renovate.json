@@ -4,6 +4,20 @@
     "config:recommended"
   ],
   "enabled": false,
+  "//ignorePaths": "Generated manifests: setup.sh (sourcing languages/versions.sh) is their source of truth, so Renovate must not bump them (the bump would be reverted on the next run = dependency drift). Preserves config:recommended's own defaults so vendor/ etc. stay ignored.",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "languages/**/sofab/gen/**",
+    "languages/go/sofab/go.mod",
+    "languages/go/protobuf/go.mod"
+  ],
   "vulnerabilityAlerts": {
     "enabled": true
   },
