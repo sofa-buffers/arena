@@ -21,11 +21,13 @@ required-features = ["std"]
 micropb = { version = "0.6", default-features = false, features = ["encode", "decode", "container-heapless-0-8", "enable-64bit"] }
 # micropb 0.6 wires its PbString/PbVec/PbBytes impls to heapless 0.8 (the
 # container-heapless-0-8 feature above); heapless 0.9 drops those impls and the
-# pb_push shim, so the generated codec fails to compile. Pin to 0.8.
-heapless = { version = "0.9", default-features = false }
+# pb_push shim, so the generated codec fails to compile. Pin to 0.8
+# (enforced in .github/renovate.json so the bump can't be reintroduced).
+heapless = { version = "0.8", default-features = false }
 # Host-side harness only (timing/hash) — not part of the codec footprint.
-# sha2 0.11's digest() returns hybrid_array::Array (no LowerHex); matches the
-# sofab harness pin at 0.10.
+# Kept in lockstep with the sofab harness (both rust-embedded impls on 0.11);
+# 0.11's digest() returns a hybrid_array::Array with no LowerHex, so the bench
+# formats the hash byte-wise (see src/main.rs).
 sha2 = { version = "0.11", optional = true }
 
 [features]

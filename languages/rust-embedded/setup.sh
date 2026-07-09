@@ -51,7 +51,7 @@ sofab = { package = "sofa-buffers-corelib-no-std", path = "$SOFAB_RS_CORELIB", d
 heapless = { version = "0.8", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 
 [features]
 default = ["std"]

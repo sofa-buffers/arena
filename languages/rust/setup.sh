@@ -27,7 +27,8 @@ edition = "2021"
 sofab = { package = "sofa-buffers-corelib", path = "$CORELIB" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
+# Keep in lockstep with languages/rust/protobuf/Cargo.toml (same row, same dep).
+sha2 = "0.11"
 
 [[bin]]
 name = "harness"

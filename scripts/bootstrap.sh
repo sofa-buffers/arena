@@ -40,9 +40,15 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # buffer / c_standard / descriptor_profile; python's package). Codegen is
 # byte-identical to v0.13 across all targets — those keys already did nothing;
 # v0.15.0 adds the Zig backend over corelib-zig (the max-speed Zig port —
-# enables the zig maxspeed target; corelib-zig joins CORELIBS above).
+# enables the zig maxspeed target; corelib-zig joins CORELIBS above); v0.15.2
+# adds a fallible `try_decode` (Result-returning) alongside the infallible
+# `decode` on the cpp/cpp-embedded/rust/rust-embedded backends, makes a
+# fixed-capacity fill overflow on rust-embedded return Err(BufferFull) instead
+# of a silently-truncated value (generator#82), and gives Java native numeric
+# arrays bounded eager reservation (ARRAY_INIT_CAP) + ensureCap lazy growth.
+# Wire byte-identical to v0.15.0 — gate stays 434B/494B.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.0}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.2}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
