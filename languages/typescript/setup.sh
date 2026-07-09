@@ -20,6 +20,11 @@ GEN="$HERE/sofab/gen"
     --in "$ROOT/schema/message.sofab.yaml" --out "$GEN" >/dev/null
 
 node -e "const p=require('$GEN/package.json');p.dependencies['@sofa-buffers/corelib']='file:$CORELIB';require('fs').writeFileSync('$GEN/package.json',JSON.stringify(p,null,2))"
+# Drop any stale lockfile/tree: it pins the checkout-specific vendor/corelib-ts
+# path via a `file:` link, so a re-cloned (or moved) vendor leaves the lock's
+# link target dangling and npm aborts with EMISSINGTARGET. sofabgen regenerates
+# package.json but never the lock, so clear it here and let npm resolve fresh.
+rm -rf "$GEN/package-lock.json" "$GEN/node_modules/@sofa-buffers"
 ( cd "$GEN" && npm install --no-audit --no-fund --silent ) \
     || ( cd "$GEN" && npm install --no-audit --no-fund )
 

@@ -104,7 +104,9 @@ fn main() {
     // Warm-up round-trip + self-check (outside the timed region).
     let blob = encode(&src);
     let serialized = blob.len();
-    let sha = format!("{:x}", Sha256::digest(&blob[..]));
+    // Byte-wise hex so it works across sha2 versions: 0.11's digest returns a
+    // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
+    let sha: String = Sha256::digest(&blob[..]).iter().map(|b| format!("{b:02x}")).collect();
 
     let mut decoded = FullScaleExample::default();
     decoded
