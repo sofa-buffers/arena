@@ -21,6 +21,12 @@ public class Main {
                 Example obj = Example.decode(input);
                 StringBuilder sb = new StringBuilder(); Json.to(obj, sb);
                 System.out.write(sb.toString().getBytes(StandardCharsets.UTF_8)); System.out.write('\n');
+            } else if (mode.equals("trydecode")) {
+                Example obj = new Example();
+                org.sofabuffers.sofab.DecodeStatus st = Example.tryDecode(input, obj);
+                System.out.write((st.name() + "\n").getBytes(StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder(); Json.to(obj, sb);
+                System.out.write(sb.toString().getBytes(StandardCharsets.UTF_8)); System.out.write('\n');
             } else { System.err.println("unknown mode"); System.exit(2); }
             break;
         }
