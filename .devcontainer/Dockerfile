@@ -15,6 +15,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   protobuf-c-compiler        protoc-c + libprotobuf-c — the C protobuf target
 #   libprotobuf-c-dev
 #   python3 + venv + pip       Python target + grpcio-tools protobuf compiler
+#   cython3                    Cython — compiles corelib-py's native _speedups
+#                                accelerator (.pyx → C); baked in so the Python
+#                                target's build never depends on a bench-time
+#                                pip install of Cython
 #   default-jdk + maven        Java target (SofaBuffers corelib-java + protobuf-java)
 #   (Go tarball)               Go target — official 1.25.x baked below
 #                              (apt's golang-go is 1.22, too old for protobuf-go v1.36)
@@ -48,7 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-c-compiler libprotobuf-c-dev \
     gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
     gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf \
-    python3 python3-venv python3-pip python3-dev \
+    python3 python3-venv python3-pip python3-dev cython3 \
     default-jdk maven \
     libicu-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -60,6 +64,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --profile minimal --default-toolchain stable \
     && rustup target add thumbv7em-none-eabihf riscv32imac-unknown-none-elf \
+    && rustup component add rustfmt \
     && rustc --version
 
 # --- .NET SDK 9 ---------------------------------------------------------------

@@ -12,8 +12,8 @@ PY="${PYBIN:-$ROOT/tools/venv/bin/python}"
 
 # sofab: build corelib-py's optional native (Cython) accelerator in-place so the
 # bench imports the compiled `sofab._speedups` (IMPL=native) rather than the
-# pure-Python fallback. Tolerant: if the compile fails the bench still runs pure.
-"$PY" -m pip install -q --disable-pip-version-check "Cython>=3.0" setuptools wheel >/dev/null 2>&1 || true
+# pure-Python fallback. Cython + setuptools/wheel come from the bootstrap venv;
+# tolerant: if the compile fails the bench still runs pure.
 if ( cd "$ROOT/vendor/corelib-py" && "$PY" setup.py build_ext --inplace >/dev/null 2>&1 ); then
     echo "python: native accelerator built" >&2
 else
