@@ -100,16 +100,19 @@ fi
 echo "$SOFABGEN_VERSION" > "$STAMP"
 echo "==> sofabgen: $(tools/sofabgen -version 2>/dev/null || echo present)"
 
-# --- python venv for the protobuf compiler + runtime --------------------------
+# --- python venv for the protobuf compiler + runtime + Cython -----------------
 # Recreate the venv when it's missing OR broken: an image rebuild that upgrades
 # the base Python leaves the venv present but unusable, which a bare [ -x ]
 # check doesn't catch. protobuf 4.x has no grpcio-tools build for Python 3.14+.
-if ! tools/venv/bin/python -c 'import grpc_tools.protoc' >/dev/null 2>&1; then
-    echo "==> creating tools/venv (protobuf + grpcio-tools)"
+# Cython lives here too (the venv is isolated from the system cython3), so the
+# python target's native accelerator builds without a bench-time pip install;
+# the guard imports it as well so an older venv is rebuilt to pick it up.
+if ! tools/venv/bin/python -c 'import grpc_tools.protoc, Cython' >/dev/null 2>&1; then
+    echo "==> creating tools/venv (protobuf + grpcio-tools + Cython)"
     rm -rf tools/venv
     python3 -m venv tools/venv
     tools/venv/bin/python -m pip install --upgrade pip >/dev/null
-    tools/venv/bin/python -m pip install "protobuf==7.35.1" "grpcio-tools==1.82.1" >/dev/null
+    tools/venv/bin/python -m pip install "protobuf==7.35.1" "grpcio-tools==1.82.1" "Cython>=3.0" setuptools wheel >/dev/null
 fi
 echo "==> python protobuf: $(tools/venv/bin/python -c 'import google.protobuf as p; print(p.__version__)')"
 
