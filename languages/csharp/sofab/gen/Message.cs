@@ -125,6 +125,10 @@ public sealed class Example {
         new IStream().Feed(data, 0, data.Length, v);
         return m;
     }
+    public static DecodeStatus TryDecode(byte[] data, out Example msg) {
+        msg = new Example();
+        return new IStream().Feed(data, 0, data.Length, new ExampleVisitor(msg));
+    }
 }
 
 internal sealed class ExampleVisitor : IVisitor {

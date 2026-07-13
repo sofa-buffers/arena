@@ -46,9 +46,19 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # fixed-capacity fill overflow on rust-embedded return Err(BufferFull) instead
 # of a silently-truncated value (generator#82), and gives Java native numeric
 # arrays bounded eager reservation (ARRAY_INIT_CAP) + ensureCap lazy growth.
-# Wire byte-identical to v0.15.0 — gate stays 434B/494B.
+# Wire byte-identical to v0.15.0 — gate stays 434B/494B; v0.15.3 lands the
+# finish-less three-valued decode model from MESSAGE_SPEC §7 (generator#86): a
+# one-shot decode now reports COMPLETE / INCOMPLETE (bytes end mid-field, NOT an
+# error) / INVALID (malformed) instead of collapsing truncation into COMPLETE or
+# INVALID, and the promoting finish()/finalize() step is gone. The C#/Java
+# one-shot decoders — which previously discarded IStream.Feed/feed's
+# DecodeStatus (generator#105, G-0008) — now surface the terminal status
+# (tryDecode/TryDecode variants), so a truncated message is distinguishable from
+# a COMPLETE one. Exception-based backends (Go/Rust/C++/C/Python/TS/Zig) already
+# propagated INCOMPLETE. No wire or config-schema change — codegen for the full
+# valid message is byte-identical, gate stays 434B/494B.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.2}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.3}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a

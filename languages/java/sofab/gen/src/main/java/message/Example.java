@@ -122,6 +122,11 @@ public class Example {
         catch (Exception e) { throw new RuntimeException(e); }
         return m;
     }
+    public static DecodeStatus tryDecode(byte[] data, Example out) throws SofabException {
+        IStream is = new IStream();
+        is.feed(data, new ExampleVisitor(out));
+        return is.status();
+    }
 }
 
 class ExampleVisitor implements Visitor {
