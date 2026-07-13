@@ -138,6 +138,9 @@ pub const Example = struct {
         var m: Example = .{};
         var v: _dec_Example = .{ .m = &m, .alloc = alloc };
         try sofab.decode(data, &v);
+        // A scalar array carried more elements than its schema count:
+        // INVALID per MESSAGE_SPEC 3+7, never clamp (generator#100).
+        if (v.inv) return error.InvalidMessage;
         return m;
     }
 };
@@ -150,6 +153,7 @@ const _dec_Example = struct {
     stack: [256]_Loc = undefined,
     sp: usize = 0,
     cur: _Loc = .root,
+    inv: bool = false, // a scalar array overflowed its schema count -> INVALID
     ai: usize = 0, // index into the native array currently being filled
 
     const _Loc = enum {
@@ -171,10 +175,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                0 => _put(&self.m.arrays.u8, &self.ai, @truncate(value)),
-                2 => _put(&self.m.arrays.u16, &self.ai, @truncate(value)),
-                4 => _put(&self.m.arrays.u32, &self.ai, @truncate(value)),
-                6 => _put(&self.m.arrays.u64, &self.ai, value),
+                0 => _putc(&self.m.arrays.u8, &self.ai, @truncate(value), &self.inv),
+                2 => _putc(&self.m.arrays.u16, &self.ai, @truncate(value), &self.inv),
+                4 => _putc(&self.m.arrays.u32, &self.ai, @truncate(value), &self.inv),
+                6 => _putc(&self.m.arrays.u64, &self.ai, value, &self.inv),
                 else => {},
             },
             else => {},
@@ -191,10 +195,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                1 => _put(&self.m.arrays.i8, &self.ai, @truncate(value)),
-                3 => _put(&self.m.arrays.i16, &self.ai, @truncate(value)),
-                5 => _put(&self.m.arrays.i32, &self.ai, @truncate(value)),
-                7 => _put(&self.m.arrays.i64, &self.ai, value),
+                1 => _putc(&self.m.arrays.i8, &self.ai, @truncate(value), &self.inv),
+                3 => _putc(&self.m.arrays.i16, &self.ai, @truncate(value), &self.inv),
+                5 => _putc(&self.m.arrays.i32, &self.ai, @truncate(value), &self.inv),
+                7 => _putc(&self.m.arrays.i64, &self.ai, value, &self.inv),
                 else => {},
             },
             else => {},
@@ -208,7 +212,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => _put(&self.m.arrays.nested.fp32, &self.ai, value),
+                0 => _putc(&self.m.arrays.nested.fp32, &self.ai, value, &self.inv),
                 else => {},
             },
             else => {},
@@ -222,7 +226,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                1 => _put(&self.m.arrays.nested.fp64, &self.ai, value),
+                1 => _putc(&self.m.arrays.nested.fp64, &self.ai, value, &self.inv),
                 else => {},
             },
             else => {},
@@ -302,10 +306,24 @@ const _EncodeSink = struct {
     }
 };
 
-/// Store the next native-array element, bounds-checked (a hostile count can
-/// exceed the destination capacity; excess elements are dropped).
+/// Store the next native-array element into a dynamic (count-less) slice,
+/// bounds-checked; the slice is pre-sized to the wire count, so the bound
+/// only guards a failed allocation (the data is then dropped).
 fn _put(s: anytype, i: *usize, v: std.meta.Elem(@TypeOf(s))) void {
     if (i.* >= s.len) return;
+    @constCast(&s[i.*]).* = v;
+    i.* += 1;
+}
+
+/// Store the next native-array element into a fixed [N]T destination. An
+/// element past the schema capacity N flags the message malformed: a wire
+/// count above the schema count is INVALID per MESSAGE_SPEC 3+7 and must be
+/// rejected, not clamped (generator#100).
+fn _putc(s: anytype, i: *usize, v: std.meta.Elem(@TypeOf(s)), inv: *bool) void {
+    if (i.* >= s.len) {
+        inv.* = true;
+        return;
+    }
     @constCast(&s[i.*]).* = v;
     i.* += 1;
 }

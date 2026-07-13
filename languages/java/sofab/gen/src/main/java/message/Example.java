@@ -232,18 +232,18 @@ class ExampleVisitor implements Visitor {
         acap = count;
         switch (cur) {
         case 2: switch (id) {
-            case 0: m.arrays.u8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 1: m.arrays.i8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 2: m.arrays.u16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 3: m.arrays.i16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 4: m.arrays.u32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 5: m.arrays.i32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 6: m.arrays.u64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 7: m.arrays.i64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); m.arrays.u8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); m.arrays.i8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 2: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); m.arrays.u16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 3: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); m.arrays.i16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 4: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); m.arrays.u32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 5: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); m.arrays.i32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 6: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); m.arrays.u64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 7: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); m.arrays.i64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
         } break;
         case 3: switch (id) {
-            case 0: m.arrays.nested.fp32 = new float[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 1: m.arrays.nested.fp64 = new double[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); m.arrays.nested.fp32 = new float[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); m.arrays.nested.fp64 = new double[Math.min(count, ARRAY_INIT_CAP)]; break;
         } break;
         }
     }

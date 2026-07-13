@@ -54,12 +54,24 @@ func (m *ExampleArrays) marshal(e *sofab.Encoder) {
 func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
 	switch id {
 	case 0:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U8 = _narrowU[uint8](v)
 	case 2:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U16 = _narrowU[uint16](v)
 	case 4:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U32 = _narrowU[uint32](v)
 	case 6:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U64 = v
 	}
 	return nil
@@ -68,12 +80,24 @@ func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
 func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
 	switch id {
 	case 1:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I8 = _narrowS[int8](v)
 	case 3:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I16 = _narrowS[int16](v)
 	case 5:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I32 = _narrowS[int32](v)
 	case 7:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I64 = v
 	}
 	return nil
@@ -106,6 +130,9 @@ func (m *ExampleArraysNested) marshal(e *sofab.Encoder) {
 func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
 	switch id {
 	case 0:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.Fp32 = v
 	}
 	return nil
@@ -114,6 +141,9 @@ func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
 func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
 	switch id {
 	case 1:
+		if len(v) > 5 {
+			return sofab.ErrInvalidMsg
+		}
 		m.Fp64 = v
 	}
 	return nil
