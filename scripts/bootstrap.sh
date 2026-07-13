@@ -56,9 +56,14 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # (tryDecode/TryDecode variants), so a truncated message is distinguishable from
 # a COMPLETE one. Exception-based backends (Go/Rust/C++/C/Python/TS/Zig) already
 # propagated INCOMPLETE. No wire or config-schema change — codegen for the full
-# valid message is byte-identical, gate stays 434B/494B.
+# valid message is byte-identical, gate stays 434B/494B; v0.15.4 hardens the
+# decoders to reject a scalar (native fixed-count) array whose declared element
+# count exceeds the field's fixed capacity, in every backend (generator#100) —
+# previously an over-count header could overrun/mis-decode; malformed input now
+# fails as INVALID. Bug-fix only: the valid reference message is byte-identical,
+# gate stays 434B/494B.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.3}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.4}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a

@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, field
 from enum import IntEnum
-from sofab import Encoder, Decoder, WireType
+from sofab import Encoder, Decoder, SofaDecodeError, WireType
 
 @dataclass
 class ExampleArrays:
@@ -45,20 +45,36 @@ class ExampleArrays:
                 return
             if fld.id == 0:
                 self.u8 = d.read_unsigned_array()
+                if len(self.u8) > 5:
+                    raise SofaDecodeError("u8: array count above schema capacity 5")
             elif fld.id == 1:
                 self.i8 = d.read_signed_array()
+                if len(self.i8) > 5:
+                    raise SofaDecodeError("i8: array count above schema capacity 5")
             elif fld.id == 2:
                 self.u16 = d.read_unsigned_array()
+                if len(self.u16) > 5:
+                    raise SofaDecodeError("u16: array count above schema capacity 5")
             elif fld.id == 3:
                 self.i16 = d.read_signed_array()
+                if len(self.i16) > 5:
+                    raise SofaDecodeError("i16: array count above schema capacity 5")
             elif fld.id == 4:
                 self.u32 = d.read_unsigned_array()
+                if len(self.u32) > 5:
+                    raise SofaDecodeError("u32: array count above schema capacity 5")
             elif fld.id == 5:
                 self.i32 = d.read_signed_array()
+                if len(self.i32) > 5:
+                    raise SofaDecodeError("i32: array count above schema capacity 5")
             elif fld.id == 6:
                 self.u64 = d.read_unsigned_array()
+                if len(self.u64) > 5:
+                    raise SofaDecodeError("u64: array count above schema capacity 5")
             elif fld.id == 7:
                 self.i64 = d.read_signed_array()
+                if len(self.i64) > 5:
+                    raise SofaDecodeError("i64: array count above schema capacity 5")
             elif fld.id == 10:
                 self.nested._unmarshal(d)
             else:
@@ -129,8 +145,12 @@ class ExampleArraysNested:
                 return
             if fld.id == 0:
                 self.fp32 = d.read_float32_array()
+                if len(self.fp32) > 5:
+                    raise SofaDecodeError("fp32: array count above schema capacity 5")
             elif fld.id == 1:
                 self.fp64 = d.read_float64_array()
+                if len(self.fp64) > 5:
+                    raise SofaDecodeError("fp64: array count above schema capacity 5")
             else:
                 d.skip()
 

@@ -216,16 +216,16 @@ internal sealed class ExampleVisitor : IVisitor {
     public void ArrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
         switch ((cur, id)) {
-            case (Root_arrays, 0): m.arrays.u8 = new byte[count]; break;
-            case (Root_arrays, 1): m.arrays.i8 = new sbyte[count]; break;
-            case (Root_arrays, 2): m.arrays.u16 = new ushort[count]; break;
-            case (Root_arrays, 3): m.arrays.i16 = new short[count]; break;
-            case (Root_arrays, 4): m.arrays.u32 = new uint[count]; break;
-            case (Root_arrays, 5): m.arrays.i32 = new int[count]; break;
-            case (Root_arrays, 6): m.arrays.u64 = new ulong[count]; break;
-            case (Root_arrays, 7): m.arrays.i64 = new long[count]; break;
-            case (Root_arrays_nested, 0): m.arrays.nested.fp32 = new float[count]; break;
-            case (Root_arrays_nested, 1): m.arrays.nested.fp64 = new double[count]; break;
+            case (Root_arrays, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[count]; break;
+            case (Root_arrays, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[count]; break;
+            case (Root_arrays, 2): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u16: array count above schema capacity 5"); m.arrays.u16 = new ushort[count]; break;
+            case (Root_arrays, 3): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i16: array count above schema capacity 5"); m.arrays.i16 = new short[count]; break;
+            case (Root_arrays, 4): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u32: array count above schema capacity 5"); m.arrays.u32 = new uint[count]; break;
+            case (Root_arrays, 5): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i32: array count above schema capacity 5"); m.arrays.i32 = new int[count]; break;
+            case (Root_arrays, 6): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u64: array count above schema capacity 5"); m.arrays.u64 = new ulong[count]; break;
+            case (Root_arrays, 7): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i64: array count above schema capacity 5"); m.arrays.i64 = new long[count]; break;
+            case (Root_arrays_nested, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp32: array count above schema capacity 5"); m.arrays.nested.fp32 = new float[count]; break;
+            case (Root_arrays_nested, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp64: array count above schema capacity 5"); m.arrays.nested.fp64 = new double[count]; break;
         }
     }
     public void SequenceBegin(int id) {

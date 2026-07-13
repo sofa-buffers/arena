@@ -88,12 +88,14 @@ struct ExampleArraysNested : sofab::OStreamMessage, sofab::IStreamMessage {
         return os.writeIf(0, false, false);
     }
 
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(fp32);
             break;
         case 1:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(fp64);
             break;
         default: break;
@@ -141,30 +143,38 @@ struct ExampleArrays : sofab::OStreamMessage, sofab::IStreamMessage {
         return os.writeIf(0, false, false);
     }
 
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(u8);
             break;
         case 1:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(i8);
             break;
         case 2:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(u16);
             break;
         case 3:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(i16);
             break;
         case 4:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(u32);
             break;
         case 5:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(i32);
             break;
         case 6:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(u64);
             break;
         case 7:
+            if (_count > 5) { is.invalidate(); return; }
             is.read(i64);
             break;
         case 10:

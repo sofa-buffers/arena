@@ -14,7 +14,10 @@ fn main() {
                 let obj: Example = serde_json::from_slice(&input).expect("json");
                 std::io::stdout().write_all(&obj.encode()).unwrap();
             } else if mode == "decode" {
-                let obj = Example::decode(&input);
+                let obj = match Example::try_decode(&input) {
+                    Ok(o) => o,
+                    Err(e) => { eprintln!("decode error: {:?}", e); std::process::exit(1); }
+                };
                 println!("{}", serde_json::to_string(&obj).unwrap());
             } else { eprintln!("unknown mode"); std::process::exit(2); }
         }
