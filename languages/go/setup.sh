@@ -22,13 +22,6 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang go \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab" >/dev/null
 
-# The generated types.go references bytes.Equal for the blob field but omits
-# the "bytes" import; add it if missing (idempotent).
-if ! grep -q '"bytes"' "$HERE/sofab/message/types.go"; then
-    sed -i 's#^\t"github.com/sofa-buffers/corelib-go"#\t"bytes"\n\t"github.com/sofa-buffers/corelib-go"#' \
-        "$HERE/sofab/message/types.go"
-fi
-
 # Wire corelib-go via the go.mod placeholder (idempotent: no-op once replaced).
 sed -i "s#\${SOFAB_GO_CORELIB}#$CORELIB#" "$HERE/sofab/go.mod"
 
