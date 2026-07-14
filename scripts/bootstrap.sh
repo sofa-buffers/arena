@@ -61,9 +61,16 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # count exceeds the field's fixed capacity, in every backend (generator#100) —
 # previously an over-count header could overrun/mis-decode; malformed input now
 # fails as INVALID. Bug-fix only: the valid reference message is byte-identical,
-# gate stays 434B/494B.
+# gate stays 434B/494B; v0.16.0 adds opt-in decode limits (generator#102/#109): a
+# new `LimitExceeded` error category plus the go/py/ts limits APIs and
+# corelib-cpp's `Limits{max_buffered_field}` + `exceedLimit()` hook, configured
+# via the `generic: { max_dyn_array_count / max_dyn_string_len / max_dyn_blob_len }`
+# keys. Wire-neutral: the arena sets no `max_dyn_*` keys, so codegen is
+# byte-identical to v0.15.4 and the gate stays 434B/494B (the C#/Zig count-less
+# native-array allocation hardening only affects schemas with count-less native
+# arrays, which the arena message has none of).
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.15.4}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.16.0}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
