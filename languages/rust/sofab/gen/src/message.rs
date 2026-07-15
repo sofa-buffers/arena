@@ -210,10 +210,10 @@ mod example_dec {
             overflow = v.err;
             invalid = v.inv;
         }
-        // A scalar array carried more elements than its schema `count`
-        // (generator#100): INVALID per MESSAGE_SPEC 3+7, never clamp.
+        // A scalar array carried more elements than its schema `count`.
+        // An element count above the schema capacity is invalid and is rejected, never clamped.
         if invalid { return Err(sofab::Error::InvalidMsg); }
-        // A fixed-capacity field overflowed during the fill (generator#82):
+        // A fixed-capacity field overflowed during the fill:
         // report it rather than return a silently-truncated value.
         if overflow { return Err(sofab::Error::BufferFull); }
         Ok(m)
@@ -283,8 +283,8 @@ impl<'a> Visitor for V<'a> {
         // Single-shot: whole payload in one chunk -> build straight from the
         // slice, skipping the `acc` accumulate + second copy.
         // Invalid UTF-8 -> empty string, matching the no_std profile's
-        // from_utf8(..).unwrap_or("") (generator#80): the two Rust profiles
-        // must agree on a string's value. (spec 8 strict/reject is generator#85.)
+        // from_utf8(..).unwrap_or(""): the two Rust profiles
+        // must agree on a string's value.
         let _s = if offset == 0 && chunk.len() >= total {
             core::str::from_utf8(&chunk[..total]).map(|s| s.to_owned()).unwrap_or_default()
         } else {

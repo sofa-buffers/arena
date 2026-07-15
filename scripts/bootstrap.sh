@@ -86,9 +86,20 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # decode() from Error!void to Error!Status — this release is what lets the arena
 # build Zig against the current corelib. Wire-neutral: the valid reference
 # message still decodes to COMPLETE, codegen is byte-identical, gate stays
-# 434B/494B.
+# 434B/494B; v0.17.0 renders all definition metadata as clean doc comments
+# consistently across all 9 code backends (generator#123): field `deprecated`
+# now lowers to each language's idiomatic marker plus a doc note, enum-const /
+# flag `description` + flag `default` are emitted everywhere (previously only
+# go/zig), and the boilerplate comments emitted into generated output are
+# reworded free of internal issue refs. Comments/annotations only — wire output
+# is byte-unchanged and all 9 conformance suites pass byte-exact, so the gate
+# stays 434B/494B. The arena message carries only a message `summary` (no
+# description/unit/deprecated/enums/flags), so the only committed-source delta
+# is the comment rewording in the rust/cpp/zig backends (message.rs/example.hpp/
+# message.zig regenerated + recommitted); csharp/java/python/ts/c/go codegen is
+# byte-identical to v0.16.2.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.16.2}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.17.0}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
