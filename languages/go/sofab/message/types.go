@@ -3,7 +3,6 @@
 package message
 
 import (
-	"bytes"
 	"github.com/sofa-buffers/corelib-go"
 )
 
@@ -168,7 +167,7 @@ func (m *ExampleNested) marshal(e *sofab.Encoder) {
 	if m.Str != "" {
 		e.WriteString(2, m.Str)
 	}
-	if !bytes.Equal(m.BytesField, nil) {
+	if len(m.BytesField) != 0 {
 		e.WriteBytes(3, m.BytesField)
 	}
 }
