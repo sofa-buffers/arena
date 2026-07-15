@@ -44,7 +44,7 @@
 /*! This example demonstrates the use of SofaBuffers to encode and decode a message. */
 typedef struct {
     double f64;
-    char str[32];
+    char str[33];
     uint8_t bytes_field[4];
     float f32;
 } fullscale_example_nested_t;
@@ -67,7 +67,7 @@ typedef struct {
 } fullscale_example_arrays_t;
 
 typedef struct {
-    char items[5][64];
+    char items[5][65];
 } fullscale_example_string_array_elems_t;
 
 typedef struct {

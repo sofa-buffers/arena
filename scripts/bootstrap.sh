@@ -68,9 +68,27 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # keys. Wire-neutral: the arena sets no `max_dyn_*` keys, so codegen is
 # byte-identical to v0.15.4 and the gate stays 434B/494B (the C#/Zig count-less
 # native-array allocation hardening only affects schemas with count-less native
-# arrays, which the arena message has none of).
+# arrays, which the arena message has none of); v0.16.1 is a C/C++/Go bounded-
+# storage bug-fix release: Go omits an empty blob via len() instead of
+# bytes.Equal (generator#113); the C/C++ fixed profile reserves char[maxlen+1]
+# so a maxlen-length string keeps its NUL terminator (generator#103); a
+# count-less native scalar array now lowers to std::vector instead of the
+# degenerate std::array<T,0> (generator#112); and an unbounded field (no
+# count/maxlen) is now a HARD generate-time error on the C/C++ backend
+# (generator#104). The arena message is fully bounded (every scalar array is
+# count:5, every string/blob carries a maxlen) so #104 never fires and no field
+# gains/loses a NUL on the wire — codegen for the valid reference message stays
+# byte-identical and the gate stays 434B/494B; v0.16.2 realigns the Zig emission
+# with corelib-zig's finish-less decode: the generated decode() now binds the
+# `feed(chunk)→Status` return and maps a truncated (INCOMPLETE) buffer to
+# error.IncompleteMessage (generator#120/#121). Before v0.16.2 the Zig decode()
+# dropped that Status value, which stopped compiling once corelib-zig main moved
+# decode() from Error!void to Error!Status — this release is what lets the arena
+# build Zig against the current corelib. Wire-neutral: the valid reference
+# message still decodes to COMPLETE, codegen is byte-identical, gate stays
+# 434B/494B.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.16.0}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.16.2}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
