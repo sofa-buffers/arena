@@ -31,6 +31,11 @@
 #   LANGS="python go" ./scripts/run_benchmark.sh
 #   BENCH_ITERS=100000 ./scripts/run_benchmark.sh
 #   RUNS=5 ./scripts/run_benchmark.sh                # best-of-5 throughput (noise)
+#
+# The cross-language correctness gate is fatal: if any present impl's wire bytes
+# diverge from the shared reference (sofab 434 B / proto 494 B) the run exits
+# non-zero before reporting, so drifted numbers never reach results/RESULTS.txt.
+# Set ALLOW_WIRE_MISMATCH=1 to downgrade the gate to a warning for local iteration.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -145,8 +150,24 @@ for lang in $LANGS; do
         printf "  %-14s %-13s %s  %s\n" "$lang" "$impl" "${SER[$lang,$impl]:-?}B" "$mark"
     done
 done
-[ "$gate_ok" = 1 ] && echo "  => all present targets are byte-identical to the reference wire." \
-                    || echo "  => WARNING: some targets diverge from the reference wire (fill drift)."
+if [ "$gate_ok" = 1 ]; then
+    echo "  => all present targets are byte-identical to the reference wire."
+elif [ -n "${ALLOW_WIRE_MISMATCH:-}" ]; then
+    echo "  => WARNING: some targets diverge from the reference wire (fill/codegen drift)."
+    echo "     ALLOW_WIRE_MISMATCH set — continuing despite the mismatch (results are NOT apples-to-apples)."
+else
+    # A MISMATCH means a present impl encodes a different wire than the shared
+    # reference, so its throughput/footprint is measured on the wrong bytes and the
+    # cross-impl comparison is no longer fair — the whole point of the arena. Fail
+    # loudly instead of burying it in a warning, and do NOT reach the reporting
+    # block below, so a good results/RESULTS.txt is not overwritten with drifted
+    # numbers. For an intentional wire change, update the four reference sync points
+    # (REF_*_SHA here, docs/BENCH.md, schema/STATE.md, the README) — see docs/BENCH.md.
+    echo "  => FAIL: some targets diverge from the reference wire (fill/codegen drift)." >&2
+    echo "     Each MISMATCH above encodes a different wire than the shared reference." >&2
+    echo "     Fix the drifting target, or set ALLOW_WIRE_MISMATCH=1 to override locally." >&2
+    exit 1
+fi
 
 # ---------------------------------------------------------------- reporting helpers
 mbps() { printf '%s' "${MBS[$1]:-}"; }
