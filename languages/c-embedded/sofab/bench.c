@@ -27,6 +27,7 @@ static void fill(fullscale_example_t *m)
     m->nested.bytes_field[1] = 0xAD;
     m->nested.bytes_field[2] = 0xBE;
     m->nested.bytes_field[3] = 0xEF;
+    m->nested.bytes_field_len = 4;  /* sofabgen >= v0.17.1 sized-blob API: encode the true length */
 
     /* Fill arrays FullScaleSeqStructOfArrays (field id 100) */
     {

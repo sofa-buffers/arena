@@ -45,7 +45,7 @@
 typedef struct {
     double f64;
     char str[33];
-    uint8_t bytes_field[4];
+    uint8_t bytes_field_len; uint8_t bytes_field[4];
     float f32;
 } fullscale_example_nested_t;
 

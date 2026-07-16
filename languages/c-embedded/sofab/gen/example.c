@@ -14,7 +14,7 @@ static const sofab_object_descr_field_t _fullscale_fields_named_example_nested[]
     SOFAB_OBJECT_FIELD(0, fullscale_example_nested_t, f32, SOFAB_OBJECT_FIELDTYPE_FP32),
     SOFAB_OBJECT_FIELD(1, fullscale_example_nested_t, f64, SOFAB_OBJECT_FIELDTYPE_FP64),
     SOFAB_OBJECT_FIELD(2, fullscale_example_nested_t, str, SOFAB_OBJECT_FIELDTYPE_STRING),
-    SOFAB_OBJECT_FIELD(3, fullscale_example_nested_t, bytes_field, SOFAB_OBJECT_FIELDTYPE_BLOB),
+    SOFAB_OBJECT_FIELD_BLOB_SIZED(3, fullscale_example_nested_t, bytes_field, bytes_field_len),
 };
 const sofab_object_descr_t _fullscale_descr_named_example_nested = SOFAB_OBJECT_DESCR(_fullscale_fields_named_example_nested, 4, NULL, 0);
 
@@ -70,6 +70,7 @@ static const sofab_object_descr_t *const _fullscale_nested_message_example[] = {
 const sofab_object_descr_t _fullscale_descr_message_example = SOFAB_OBJECT_DESCR(_fullscale_fields_message_example, 11, _fullscale_nested_message_example, 3);
 
 void fullscale_example_init(fullscale_example_t *msg) {
+    memset(msg, 0, sizeof(*msg));
     sofab_object_init(&_fullscale_descr_message_example, msg);
 }
 
