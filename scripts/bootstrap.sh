@@ -97,9 +97,19 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # description/unit/deprecated/enums/flags), so the only committed-source delta
 # is the comment rewording in the rust/cpp/zig backends (message.rs/example.hpp/
 # message.zig regenerated + recommitted); csharp/java/python/ts/c/go codegen is
-# byte-identical to v0.16.2.
+# byte-identical to v0.16.2; v0.17.1 is a C/C++ bounded-storage bug-fix release:
+# the C++ fixed-capacity string/blob-sequence fill loop is now bounded so a
+# malformed over-count header can no longer overrun the fixed buffer (DoS,
+# generator#126/#127); the C backend now emits a *sized* blob (and sized
+# blob-array elements) so a sub-maxlen blob round-trips its true length instead
+# of being padded/mis-read to maxlen (generator#128/#129, #130/#131). These
+# touch only the C/C++ backends and only affect blob/fixed-string handling; the
+# valid reference message still encodes byte-identically (the gate stays
+# 434B/494B) but the C/C++ generated sources are regenerated because the blob
+# lowering changed. rust/zig/csharp/java/python/ts/go codegen is byte-identical
+# to v0.17.0.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.17.0}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.17.1}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a
