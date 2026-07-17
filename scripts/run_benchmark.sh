@@ -171,6 +171,15 @@ fi
 
 # ---------------------------------------------------------------- reporting helpers
 mbps() { printf '%s' "${MBS[$1]:-}"; }
+# msgs/s = iters / cpu_time_s — messages processed per second, derived from the
+# BENCH fields already captured (no target emits it; #85). Unlike MB/s it does not
+# scale by wire size, so it is the size-neutral per-message codec speed: MB/s
+# credits SofaBuffers' smaller wire, msgs/s does not. Uses the best run's CPU/ITERS
+# (kept in lockstep with MBS above, so it matches the reported MB/s).
+msgs_s() { # <key> -> integer msgs/s, or "" if unusable
+    awk -v it="${ITERS[$1]:-}" -v t="${CPU[$1]:-}" \
+        'BEGIN{ if(it=="" || t=="" || t+0==0){print ""} else {printf "%d", it/t} }'
+}
 ratio() { # a/b with 2 decimals, or "-" if unusable
     awk -v a="$1" -v b="$2" 'BEGIN{ if(a=="" || b=="" || b+0==0){print "-"} else {printf "%.2f", a/b} }'
 }
@@ -186,23 +195,27 @@ if [ -n "$maxspeed_langs" ]; then
 echo
 echo "================================================================================"
 echo " MAXSPEED — SofaBuffers vs Protobuf, encode+decode throughput"
-echo "   same message, same values. size in bytes; speed in MB/s (higher is better)."
-echo "   MB/s is within-language only (different runtimes) — never compare rows."
+echo "   same message, same values. size in bytes; MB/s = bytes/s, msgs/s = messages/s"
+echo "   (both higher is better). MB/s counts bytes moved, so it credits SofaBuffers'"
+echo "   smaller wire; msgs/s counts messages, the size-neutral per-message codec speed."
+echo "   Both are within-language only (different runtimes) — never compare rows."
 echo "================================================================================"
-printf "  %-11s | %14s | %20s | %20s\n" "language" "wire size (B)" "throughput MB/s" "sofab advantage"
-printf "  %-11s | %6s %7s | %9s %10s | %8s %11s\n" "" "sofab" "proto" "sofab" "proto" "size" "speed"
-printf '  '; printf -- '-%.0s' $(seq 1 76); printf '\n'
+printf "  %-11s | %14s | %20s | %20s | %23s\n" "language" "wire size (B)" "throughput MB/s" "throughput msgs/s" "sofab advantage"
+printf "  %-11s | %6s %7s | %9s %10s | %9s %10s | %7s %7s %7s\n" "" "sofab" "proto" "sofab" "proto" "sofab" "proto" "size" "MB/s" "msg/s"
+printf '  '; printf -- '-%.0s' $(seq 1 100); printf '\n'
 for lang in $maxspeed_langs; do
     ss="${SER[$lang,sofab]:-}"; ps="${SER[$lang,protobuf]:-}"
     sm="$(mbps "$lang,sofab")"; pm="$(mbps "$lang,protobuf")"
+    sM="$(msgs_s "$lang,sofab")"; pM="$(msgs_s "$lang,protobuf")"
     [ -z "$ss$ps$sm$pm" ] && continue
-    printf "  %-11s | %6s %7s | %9s %10s | %7sx %10sx\n" \
-        "$lang" "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" \
-        "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")"
+    printf "  %-11s | %6s %7s | %9s %10s | %9s %10s | %6sx %6sx %6sx\n" \
+        "$lang" "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" "${sM:-–}" "${pM:-–}" \
+        "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")" "$(ratio "$sM" "$pM")"
 done
 echo
 echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)"
-echo "  speed advantage = sofab_MBps / protobuf_MBps     (>1: SofaBuffers encodes+decodes faster)"
+echo "  MB/s advantage  = sofab_MBps  / protobuf_MBps    (bytes/s;    embeds the wire-size gap — see #85)"
+echo "  msg/s advantage = sofab_msgs  / protobuf_msgs    (messages/s; size-neutral per-message codec speed)"
 for lang in $maxspeed_langs; do
     c="${CODEC[$lang,sofab]:-}"; [ -n "$c" ] && echo "  sofab codec ($lang): $c"
 done
@@ -231,19 +244,19 @@ echo "   same message/values/columns as MAXSPEED, but embedded-friendly impls (-
 echo "   fixed capacity): speed is an interesting factor, NOT the ranking metric."
 echo "   MB/s is within-row only — never compare rows."
 echo "================================================================================"
-printf "  %-37s | %14s | %20s | %20s\n" "opponent" "wire size (B)" "throughput MB/s" "sofab advantage"
-printf "  %-37s | %6s %7s | %9s %10s | %8s %11s\n" "" "sofab" "proto" "sofab" "proto" "size" "speed"
-printf '  '; printf -- '-%.0s' $(seq 1 102); printf '\n'
+printf "  %-37s | %14s | %20s | %20s | %23s\n" "opponent" "wire size (B)" "throughput MB/s" "throughput msgs/s" "sofab advantage"
+printf "  %-37s | %6s %7s | %9s %10s | %9s %10s | %7s %7s %7s\n" "" "sofab" "proto" "sofab" "proto" "sofab" "proto" "size" "MB/s" "msg/s"
+printf '  '; printf -- '-%.0s' $(seq 1 126); printf '\n'
 for lang in $emb_host; do
-    ss="${SER[$lang,sofab]:-}"; sm="$(mbps "$lang,sofab")"
+    ss="${SER[$lang,sofab]:-}"; sm="$(mbps "$lang,sofab")"; sM="$(msgs_s "$lang,sofab")"
     for impl in $(ordered_impls "$lang"); do
         [ "$impl" = sofab ] && continue
-        ps="${SER[$lang,$impl]:-}"; pm="$(mbps "$lang,$impl")"
+        ps="${SER[$lang,$impl]:-}"; pm="$(mbps "$lang,$impl")"; pM="$(msgs_s "$lang,$impl")"
         [ -z "$ps$pm" ] && continue
-        printf "  %-37s | %6s %7s | %9s %10s | %7sx %10sx\n" \
+        printf "  %-37s | %6s %7s | %9s %10s | %9s %10s | %6sx %6sx %6sx\n" \
             "sofab-$lang vs. $impl" \
-            "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" \
-            "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")"
+            "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" "${sM:-–}" "${pM:-–}" \
+            "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")" "$(ratio "$sM" "$pM")"
     done
 done
 fi
