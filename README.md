@@ -148,17 +148,17 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 
 | language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 434 | 494 | 231.1 | 202.4 | **1.14×** | **1.14×** |
-| Rust       | 434 | 494 | 286.7 | 205.0 | **1.14×** | **1.40×** |
-| Zig        | 434 | 494 | 456.4 | 197.0 | **1.14×** | **2.32×** |
-| Go         | 434 | 494 | 118.4 | 112.2 | **1.14×** | **1.06×** |
-| C#         | 434 | 494 | 179.3 | 110.2 | **1.14×** | **1.63×** |
-| Java       | 434 | 494 | 194.2 | 191.1 | **1.14×** | **1.02×** |
-| TypeScript · Node/V8 † | 434 | 494 |  51.0 |  59.6 | **1.14×** | 0.86× |
-| TypeScript · Bun/JSC † | 434 | 494 |  39.4 |  39.4 | **1.14×** | 1.00× |
-| Python ‡   | 434 | 494 |  19.0 | 162.5 | **1.14×** | 0.12× |
+| C++        | 434 | 494 | 317.6 | 263.3 | **1.14×** | **1.21×** |
+| Rust       | 434 | 494 | 379.5 | 255.2 | **1.14×** | **1.49×** |
+| Zig        | 434 | 494 | 486.2 | 261.1 | **1.14×** | **1.86×** |
+| Go         | 434 | 494 | 149.4 | 145.4 | **1.14×** | **1.03×** |
+| C#         | 434 | 494 | 190.0 | 131.9 | **1.14×** | **1.44×** |
+| Java       | 434 | 494 | 246.7 | 289.5 | **1.14×** | 0.85× |
+| TypeScript · Node/V8 † | 434 | 494 |  55.7 |  85.6 | **1.14×** | 0.65× |
+| TypeScript · Bun/JSC † | 434 | 494 |  46.8 |  55.2 | **1.14×** | 0.85× |
+| Python ‡   | 434 | 494 |  19.4 | 202.6 | **1.14×** | 0.10× |
 
-***Zig, C++, Rust, C#, Go and Java all beat protobuf — Zig by 2.3×; the wire is ~13 % smaller everywhere.**
+***Zig, C++, Rust, C# and Go all beat protobuf — Zig by 1.9×; the wire is ~13 % smaller everywhere.**
 adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
 
 - † The two **TypeScript** rows are the **identical** codec on the two JavaScript
@@ -180,13 +180,13 @@ ranking metric** (that is footprint, below).
 
 | opponent | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
 |---|--:|--:|--:|--:|:--:|:--:|
-| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 103.3 | 253.9 | **1.14×** | 0.41× |
-| sofab-c-embedded vs. nanopb        | 434 | 494 | 103.3 |  55.7 | **1.14×** | **1.86×** |
-| sofab-rust-embedded vs. micropb    | 434 | 494 | 131.8 | 107.2 | **1.14×** | **1.23×** |
-| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 121.8 |  39.7 | **1.14×** | **3.07×** |
+| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 131.6 | 338.1 | **1.14×** | 0.39× |
+| sofab-c-embedded vs. nanopb        | 434 | 494 | 131.6 |  63.7 | **1.14×** | **2.07×** |
+| sofab-rust-embedded vs. micropb    | 434 | 494 | 157.7 | 132.3 | **1.14×** | **1.19×** |
+| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 137.6 |  59.4 | **1.14×** | **2.32×** |
 
 ***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
-baseline** (~2× vs nanopb, ~3× vs EmbeddedProto) — only the desktop-class
+baseline** (~2× vs both nanopb and EmbeddedProto) — only the desktop-class
 `protobuf-c` is faster.*
 
 ### Embedded — bare-metal footprint (`--gc-sections` link delta; **lower is better**)
@@ -205,20 +205,20 @@ further below the numbers reported here.
 
 | target (ISA) | impl | `.text` | `.rodata` | `.data` | **footprint** | static-RAM |
 |---|---|--:|--:|--:|--:|--:|
-| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 272 | 344 | 0 | **3 616** | 0 |
+| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 336 | 344 | 0 | **3 680** | 0 |
 | | nanopb | 5 676 | 936 | 0 | 6 612 | 0 |
-| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 268 | 156 | 80 | **6 504** | 132 |
+| **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 716 | 156 | 80 | **6 952** | 132 |
 | | embeddedproto | 8 344 | 904 | 80 | 9 328 | 96 |
-| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 5 564 | 328 | 0 | **5 892** | 0 |
-| | micropb | 8 244 | 261 | 0 | 8 505 | 0 |
-| **c-riscv** (rv32imac) | sofab | 3 216 | 488 | 0 | **3 704** | 0 |
+| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 6 004 | 330 | 0 | **6 334** | 0 |
+| | micropb | 8 248 | 261 | 0 | 8 509 | 0 |
+| **c-riscv** (rv32imac) | sofab | 3 368 | 488 | 0 | **3 856** | 0 |
 | | nanopb | 6 384 | 1 112 | 0 | 7 496 | 0 |
-| **cpp-riscv** (rv32imac) | sofab | 5 542 | 300 | 76 | **5 918** | 420 |
+| **cpp-riscv** (rv32imac) | sofab | 6 028 | 300 | 76 | **6 404** | 420 |
 | | embeddedproto | 8 824 | 1 012 | 76 | 9 912 | 388 |
-| **rust-riscv** (rv32imac) | sofab | 6 232 | 392 | 0 | **6 624** | 0 |
-| | micropb | 9 680 | 393 | 0 | 10 073 | 0 |
+| **rust-riscv** (rv32imac) | sofab | 6 808 | 386 | 0 | **7 194** | 0 |
+| | micropb | 9 696 | 393 | 0 | 10 089 | 0 |
 
-***SofaBuffers wins all six rows — three languages × two ISAs** (1.43×–2.02×
+***SofaBuffers wins all six rows — three languages × two ISAs** (1.34×–1.94×
 less flash than the smallest protobuf alternative).*
 
 ### The big picture
@@ -229,8 +229,8 @@ less flash than the smallest protobuf alternative).*
 - **Faster than protobuf where it counts, close behind everywhere else.** The gap
   was never the wire format but the per-message code above the byte codec; with
   that tuned, Zig, C++, Rust, C# and Go run ahead of Google's mature runtimes — Zig
-  by ~2× — while Java and TypeScript land around parity, tracking each VM's maturity,
-  not the format. Python is the lone outlier, because its protobuf baseline is a thin shell
+  by ~1.9× — while Java and TypeScript land modestly behind (0.85×/0.65×), tracking
+  each VM's maturity, not the format. Python is the lone outlier, because its protobuf baseline is a thin shell
   over Google's C `upb` engine while SofaBuffers still drives every field from
   Python. *(How the codegen was tuned: [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md).)*
 - **The smallest embedded codec in every language, on both ISAs** — measured the
