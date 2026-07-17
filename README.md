@@ -153,19 +153,46 @@ tables below.
 Every target passes the byte-identity gate: all SofaBuffers targets emit the same
 **434-byte** wire, and every protobuf-family baseline emits the same **494-byte** wire.
 
+### The SofaBuffers wire format
+
+For the **same message and the same values**, SofaBuffers serializes to a smaller,
+canonical wire — and does so **identically in every language**. That size fact is
+constant across every row below (the byte-identity gate enforces it), so it is
+summarized once here instead of repeated as two columns per table:
+
+| format | wire size | vs. protobuf |
+|---|--:|--:|
+| **SofaBuffers** | **434 B** | **1.14× smaller** — −60 B, ~13 % more compact |
+| Protocol Buffers | 494 B | — |
+
+- **Smaller by construction, not by accident.** The ~13 % saving is a property of
+  the *format*: every SofaBuffers corelib emits the exact **same 434 bytes**,
+  against protobuf's 494 — the identical win in C++, Rust, Zig, Go, C#, Java,
+  TypeScript and Python.
+- **Canonical & deterministic.** One message + one set of values ⇒ one wire. The C
+  object API, its C++ wrapper and every other corelib converge on byte-identical
+  output and the same SHA-256 — which is exactly what the cross-language gate
+  checks (see [`docs/BENCH.md`](docs/BENCH.md)).
+- **Sparse defaults.** An element equal to its default is omitted rather than
+  written positionally (e.g. the empty `string_array` slot), so no bytes are spent
+  restating a value that is already the default.
+
+The throughput tables therefore drop the per-row `sofab size` / `proto size`
+columns and keep only the size **advantage** (`1.14×`).
+
 ### Maxspeed — throughput
 
-| language | sofab size | proto size | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
-|---|--:|--:|--:|--:|--:|--:|:--:|:--:|:--:|
-| C++        | 434 | 494 | 324.9 | 257.4 | 748 600 | 521 095 | **1.14×** | **1.26×** | **1.44×** |
-| Rust       | 434 | 494 | 349.2 | 241.6 | 804 644 | 489 058 | **1.14×** | **1.45×** | **1.65×** |
-| Zig        | 434 | 494 | 548.5 | 262.6 | 1 263 730 | 531 549 | **1.14×** | **2.09×** | **2.38×** |
-| Go         | 434 | 494 | 143.4 | 138.7 | 330 318 | 280 804 | **1.14×** | **1.03×** | **1.18×** |
-| C#         | 434 | 494 | 180.1 | 125.4 | 414 875 | 253 868 | **1.14×** | **1.44×** | **1.63×** |
-| Java       | 434 | 494 | 229.2 | 248.7 | 528 083 | 503 387 | **1.14×** | 0.92× | **1.05×** |
-| TypeScript · Node/V8 † | 434 | 494 |  37.7 |  74.9 |  86 800 | 151 584 | **1.14×** | 0.50× | 0.57× |
-| TypeScript · Bun/JSC † | 434 | 494 |  38.1 |  52.4 |  87 874 | 106 030 | **1.14×** | 0.73× | 0.83× |
-| Python ‡   | 434 | 494 |  18.4 | 224.3 |  42 374 | 454 055 | **1.14×** | 0.08× | 0.09× |
+| language | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
+|---|--:|--:|--:|--:|:--:|:--:|:--:|
+| C++        | 324.9 | 257.4 | 748 600 | 521 095 | **1.14×** | **1.26×** | **1.44×** |
+| Rust       | 349.2 | 241.6 | 804 644 | 489 058 | **1.14×** | **1.45×** | **1.65×** |
+| Zig        | 548.5 | 262.6 | 1 263 730 | 531 549 | **1.14×** | **2.09×** | **2.38×** |
+| Go         | 143.4 | 138.7 | 330 318 | 280 804 | **1.14×** | **1.03×** | **1.18×** |
+| C#         | 180.1 | 125.4 | 414 875 | 253 868 | **1.14×** | **1.44×** | **1.63×** |
+| Java       | 229.2 | 248.7 | 528 083 | 503 387 | **1.14×** | 0.92× | **1.05×** |
+| TypeScript · Node/V8 † |  37.7 |  74.9 |  86 800 | 151 584 | **1.14×** | 0.50× | 0.57× |
+| TypeScript · Bun/JSC † |  38.1 |  52.4 |  87 874 | 106 030 | **1.14×** | 0.73× | 0.83× |
+| Python ‡   |  18.4 | 224.3 |  42 374 | 454 055 | **1.14×** | 0.08× | 0.09× |
 
 ***On the size-neutral per-message metric (`msg/s`), every compiled and JIT language now
 beats protobuf** — Zig by 2.4×, and even Java edges ahead (1.05×) after the round-trip fix
@@ -190,12 +217,12 @@ but these are the **embedded-friendly** implementations (fixed-capacity
 containers, built `-Os`), so speed is an interesting factor here, **not the
 ranking metric** (that is footprint, below).
 
-| opponent | sofab size | proto size | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
-|---|--:|--:|--:|--:|--:|--:|:--:|:--:|:--:|
-| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 130.1 | 323.6 | 299 817 | 655 103 | **1.14×** | 0.40× | 0.46× |
-| sofab-c-embedded vs. nanopb        | 434 | 494 | 130.1 |  61.3 | 299 817 | 124 012 | **1.14×** | **2.12×** | **2.42×** |
-| sofab-rust-embedded vs. micropb    | 434 | 494 | 154.3 | 127.8 | 355 447 | 258 719 | **1.14×** | **1.21×** | **1.37×** |
-| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 135.4 |  58.6 | 312 069 | 118 590 | **1.14×** | **2.31×** | **2.63×** |
+| opponent | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
+|---|--:|--:|--:|--:|:--:|:--:|:--:|
+| sofab-c-embedded vs. protobuf-c    | 130.1 | 323.6 | 299 817 | 655 103 | **1.14×** | 0.40× | 0.46× |
+| sofab-c-embedded vs. nanopb        | 130.1 |  61.3 | 299 817 | 124 012 | **1.14×** | **2.12×** | **2.42×** |
+| sofab-rust-embedded vs. micropb    | 154.3 | 127.8 | 355 447 | 258 719 | **1.14×** | **1.21×** | **1.37×** |
+| sofab-cpp-embedded vs. embeddedproto | 135.4 |  58.6 | 312 069 | 118 590 | **1.14×** | **2.31×** | **2.63×** |
 
 ***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
 baseline on the size-neutral `msg/s` metric** (2.4× vs nanopb, 2.6× vs EmbeddedProto,
