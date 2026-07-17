@@ -66,15 +66,25 @@ static class Program {
 
         long iters = long.Parse(Environment.GetEnvironmentVariable("BENCH_ITERS") ?? "2000000");
 
-        // JIT warm-up.
-        for (int i = 0; i < 5000; i++) { var b = src.ToByteArray(); parser.ParseFrom(b); }
+        // JIT warm-up (same chained shape as the timed loop).
+        for (int i = 0; i < 5000; i++) { parser.ParseFrom(blob).ToByteArray(); }
 
+        // Chained round trip: decode the reference wire, then re-encode the freshly
+        // parsed message (issue #86) — the proxy/transcode shape. Each ParseFrom
+        // yields a new message whose cached serialized size is unset, so protobuf
+        // pays the size pass every encode instead of hitting a once-per-instance
+        // memo. sink keeps the re-encode live and doubles as a loop-path check.
+        long sink = 0;
         var sw = Stopwatch.StartNew();
         for (long i = 0; i < iters; i++) {
-            var b = src.ToByteArray();
-            parser.ParseFrom(b);
+            sink += parser.ParseFrom(blob).ToByteArray().Length;
         }
         sw.Stop();
+
+        if (sink != (long)serialized * iters) {
+            Console.Error.WriteLine("FAIL: protobuf loop-path self-check");
+            Environment.Exit(1);
+        }
 
         double cpu = sw.Elapsed.TotalSeconds;
         double mbs = cpu > 0 ? (double)serialized * iters / cpu / 1e6 : 0.0;

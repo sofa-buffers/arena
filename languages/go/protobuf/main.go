@@ -139,16 +139,27 @@ func run() int {
 		}
 	}
 
-	// Timed region: encode + decode only. A fresh decode target per iteration
-	// mirrors the sofab side (new object per decode) and avoids proto.Unmarshal's
-	// merge-into-existing semantics appending to repeated fields.
+	// Timed region: chained round trip — decode the reference wire, then re-encode
+	// the freshly decoded message (issue #86). This is the proxy/transcode shape,
+	// and it denies protobuf its once-per-instance serialized-size memo so encode
+	// is measured on equal terms. A fresh decode target per iteration avoids
+	// proto.Unmarshal's merge-into-existing semantics appending to repeated fields.
+	// sink keeps the re-encode from being optimized out and doubles as a loop-path
+	// check (every re-encode is `serialized` bytes).
+	sink := 0
 	t0 := time.Now()
 	for i := 0; i < iters; i++ {
-		b, _ := mo.Marshal(src)
 		dec := &pb.FullScaleExample{}
-		proto.Unmarshal(b, dec)
+		proto.Unmarshal(blob, dec)
+		b, _ := mo.Marshal(dec)
+		sink += len(b)
 	}
 	cpu := time.Since(t0).Seconds()
+
+	if sink != serialized*iters {
+		fmt.Fprintln(os.Stderr, "FAIL: protobuf loop-path self-check")
+		return 1
+	}
 
 	mbs := 0.0
 	if cpu > 0 {

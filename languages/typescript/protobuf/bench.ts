@@ -67,16 +67,27 @@ async function main(): Promise<number> {
 
   const iters = parseInt(process.env.BENCH_ITERS ?? "500000", 10);
 
-  // Warm the JIT.
+  // Warm the JIT (same chained shape as the timed loop).
   for (let i = 0; i < 10000; i++) {
-    Type.decode(Type.encode(src).finish());
+    Type.encode(Type.decode(blob)).finish();
   }
 
+  // Chained round trip: decode the reference wire, then re-encode the freshly
+  // decoded message (issue #86) — the proxy/transcode shape, so encode runs on a
+  // just-parsed message rather than a pre-built, reused one. sink keeps the
+  // re-encode live and doubles as a loop-path check (every re-encode is
+  // `serialized` bytes).
+  let sink = 0;
   const t0 = process.hrtime.bigint();
   for (let i = 0; i < iters; i++) {
-    Type.decode(Type.encode(src).finish());
+    sink += Type.encode(Type.decode(blob)).finish().length;
   }
   const t1 = process.hrtime.bigint();
+
+  if (sink !== serialized * iters) {
+    process.stderr.write("FAIL: protobuf loop-path self-check\n");
+    return 1;
+  }
 
   const cpu = Number(t1 - t0) / 1e9;
   const mbs = cpu > 0 ? (serialized * iters) / cpu / 1e6 : 0;

@@ -47,12 +47,22 @@ def main() -> int:
         return 1
 
     iters = int(os.environ.get("BENCH_ITERS", "200000"))
+    # Chained round trip: decode the reference wire, then re-encode the freshly
+    # parsed message (issue #86). ParseFromString clears `dec` first, so each
+    # iteration re-parses into a message whose cached serialized size is reset —
+    # protobuf pays the size pass every encode instead of hitting a once-per-
+    # instance memo. sink doubles as a loop-path check.
     dec = pb.FullScaleExample()
+    sink = 0
     t0 = time.process_time()
     for _ in range(iters):
-        b = src.SerializeToString()
-        dec.ParseFromString(b)
+        dec.ParseFromString(blob)
+        sink += len(dec.SerializeToString())
     t1 = time.process_time()
+
+    if sink != serialized * iters:
+        sys.stderr.write("FAIL: protobuf loop-path self-check\n")
+        return 1
 
     cpu = t1 - t0
     mbs = (serialized * iters / cpu / 1e6) if cpu > 0 else 0.0

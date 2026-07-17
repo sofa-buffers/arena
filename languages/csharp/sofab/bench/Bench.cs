@@ -65,15 +65,25 @@ static class Program {
 
         long iters = long.Parse(Environment.GetEnvironmentVariable("BENCH_ITERS") ?? "2000000");
 
-        // JIT warm-up.
-        for (int i = 0; i < 5000; i++) { var b = src.Encode(); Example.Decode(b); }
+        // JIT warm-up (same chained shape as the timed loop).
+        for (int i = 0; i < 5000; i++) { Example.Decode(blob).Encode(); }
 
+        // Chained round trip: decode the reference wire, then re-encode the freshly
+        // decoded message (issue #86) — the proxy/transcode shape, which denies
+        // protobuf its once-per-instance serialized-size memo so encode is measured
+        // on equal terms. sink keeps the re-encode live and doubles as a loop-path
+        // check (every re-encode is `serialized` bytes).
+        long sink = 0;
         var sw = Stopwatch.StartNew();
         for (long i = 0; i < iters; i++) {
-            var b = src.Encode();
-            Example.Decode(b);
+            sink += Example.Decode(blob).Encode().Length;
         }
         sw.Stop();
+
+        if (sink != (long)serialized * iters) {
+            Console.Error.WriteLine("FAIL: sofab loop-path self-check");
+            Environment.Exit(1);
+        }
 
         double cpu = sw.Elapsed.TotalSeconds;
         double mbs = cpu > 0 ? (double)serialized * iters / cpu / 1e6 : 0.0;

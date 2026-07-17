@@ -106,18 +106,24 @@ int main()
         return 1;
     }
 
-    // Timed loop: ONLY encode + decode. Reusable state hoisted out of the loop.
+    // Timed loop: chained round trip — decode the reference wire, then re-encode
+    // the freshly parsed message (issue #86). ParseFromString clears `dec` first,
+    // so each iteration re-parses into a message whose cached serialized size is
+    // reset — protobuf therefore pays the size pass every encode, as a real
+    // proxy/transcode would, instead of hitting a once-per-instance memo.
     fullscale::FullScaleExample dec;
+    std::string out;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        buffer.clear();
-        msg.SerializeToString(&buffer);
         dec.ParseFromString(buffer);
+        out.clear();
+        dec.SerializeToString(&out);
     }
     const double t1 = now_seconds();
 
-    if (dec.u8() != msg.u8() ||
+    if (out != buffer ||
+        dec.u8() != msg.u8() ||
         dec.string_array().strings_size() != 5 ||
         dec.arrays().i64_size() != 5) {
         fprintf(stderr, "FAIL: protobuf loop-path self-check\n");

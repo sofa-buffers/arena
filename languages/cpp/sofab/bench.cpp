@@ -110,17 +110,22 @@ int main()
         return 1;
     }
 
-    // Timed loop: ONLY encode + decode.
+    // Timed loop: chained round trip — decode the reference wire, then re-encode
+    // the freshly decoded message (issue #86). Re-encoding a just-decoded message
+    // (rather than a pre-built, reused `src`) is what a proxy/transcode does, and
+    // it denies protobuf the once-per-instance serialized-size memo, so encode is
+    // measured on equal terms across impls.
     Example dec;
+    std::vector<uint8_t> b;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        const std::vector<uint8_t> b = src.encode();
-        dec = Example::decode(b.data(), b.size());
+        dec = Example::decode(bytes.data(), bytes.size());
+        b = dec.encode();
     }
     const double t1 = now_seconds();
 
-    if (dec.encode() != bytes) {
+    if (b != bytes) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");
         return 1;
     }

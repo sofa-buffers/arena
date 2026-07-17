@@ -54,20 +54,30 @@ function main(): number {
   // protobufjs internally reuses its writer.
   const os = new OStream();
 
-  // Warm the JIT.
+  // Warm the JIT (same chained shape as the timed loop).
   for (let i = 0; i < 10000; i++) {
     os.reset();
-    src.marshal(os);
-    Example.decode(os.bytes());
+    Example.decode(blob).marshal(os);
   }
 
+  // Chained round trip: decode the reference wire, then re-encode the freshly
+  // decoded message (issue #86) — the proxy/transcode shape, which denies
+  // protobuf its once-per-instance serialized-size memo so encode is measured on
+  // equal terms. sink keeps the re-encode live and doubles as a loop-path check
+  // (every re-encode is `serialized` bytes).
+  let sink = 0;
   const t0 = process.hrtime.bigint();
   for (let i = 0; i < iters; i++) {
     os.reset();
-    src.marshal(os);
-    Example.decode(os.bytes());
+    Example.decode(blob).marshal(os);
+    sink += os.bytes().length;
   }
   const t1 = process.hrtime.bigint();
+
+  if (sink !== serialized * iters) {
+    process.stderr.write("FAIL: sofab loop-path self-check\n");
+    return 1;
+  }
 
   const cpu = Number(t1 - t0) / 1e9;
   const mbs = cpu > 0 ? (serialized * iters) / cpu / 1e6 : 0;
