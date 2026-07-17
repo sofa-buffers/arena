@@ -1,2 +1,7 @@
 node_modules/
 dist/
+# setup.sh regenerates sofab/gen/'s lockfile every run (it pins the checkout-
+# specific `file:` link to vendor/corelib-ts, so a committed copy is both
+# machine-specific and immediately stale) — tracking it is pure churn. The
+# version pins live in versions.sh + the generated package.json, not the lock.
+sofab/gen/package-lock.json

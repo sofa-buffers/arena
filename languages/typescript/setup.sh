@@ -50,7 +50,17 @@ if [ ! -f "$PB/package.json" ]; then
 }
 JSON
 fi
-( cd "$PB" && npm install --no-audit --no-fund --silent protobufjs long tsx typescript @types/node ) \
-    || ( cd "$PB" && npm install --no-audit --no-fund protobufjs long tsx typescript @types/node )
+# Reproducible install from the committed lock via `npm ci`: it installs exactly
+# what package-lock.json pins and never rewrites it, unlike `npm install`, which
+# floats within the ^ranges and dirties the tree every run. Fall back to a fresh
+# resolve only when no lock is present (e.g. the stub above bootstrapping a
+# hand-deleted manifest).
+if [ -f "$PB/package-lock.json" ]; then
+    ( cd "$PB" && npm ci --no-audit --no-fund --silent ) \
+        || ( cd "$PB" && npm ci --no-audit --no-fund )
+else
+    ( cd "$PB" && npm install --no-audit --no-fund --silent protobufjs long tsx typescript @types/node ) \
+        || ( cd "$PB" && npm install --no-audit --no-fund protobufjs long tsx typescript @types/node )
+fi
 
 echo "typescript: setup OK" >&2
