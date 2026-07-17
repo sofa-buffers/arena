@@ -153,7 +153,7 @@ tables below.
 Every target passes the byte-identity gate: all SofaBuffers targets emit the same
 **434-byte** wire, and every protobuf-family baseline emits the same **494-byte** wire.
 
-### The SofaBuffers wire format
+### The wire format
 
 For the **same message and the same values**, SofaBuffers serializes to a smaller,
 canonical wire — and does so **identically in every language**. That size fact is
@@ -164,18 +164,6 @@ summarized once here instead of repeated as two columns per table:
 |---|--:|--:|
 | **SofaBuffers** | **434 B** | **1.14× smaller** — −60 B, ~13 % more compact |
 | Protocol Buffers | 494 B | — |
-
-- **Smaller by construction, not by accident.** The ~13 % saving is a property of
-  the *format*: every SofaBuffers corelib emits the exact **same 434 bytes**,
-  against protobuf's 494 — the identical win in C++, Rust, Zig, Go, C#, Java,
-  TypeScript and Python.
-- **Canonical & deterministic.** One message + one set of values ⇒ one wire. The C
-  object API, its C++ wrapper and every other corelib converge on byte-identical
-  output and the same SHA-256 — which is exactly what the cross-language gate
-  checks (see [`docs/BENCH.md`](docs/BENCH.md)).
-- **Sparse defaults.** An element equal to its default is omitted rather than
-  written positionally (e.g. the empty `string_array` slot), so no bytes are spent
-  restating a value that is already the default.
 
 The throughput tables therefore drop the per-row `sofab size` / `proto size`
 columns and keep only the size **advantage** (`1.14×`).
