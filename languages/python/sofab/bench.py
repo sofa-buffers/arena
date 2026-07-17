@@ -29,11 +29,20 @@ def main() -> int:
         return 1
 
     iters = int(os.environ.get("BENCH_ITERS", "200000"))
+    # Chained round trip: decode the reference wire, then re-encode the freshly
+    # decoded message (issue #86) — the proxy/transcode shape, which denies
+    # protobuf its once-per-instance serialized-size memo so encode is measured on
+    # equal terms. sink doubles as a loop-path check (every re-encode is
+    # `serialized` bytes).
+    sink = 0
     t0 = time.process_time()
     for _ in range(iters):
-        b = src.encode()
-        message.Example.decode(b)
+        sink += len(message.Example.decode(blob).encode())
     t1 = time.process_time()
+
+    if sink != serialized * iters:
+        sys.stderr.write("FAIL: sofab loop-path self-check\n")
+        return 1
 
     cpu = t1 - t0
     mbs = (serialized * iters / cpu / 1e6) if cpu > 0 else 0.0

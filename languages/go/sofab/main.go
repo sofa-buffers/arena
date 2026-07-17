@@ -71,13 +71,24 @@ func run() int {
 		}
 	}
 
-	// Timed region: encode + decode only.
+	// Timed region: chained round trip — decode the reference wire, then re-encode
+	// the freshly decoded message (issue #86). This is the proxy/transcode shape,
+	// and it denies protobuf its once-per-instance serialized-size memo so encode
+	// is measured on equal terms. sink keeps the re-encode from being optimized out
+	// and doubles as a loop-path check (every re-encode is `serialized` bytes).
+	sink := 0
 	t0 := time.Now()
 	for i := 0; i < iters; i++ {
-		b, _ := src.Encode()
-		message.DecodeExample(b)
+		dec, _ := message.DecodeExample(blob)
+		b, _ := dec.Encode()
+		sink += len(b)
 	}
 	cpu := time.Since(t0).Seconds()
+
+	if sink != serialized*iters {
+		fmt.Fprintln(os.Stderr, "FAIL: sofab loop-path self-check")
+		return 1
+	}
 
 	mbs := 0.0
 	if cpu > 0 {

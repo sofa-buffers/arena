@@ -33,10 +33,19 @@ size-neutral per-message codec speed. See #85.
    capture `serialized_bytes` and `sha256`, and assert the decoded message
    re-encodes to the identical bytes. A target that fails its self-check must
    exit non-zero.
-3. **Time only encode + decode.** Hoist the output buffer / decode target out of
-   the loop where the language allows it; do not count object construction,
-   JSON parsing, or I/O. Measure CPU time (process/thread CPU clock), not
-   wall-clock, so a busy host doesn't skew the number.
+3. **Time a chained encode+decode round trip.** Each timed iteration **decodes
+   the reference wire and re-encodes the freshly decoded message**
+   (`encode(decode(blob))`) — not a pre-built instance re-encoded every
+   iteration. This models a proxy/transcode and, crucially, denies protobuf the
+   once-per-instance serialized-size memo (`getSerializedSize` / `GetCachedSize`),
+   so encode is measured on equal terms with SofaBuffers instead of as a
+   pre-memoized re-serialization (issue #86). Hoist the output buffer out of the
+   loop where the language allows it, and keep a per-iteration sink (a
+   re-encoded-byte count checked against `serialized * iters`, or a
+   `black_box` / `doNotOptimizeAway`) so the round trip can't be optimized away.
+   Do not count object construction, JSON parsing, or I/O. Measure CPU time
+   (process/thread CPU clock), not wall-clock, so a busy host doesn't skew the
+   number.
 4. **`BENCH_ITERS` overrides the iteration count** (env var), so a slow
    instrumented pass can use fewer iterations than the timed pass.
 

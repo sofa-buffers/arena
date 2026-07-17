@@ -95,18 +95,27 @@ public class Bench {
         int iters = Integer.parseInt(
             System.getenv().getOrDefault("BENCH_ITERS", "2000000"));
 
-        // JIT warm-up (outside the timed region).
+        // JIT warm-up (same chained shape as the timed loop).
         for (int i = 0; i < 20000; i++) {
-            byte[] b = src.toByteArray();
-            FullScaleExample.parseFrom(b);
+            FullScaleExample.parseFrom(blob).toByteArray();
         }
 
+        // Chained round trip: decode the reference wire, then re-encode the freshly
+        // parsed message (issue #86) — the proxy/transcode shape. Each parseFrom
+        // yields a new message whose memoized serialized size is unset, so protobuf
+        // pays the size pass every encode instead of hitting a once-per-instance
+        // memo. sink keeps the re-encode live and doubles as a loop-path check.
+        long sink = 0;
         long t0 = System.nanoTime();
         for (int i = 0; i < iters; i++) {
-            byte[] b = src.toByteArray();
-            FullScaleExample.parseFrom(b);
+            sink += FullScaleExample.parseFrom(blob).toByteArray().length;
         }
         long t1 = System.nanoTime();
+
+        if (sink != (long) serialized * iters) {
+            System.err.println("FAIL: protobuf loop-path self-check");
+            System.exit(1);
+        }
 
         double cpu = (t1 - t0) / 1e9;
         double mbs = cpu > 0 ? (double) serialized * iters / cpu / 1e6 : 0.0;

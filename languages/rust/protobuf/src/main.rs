@@ -98,12 +98,15 @@ fn main() {
 
     let mut buf = Vec::with_capacity(serialized);
 
+    // Chained round trip: decode the reference wire, then re-encode the freshly
+    // decoded message (issue #86) — the proxy/transcode shape, so encode runs on
+    // a just-parsed message rather than a pre-built, reused instance.
     let t0 = Instant::now();
     for _ in 0..iters {
+        let dec = FullScaleExample::decode(&blob[..]).unwrap();
         buf.clear();
-        src.encode(&mut buf).unwrap();
-        let dec = FullScaleExample::decode(&buf[..]).unwrap();
-        black_box(&dec);
+        dec.encode(&mut buf).unwrap();
+        black_box(&buf);
     }
     let cpu = t0.elapsed().as_secs_f64();
 

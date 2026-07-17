@@ -101,8 +101,10 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    // Timed loop: ONLY encode + decode (output buffer hoisted; the arena is
-    // rewound per iteration, keeping its pages).
+    // Timed loop: chained round trip — decode the reference wire, then re-encode
+    // the freshly decoded message (issue #86) — the proxy/transcode shape, so
+    // encode runs on a just-parsed message rather than a pre-built, reused one.
+    // Output buffer hoisted; the arena is rewound per iteration, keeping its pages.
     const iters = benchIters(init, 2_000_000);
     var loop_buf: [2048]u8 = undefined;
     var loop_wire: []const u8 = &.{};
@@ -111,12 +113,12 @@ pub fn main(init: std.process.Init) !void {
     var i: u64 = 0;
     while (i < iters) : (i += 1) {
         _ = arena.reset(.retain_capacity);
-        var ew = std.Io.Writer.fixed(&loop_buf);
-        try src.encode(&ew, arena.allocator());
-        loop_wire = ew.buffered();
-        var r = std.Io.Reader.fixed(loop_wire);
+        var r = std.Io.Reader.fixed(wire);
         dec = try pb.FullScaleExample.decode(&r, arena.allocator());
-        std.mem.doNotOptimizeAway(&dec);
+        var ew = std.Io.Writer.fixed(&loop_buf);
+        try dec.encode(&ew, arena.allocator());
+        loop_wire = ew.buffered();
+        std.mem.doNotOptimizeAway(loop_wire);
     }
     const cpu = cpuNow() - t0;
 

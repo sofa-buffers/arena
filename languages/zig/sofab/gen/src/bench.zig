@@ -100,20 +100,23 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(1);
     }
 
-    // Timed loop: ONLY encode + decode (buffers hoisted; the fixed decode
-    // arena is rewound per iteration, which frees the whole message at once).
+    // Timed loop: chained round trip — decode the reference wire, then re-encode
+    // the freshly decoded message (issue #86). This is the proxy/transcode shape;
+    // it denies protobuf its once-per-instance serialized-size memo so encode is
+    // measured on equal terms. Buffers hoisted; the fixed decode arena is rewound
+    // per iteration, which frees the whole message at once.
     const iters = benchIters(init, 2_000_000);
     var loop_buf: [Example.MAX_SIZE]u8 = undefined;
     var dec: Example = .{};
     const t0 = cpuNow();
     var i: u64 = 0;
     while (i < iters) : (i += 1) {
-        var eos = sofab.OStream.init(&loop_buf);
-        try src.marshal(&eos);
-        const used = eos.bytesUsed();
         fba.reset();
-        dec = try Example.decode(fba.allocator(), loop_buf[0..used]);
-        std.mem.doNotOptimizeAway(&dec);
+        dec = try Example.decode(fba.allocator(), wire);
+        var eos = sofab.OStream.init(&loop_buf);
+        try dec.marshal(&eos);
+        const used = eos.bytesUsed();
+        std.mem.doNotOptimizeAway(loop_buf[0..used]);
     }
     const cpu = cpuNow() - t0;
 

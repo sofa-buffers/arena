@@ -41,15 +41,19 @@ fn main() {
     // Reused encode buffer (decode allocates its own object internally).
     let mut buf = vec![0u8; Example::MAX_SIZE];
 
+    // Chained round trip: decode the reference wire, then re-encode the freshly
+    // decoded message (issue #86) — the proxy/transcode shape, which denies
+    // protobuf its once-per-instance serialized-size memo so encode is measured
+    // on equal terms.
     let t0 = Instant::now();
     for _ in 0..iters {
+        let dec = Example::decode(&blob);
         let used = {
             let mut os = OStream::new(&mut buf);
-            src.marshal(&mut os);
+            dec.marshal(&mut os);
             os.bytes_used()
         };
-        let dec = Example::decode(&buf[..used]);
-        black_box(&dec);
+        black_box(&buf[..used]);
     }
     let cpu = t0.elapsed().as_secs_f64();
 
