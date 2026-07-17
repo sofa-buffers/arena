@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <span>
+#include <cstring>
+#include <cstddef>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
@@ -46,6 +49,14 @@ struct _MsgSeq : sofab::IStreamMessage {
         is.read(row);
     }
 };
+template <typename C>
+std::span<const typename C::value_type> _trimTail(const C &_a) noexcept {
+    using _T = typename C::value_type;
+    const _T _z{};
+    std::size_t _n = _a.size();
+    while (_n > 0 && std::memcmp(&_a[_n - 1], &_z, sizeof(_T)) == 0) --_n;
+    return std::span<const _T>(_a.data(), _n);
+}
 #endif
 
 struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
@@ -87,10 +98,10 @@ struct ExampleArraysNested : sofab::OStreamMessage, sofab::IStreamMessage {
 
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (fp32 != std::array<float, 5>{}) {
-            (void)os.write(0, fp32);
+            (void)os.write(0, _trimTail(fp32));
         }
         if (fp64 != std::array<double, 5>{}) {
-            (void)os.write(1, fp64);
+            (void)os.write(1, _trimTail(fp64));
         }
         return os.writeIf(0, false, false);
     }
@@ -123,28 +134,28 @@ struct ExampleArrays : sofab::OStreamMessage, sofab::IStreamMessage {
 
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (u8 != std::array<std::uint8_t, 5>{}) {
-            (void)os.write(0, u8);
+            (void)os.write(0, _trimTail(u8));
         }
         if (i8 != std::array<std::int8_t, 5>{}) {
-            (void)os.write(1, i8);
+            (void)os.write(1, _trimTail(i8));
         }
         if (u16 != std::array<std::uint16_t, 5>{}) {
-            (void)os.write(2, u16);
+            (void)os.write(2, _trimTail(u16));
         }
         if (i16 != std::array<std::int16_t, 5>{}) {
-            (void)os.write(3, i16);
+            (void)os.write(3, _trimTail(i16));
         }
         if (u32 != std::array<std::uint32_t, 5>{}) {
-            (void)os.write(4, u32);
+            (void)os.write(4, _trimTail(u32));
         }
         if (i32 != std::array<std::int32_t, 5>{}) {
-            (void)os.write(5, i32);
+            (void)os.write(5, _trimTail(i32));
         }
         if (u64 != std::array<std::uint64_t, 5>{}) {
-            (void)os.write(6, u64);
+            (void)os.write(6, _trimTail(u64));
         }
         if (i64 != std::array<std::int64_t, 5>{}) {
-            (void)os.write(7, i64);
+            (void)os.write(7, _trimTail(i64));
         }
         (void)os.write(10, nested);
         return os.writeIf(0, false, false);

@@ -19,54 +19,54 @@ class ExampleNested {
 }
 
 class ExampleArraysNested {
-    public float[] fp32 = Sbuf.EMPTY_FLOATS;
-    public double[] fp64 = Sbuf.EMPTY_DOUBLES;
+    public float[] fp32 = new float[5];
+    public double[] fp64 = new double[5];
 
     public void marshal(OStream os) throws IOException {
-        if (this.fp32 != null && this.fp32.length != 0) {
-            os.writeArrayFp32(0, this.fp32);
+        if (!java.util.Arrays.equals(this.fp32, new float[5])) {
+            os.writeArrayFp32(0, Sbuf.trimTailF32(this.fp32));
         }
-        if (this.fp64 != null && this.fp64.length != 0) {
-            os.writeArrayFp64(1, this.fp64);
+        if (!java.util.Arrays.equals(this.fp64, new double[5])) {
+            os.writeArrayFp64(1, Sbuf.trimTailF64(this.fp64));
         }
     }
 }
 
 class ExampleArrays {
-    public long[] u8 = Sbuf.EMPTY_LONGS;
-    public long[] i8 = Sbuf.EMPTY_LONGS;
-    public long[] u16 = Sbuf.EMPTY_LONGS;
-    public long[] i16 = Sbuf.EMPTY_LONGS;
-    public long[] u32 = Sbuf.EMPTY_LONGS;
-    public long[] i32 = Sbuf.EMPTY_LONGS;
-    public long[] u64 = Sbuf.EMPTY_LONGS;
-    public long[] i64 = Sbuf.EMPTY_LONGS;
+    public long[] u8 = new long[5];
+    public long[] i8 = new long[5];
+    public long[] u16 = new long[5];
+    public long[] i16 = new long[5];
+    public long[] u32 = new long[5];
+    public long[] i32 = new long[5];
+    public long[] u64 = new long[5];
+    public long[] i64 = new long[5];
     public ExampleArraysNested nested = new ExampleArraysNested();
 
     public void marshal(OStream os) throws IOException {
-        if (this.u8 != null && this.u8.length != 0) {
-            os.writeArrayUnsigned(0, this.u8);
+        if (!java.util.Arrays.equals(this.u8, new long[5])) {
+            os.writeArrayUnsigned(0, Sbuf.trimTail(this.u8));
         }
-        if (this.i8 != null && this.i8.length != 0) {
-            os.writeArraySigned(1, this.i8);
+        if (!java.util.Arrays.equals(this.i8, new long[5])) {
+            os.writeArraySigned(1, Sbuf.trimTail(this.i8));
         }
-        if (this.u16 != null && this.u16.length != 0) {
-            os.writeArrayUnsigned(2, this.u16);
+        if (!java.util.Arrays.equals(this.u16, new long[5])) {
+            os.writeArrayUnsigned(2, Sbuf.trimTail(this.u16));
         }
-        if (this.i16 != null && this.i16.length != 0) {
-            os.writeArraySigned(3, this.i16);
+        if (!java.util.Arrays.equals(this.i16, new long[5])) {
+            os.writeArraySigned(3, Sbuf.trimTail(this.i16));
         }
-        if (this.u32 != null && this.u32.length != 0) {
-            os.writeArrayUnsigned(4, this.u32);
+        if (!java.util.Arrays.equals(this.u32, new long[5])) {
+            os.writeArrayUnsigned(4, Sbuf.trimTail(this.u32));
         }
-        if (this.i32 != null && this.i32.length != 0) {
-            os.writeArraySigned(5, this.i32);
+        if (!java.util.Arrays.equals(this.i32, new long[5])) {
+            os.writeArraySigned(5, Sbuf.trimTail(this.i32));
         }
-        if (this.u64 != null && this.u64.length != 0) {
-            os.writeArrayUnsigned(6, this.u64);
+        if (!java.util.Arrays.equals(this.u64, new long[5])) {
+            os.writeArrayUnsigned(6, Sbuf.trimTail(this.u64));
         }
-        if (this.i64 != null && this.i64.length != 0) {
-            os.writeArraySigned(7, this.i64);
+        if (!java.util.Arrays.equals(this.i64, new long[5])) {
+            os.writeArraySigned(7, Sbuf.trimTail(this.i64));
         }
         os.writeSequenceBegin(10); (this.nested == null ? new ExampleArraysNested() : this.nested).marshal(os); os.writeSequenceEnd();
     }
@@ -232,18 +232,18 @@ class ExampleVisitor implements Visitor {
         acap = count;
         switch (cur) {
         case 2: switch (id) {
-            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); m.arrays.u8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); m.arrays.i8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 2: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); m.arrays.u16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 3: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); m.arrays.i16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 4: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); m.arrays.u32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 5: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); m.arrays.i32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 6: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); m.arrays.u64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 7: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); m.arrays.i64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); acap = 5; m.arrays.u8 = new long[5]; break;
+            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); acap = 5; m.arrays.i8 = new long[5]; break;
+            case 2: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); acap = 5; m.arrays.u16 = new long[5]; break;
+            case 3: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); acap = 5; m.arrays.i16 = new long[5]; break;
+            case 4: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); acap = 5; m.arrays.u32 = new long[5]; break;
+            case 5: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); acap = 5; m.arrays.i32 = new long[5]; break;
+            case 6: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); acap = 5; m.arrays.u64 = new long[5]; break;
+            case 7: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); acap = 5; m.arrays.i64 = new long[5]; break;
         } break;
         case 3: switch (id) {
-            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); m.arrays.nested.fp32 = new float[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); m.arrays.nested.fp64 = new double[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); acap = 5; m.arrays.nested.fp32 = new float[5]; break;
+            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); acap = 5; m.arrays.nested.fp64 = new double[5]; break;
         } break;
         }
     }

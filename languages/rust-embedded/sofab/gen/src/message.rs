@@ -6,6 +6,30 @@ use serde::{Serialize, Deserialize};
 
 sofab::require!(array, fixlen, fp64, sequence, value64);
 
+// _trim_tail / _trim_tail_f32 / _trim_tail_f64 return &a[..M'], where M' is one
+// past the last element that differs from the element default (0 when every
+// element is the default). A `count: N` array is fixed-length: its canonical wire
+// carries exactly those M' elements and the decoder rebuilds the trailing default
+// run from the schema count (MESSAGE_SPEC S3). A dynamic (count-less) array has
+// no N to refill from, so it is never trimmed. Floats compare by BIT PATTERN, not
+// by ==, so a trailing -0.0 (which == 0.0) survives the round-trip instead of
+// being silently trimmed to +0.0, and a NaN is never taken for the default.
+fn _trim_tail<T: PartialEq + Copy>(a: &[T], zero: T) -> &[T] {
+    let mut n = a.len();
+    while n > 0 && a[n - 1] == zero { n -= 1; }
+    &a[..n]
+}
+fn _trim_tail_f32(a: &[f32]) -> &[f32] {
+    let mut n = a.len();
+    while n > 0 && f32::to_bits(a[n - 1]) == 0 { n -= 1; }
+    &a[..n]
+}
+fn _trim_tail_f64(a: &[f64]) -> &[f64] {
+    let mut n = a.len();
+    while n > 0 && f64::to_bits(a[n - 1]) == 0 { n -= 1; }
+    &a[..n]
+}
+
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
@@ -40,28 +64,28 @@ impl Default for ExampleArrays {
 impl ExampleArrays {
     pub fn marshal(&self, os: &mut OStream) {
         if self.u8 != [0; 5] {
-            let _ = os.write_array_unsigned(0, &self.u8);
+            let _ = os.write_array_unsigned(0, _trim_tail(&self.u8[..], 0));
         }
         if self.i8 != [0; 5] {
-            let _ = os.write_array_signed(1, &self.i8);
+            let _ = os.write_array_signed(1, _trim_tail(&self.i8[..], 0));
         }
         if self.u16 != [0; 5] {
-            let _ = os.write_array_unsigned(2, &self.u16);
+            let _ = os.write_array_unsigned(2, _trim_tail(&self.u16[..], 0));
         }
         if self.i16 != [0; 5] {
-            let _ = os.write_array_signed(3, &self.i16);
+            let _ = os.write_array_signed(3, _trim_tail(&self.i16[..], 0));
         }
         if self.u32 != [0; 5] {
-            let _ = os.write_array_unsigned(4, &self.u32);
+            let _ = os.write_array_unsigned(4, _trim_tail(&self.u32[..], 0));
         }
         if self.i32 != [0; 5] {
-            let _ = os.write_array_signed(5, &self.i32);
+            let _ = os.write_array_signed(5, _trim_tail(&self.i32[..], 0));
         }
         if self.u64 != [0; 5] {
-            let _ = os.write_array_unsigned(6, &self.u64);
+            let _ = os.write_array_unsigned(6, _trim_tail(&self.u64[..], 0));
         }
         if self.i64 != [0; 5] {
-            let _ = os.write_array_signed(7, &self.i64);
+            let _ = os.write_array_signed(7, _trim_tail(&self.i64[..], 0));
         }
         let _ = os.write_sequence_begin(10); self.nested.marshal(os); let _ = os.write_sequence_end();
     }
@@ -87,10 +111,10 @@ impl Default for ExampleArraysNested {
 impl ExampleArraysNested {
     pub fn marshal(&self, os: &mut OStream) {
         if self.fp32 != [0.0; 5] {
-            let _ = os.write_array_fp32(0, &self.fp32);
+            let _ = os.write_array_fp32(0, _trim_tail_f32(&self.fp32[..]));
         }
         if self.fp64 != [0.0; 5] {
-            let _ = os.write_array_fp64(1, &self.fp64);
+            let _ = os.write_array_fp64(1, _trim_tail_f64(&self.fp64[..]));
         }
     }
 }

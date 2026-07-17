@@ -6,56 +6,99 @@ using sofab;
 
 namespace Sofabuffers;
 
+// Trailing-default-run trim for fixed-count (`count: N`) native arrays:
+// the canonical wire carries only elements [0, M'), where M' is one past
+// the last non-default element; the decoder rebuilds [M', N) from the
+// schema count (MESSAGE_SPEC S3). Dynamic (count-less) arrays never trim.
+internal static class SofabFixedArray {
+    internal static T[] TrimTail<T>(T[] a) where T : struct {
+        int n = a.Length;
+        var zero = default(T);
+        var eq = EqualityComparer<T>.Default;
+        while (n > 0 && eq.Equals(a[n - 1], zero)) n--;
+        if (n == a.Length) return a;
+        var outp = new T[n];
+        Array.Copy(a, outp, n);
+        return outp;
+    }
+    internal static float[] TrimTailF32(float[] a) {
+        int n = a.Length;
+        while (n > 0 && BitConverter.SingleToInt32Bits(a[n - 1]) == 0) n--;
+        if (n == a.Length) return a;
+        var outp = new float[n];
+        Array.Copy(a, outp, n);
+        return outp;
+    }
+    internal static double[] TrimTailF64(double[] a) {
+        int n = a.Length;
+        while (n > 0 && BitConverter.DoubleToInt64Bits(a[n - 1]) == 0) n--;
+        if (n == a.Length) return a;
+        var outp = new double[n];
+        Array.Copy(a, outp, n);
+        return outp;
+    }
+}
+
 public sealed class ExampleArrays {
-    public byte[] u8 = Array.Empty<byte>();
-    public sbyte[] i8 = Array.Empty<sbyte>();
-    public ushort[] u16 = Array.Empty<ushort>();
-    public short[] i16 = Array.Empty<short>();
-    public uint[] u32 = Array.Empty<uint>();
-    public int[] i32 = Array.Empty<int>();
-    public ulong[] u64 = Array.Empty<ulong>();
-    public long[] i64 = Array.Empty<long>();
+    public byte[] u8 = new byte[5];
+    public sbyte[] i8 = new sbyte[5];
+    public ushort[] u16 = new ushort[5];
+    public short[] i16 = new short[5];
+    public uint[] u32 = new uint[5];
+    public int[] i32 = new int[5];
+    public ulong[] u64 = new ulong[5];
+    public long[] i64 = new long[5];
     public ExampleArraysNested nested = new();
+    private static readonly byte[] _arrdef_u8 = new byte[5];
+    private static readonly sbyte[] _arrdef_i8 = new sbyte[5];
+    private static readonly ushort[] _arrdef_u16 = new ushort[5];
+    private static readonly short[] _arrdef_i16 = new short[5];
+    private static readonly uint[] _arrdef_u32 = new uint[5];
+    private static readonly int[] _arrdef_i32 = new int[5];
+    private static readonly ulong[] _arrdef_u64 = new ulong[5];
+    private static readonly long[] _arrdef_i64 = new long[5];
 
     public void Marshal(OStream os) {
-        if (this.u8 != null && this.u8.Length != 0) {
-            os.WriteArrayUnsigned(0, this.u8);
+        if (!System.Linq.Enumerable.SequenceEqual(this.u8, _arrdef_u8)) {
+            os.WriteArrayUnsigned(0, SofabFixedArray.TrimTail(this.u8));
         }
-        if (this.i8 != null && this.i8.Length != 0) {
-            os.WriteArraySigned(1, this.i8);
+        if (!System.Linq.Enumerable.SequenceEqual(this.i8, _arrdef_i8)) {
+            os.WriteArraySigned(1, SofabFixedArray.TrimTail(this.i8));
         }
-        if (this.u16 != null && this.u16.Length != 0) {
-            os.WriteArrayUnsigned(2, this.u16);
+        if (!System.Linq.Enumerable.SequenceEqual(this.u16, _arrdef_u16)) {
+            os.WriteArrayUnsigned(2, SofabFixedArray.TrimTail(this.u16));
         }
-        if (this.i16 != null && this.i16.Length != 0) {
-            os.WriteArraySigned(3, this.i16);
+        if (!System.Linq.Enumerable.SequenceEqual(this.i16, _arrdef_i16)) {
+            os.WriteArraySigned(3, SofabFixedArray.TrimTail(this.i16));
         }
-        if (this.u32 != null && this.u32.Length != 0) {
-            os.WriteArrayUnsigned(4, this.u32);
+        if (!System.Linq.Enumerable.SequenceEqual(this.u32, _arrdef_u32)) {
+            os.WriteArrayUnsigned(4, SofabFixedArray.TrimTail(this.u32));
         }
-        if (this.i32 != null && this.i32.Length != 0) {
-            os.WriteArraySigned(5, this.i32);
+        if (!System.Linq.Enumerable.SequenceEqual(this.i32, _arrdef_i32)) {
+            os.WriteArraySigned(5, SofabFixedArray.TrimTail(this.i32));
         }
-        if (this.u64 != null && this.u64.Length != 0) {
-            os.WriteArrayUnsigned(6, this.u64);
+        if (!System.Linq.Enumerable.SequenceEqual(this.u64, _arrdef_u64)) {
+            os.WriteArrayUnsigned(6, SofabFixedArray.TrimTail(this.u64));
         }
-        if (this.i64 != null && this.i64.Length != 0) {
-            os.WriteArraySigned(7, this.i64);
+        if (!System.Linq.Enumerable.SequenceEqual(this.i64, _arrdef_i64)) {
+            os.WriteArraySigned(7, SofabFixedArray.TrimTail(this.i64));
         }
         os.WriteSequenceBegin(10); (this.nested ?? new ExampleArraysNested()).Marshal(os); os.WriteSequenceEnd();
     }
 }
 
 public sealed class ExampleArraysNested {
-    public float[] fp32 = Array.Empty<float>();
-    public double[] fp64 = Array.Empty<double>();
+    public float[] fp32 = new float[5];
+    public double[] fp64 = new double[5];
+    private static readonly float[] _arrdef_fp32 = new float[5];
+    private static readonly double[] _arrdef_fp64 = new double[5];
 
     public void Marshal(OStream os) {
-        if (this.fp32 != null && this.fp32.Length != 0) {
-            os.WriteArrayFp32(0, this.fp32);
+        if (!System.Linq.Enumerable.SequenceEqual(this.fp32, _arrdef_fp32)) {
+            os.WriteArrayFp32(0, SofabFixedArray.TrimTailF32(this.fp32));
         }
-        if (this.fp64 != null && this.fp64.Length != 0) {
-            os.WriteArrayFp64(1, this.fp64);
+        if (!System.Linq.Enumerable.SequenceEqual(this.fp64, _arrdef_fp64)) {
+            os.WriteArrayFp64(1, SofabFixedArray.TrimTailF64(this.fp64));
         }
     }
 }
@@ -216,16 +259,16 @@ internal sealed class ExampleVisitor : IVisitor {
     public void ArrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
         switch ((cur, id)) {
-            case (Root_arrays, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[count]; break;
-            case (Root_arrays, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[count]; break;
-            case (Root_arrays, 2): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u16: array count above schema capacity 5"); m.arrays.u16 = new ushort[count]; break;
-            case (Root_arrays, 3): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i16: array count above schema capacity 5"); m.arrays.i16 = new short[count]; break;
-            case (Root_arrays, 4): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u32: array count above schema capacity 5"); m.arrays.u32 = new uint[count]; break;
-            case (Root_arrays, 5): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i32: array count above schema capacity 5"); m.arrays.i32 = new int[count]; break;
-            case (Root_arrays, 6): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u64: array count above schema capacity 5"); m.arrays.u64 = new ulong[count]; break;
-            case (Root_arrays, 7): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i64: array count above schema capacity 5"); m.arrays.i64 = new long[count]; break;
-            case (Root_arrays_nested, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp32: array count above schema capacity 5"); m.arrays.nested.fp32 = new float[count]; break;
-            case (Root_arrays_nested, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp64: array count above schema capacity 5"); m.arrays.nested.fp64 = new double[count]; break;
+            case (Root_arrays, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[5]; break;
+            case (Root_arrays, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[5]; break;
+            case (Root_arrays, 2): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u16: array count above schema capacity 5"); m.arrays.u16 = new ushort[5]; break;
+            case (Root_arrays, 3): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i16: array count above schema capacity 5"); m.arrays.i16 = new short[5]; break;
+            case (Root_arrays, 4): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u32: array count above schema capacity 5"); m.arrays.u32 = new uint[5]; break;
+            case (Root_arrays, 5): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i32: array count above schema capacity 5"); m.arrays.i32 = new int[5]; break;
+            case (Root_arrays, 6): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u64: array count above schema capacity 5"); m.arrays.u64 = new ulong[5]; break;
+            case (Root_arrays, 7): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i64: array count above schema capacity 5"); m.arrays.i64 = new long[5]; break;
+            case (Root_arrays_nested, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp32: array count above schema capacity 5"); m.arrays.nested.fp32 = new float[5]; break;
+            case (Root_arrays_nested, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp64: array count above schema capacity 5"); m.arrays.nested.fp64 = new double[5]; break;
         }
     }
     public void SequenceBegin(int id) {

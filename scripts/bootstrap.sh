@@ -107,9 +107,28 @@ CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-
 # valid reference message still encodes byte-identically (the gate stays
 # 434B/494B) but the C/C++ generated sources are regenerated because the blob
 # lowering changed. rust/zig/csharp/java/python/ts/go codegen is byte-identical
-# to v0.17.0.
+# to v0.17.0; v0.17.2 implements the MESSAGE_SPEC §3 trailing-default-run rule
+# for `count: N` native arrays across all 9 backends (generator#137): encode now
+# emits only [0, M'), M' being one past the last element differing from the
+# ELEMENT default ([7,8,9] in a count:5 u32 lowers to `23 03 07 08 09`, no longer
+# `23 05 07 08 09 00 00`), and decode always materializes exactly N (element
+# defaults at [M, N)). Bit-pattern equality decides "is default", so a trailing
+# -0.0 or NaN is never trimmed. The C backend gets the rule from the corelib, not
+# from emitted code (its descriptor path has no used-length slot) — it needs
+# corelib-c-cpp#87, which the version stamp below pulls in via fresh clones;
+# v0.17.3 fixes a go-only v0.17.2 regression (generator#140): go's marshal
+# omit-guard compared a growable []T against the now-N-element-padded default, so
+# an all-default count:N array was emitted as an explicit empty array instead of
+# being omitted per §2 — it now compares trimmed value against trimmed default.
+# WIRE-NEUTRAL FOR THIS ARENA, and not by luck: the trim only shortens an array
+# whose TRAILING elements are the element default, and every count:5 array in
+# schema/state.json deliberately ends on a non-default extreme (255, 127, 65535,
+# u64::MAX, ±3.4e38, ±1.79e308 ...), so M' == 5 for all ten of them and nothing
+# is trimmed. The gate stays 434B/494B — but if the payload ever grows an array
+# with a trailing zero, THIS bump is what will move the sofab wire, and all four
+# reference sync points must move with it.
 # Bump together with whatever generated-code contract the targets rely on.
-SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.17.1}"
+SOFABGEN_VERSION="${SOFABGEN_VERSION:-v0.17.3}"
 
 # A version bump must invalidate BOTH the prebuilt sofabgen binary and the
 # corelib clones — v0.11.0's decoders place wrapper-array elements by id, so a

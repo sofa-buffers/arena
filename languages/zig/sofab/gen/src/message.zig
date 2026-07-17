@@ -29,28 +29,28 @@ pub const ExampleArrays = struct {
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn marshal(self: *const ExampleArrays, os: *sofab.OStream) sofab.Error!void {
         if (!std.mem.allEqual(u8, self.u8[0..], 0)) {
-            try os.writeArrayUnsigned(0, self.u8[0..]);
+            try os.writeArrayUnsigned(0, _trimTail(self.u8[0..]));
         }
         if (!std.mem.allEqual(i8, self.i8[0..], 0)) {
-            try os.writeArraySigned(1, self.i8[0..]);
+            try os.writeArraySigned(1, _trimTail(self.i8[0..]));
         }
         if (!std.mem.allEqual(u16, self.u16[0..], 0)) {
-            try os.writeArrayUnsigned(2, self.u16[0..]);
+            try os.writeArrayUnsigned(2, _trimTail(self.u16[0..]));
         }
         if (!std.mem.allEqual(i16, self.i16[0..], 0)) {
-            try os.writeArraySigned(3, self.i16[0..]);
+            try os.writeArraySigned(3, _trimTail(self.i16[0..]));
         }
         if (!std.mem.allEqual(u32, self.u32[0..], 0)) {
-            try os.writeArrayUnsigned(4, self.u32[0..]);
+            try os.writeArrayUnsigned(4, _trimTail(self.u32[0..]));
         }
         if (!std.mem.allEqual(i32, self.i32[0..], 0)) {
-            try os.writeArraySigned(5, self.i32[0..]);
+            try os.writeArraySigned(5, _trimTail(self.i32[0..]));
         }
         if (!std.mem.allEqual(u64, self.u64[0..], 0)) {
-            try os.writeArrayUnsigned(6, self.u64[0..]);
+            try os.writeArrayUnsigned(6, _trimTail(self.u64[0..]));
         }
         if (!std.mem.allEqual(i64, self.i64[0..], 0)) {
-            try os.writeArraySigned(7, self.i64[0..]);
+            try os.writeArraySigned(7, _trimTail(self.i64[0..]));
         }
         try os.writeSequenceBegin(10);
         try self.nested.marshal(os);
@@ -65,10 +65,10 @@ pub const ExampleArraysNested = struct {
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn marshal(self: *const ExampleArraysNested, os: *sofab.OStream) sofab.Error!void {
         if (!std.mem.allEqual(f32, self.fp32[0..], 0.0)) {
-            try os.writeArrayFp32(0, self.fp32[0..]);
+            try os.writeArrayFp32(0, _trimTail(self.fp32[0..]));
         }
         if (!std.mem.allEqual(f64, self.fp64[0..], 0.0)) {
-            try os.writeArrayFp64(1, self.fp64[0..]);
+            try os.writeArrayFp64(1, _trimTail(self.fp64[0..]));
         }
     }
 };
@@ -341,6 +341,28 @@ fn _putc(s: anytype, i: *usize, v: std.meta.Elem(@TypeOf(s)), inv: *bool) void {
     }
     @constCast(&s[i.*]).* = v;
     i.* += 1;
+}
+
+/// Trim the trailing run of element-default elements off a fixed-count
+/// native array: returns a[0..M'], where M' is one past the last element
+/// that differs from the element default (0 when every element is the
+/// default). A `count: N` array is fixed-length, so the canonical wire
+/// carries only those M' elements and the decoder rebuilds the trailing
+/// default run from the schema count (MESSAGE_SPEC S3). A dynamic
+/// (count-less) array has no N to refill from and is never trimmed.
+///
+/// Elements compare by BIT PATTERN (the element's byte image), never by
+/// ==: a trailing -0.0 (which == 0.0) must survive the round-trip instead
+/// of being silently trimmed to +0.0, and a NaN is never a default. Every
+/// native element type (u8..u64, i8..i64, f32, f64, bool, and the enum/
+/// bitfield integer backings) is padding-free, so the byte image is exact.
+///
+/// `a` is a fixed field's `[0..]` (a *const [N]T) or its sliceAsBytes
+/// image, so the result is always a slice, never the pointer-to-array.
+fn _trimTail(a: anytype) []const std.meta.Elem(@TypeOf(a)) {
+    var n = a.len;
+    while (n > 0 and std.mem.allEqual(u8, std.mem.asBytes(&a[n - 1]), 0)) : (n -= 1) {}
+    return a[0..n];
 }
 
 /// Mutable pointer to the last element of a decode-allocated slice.
