@@ -83,10 +83,19 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   anywhere; and within a row SofaBuffers and its baseline get the **same** flags.
   Throughput is reported **best-of-5** (`RUNS=5`, the default) since it is noisy.
 
-> **Reading throughput (`MB/s`).** An encode+decode figure on **this host**, only
-> meaningful **within a language** (each runs on a different runtime — JIT, VM,
-> interpreter, native). It is machine-dependent and varies run-to-run. The columns
-> comparable *across* rows are **wire size** and the **per-target ratios**.
+> **Reading throughput (`MB/s` and `msg/s`).** An encode+decode figure on **this
+> host**, only meaningful **within a language** (each runs on a different runtime —
+> JIT, VM, interpreter, native). It is machine-dependent and varies run-to-run. Two
+> throughput columns, both higher-is-better: **`MB/s`** counts bytes/second, so it
+> folds in the ~13 % wire-size gap; **`msg/s`** counts messages/second — the
+> **size-neutral** per-message codec speed (see [#85]). The columns comparable
+> *across* rows are **wire size** and the **per-target ratios**. Each timed
+> iteration re-encodes the message it just decoded (`encode(decode(blob))`, see
+> [#86]), so a freshly parsed instance makes protobuf pay its size pass every encode
+> — no memoization discount from an artificial reuse loop.
+
+[#85]: https://github.com/sofa-buffers/arena/issues/85
+[#86]: https://github.com/sofa-buffers/arena/issues/86
 
 > **Reading footprint (`.text`/RAM).** The reported metric is the **bare-metal
 > link delta** (`c-cortex-m`, `cpp-cortex-m`, `rust-cortex-m`, `c-riscv`,
@@ -146,25 +155,28 @@ Every target passes the byte-identity gate: all SofaBuffers targets emit the sam
 
 ### Maxspeed — throughput
 
-| language | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
-|---|--:|--:|--:|--:|:--:|:--:|
-| C++        | 434 | 494 | 317.6 | 263.3 | **1.14×** | **1.21×** |
-| Rust       | 434 | 494 | 379.5 | 255.2 | **1.14×** | **1.49×** |
-| Zig        | 434 | 494 | 486.2 | 261.1 | **1.14×** | **1.86×** |
-| Go         | 434 | 494 | 149.4 | 145.4 | **1.14×** | **1.03×** |
-| C#         | 434 | 494 | 190.0 | 131.9 | **1.14×** | **1.44×** |
-| Java       | 434 | 494 | 246.7 | 289.5 | **1.14×** | 0.85× |
-| TypeScript · Node/V8 † | 434 | 494 |  55.7 |  85.6 | **1.14×** | 0.65× |
-| TypeScript · Bun/JSC † | 434 | 494 |  46.8 |  55.2 | **1.14×** | 0.85× |
-| Python ‡   | 434 | 494 |  19.4 | 202.6 | **1.14×** | 0.10× |
+| language | sofab size | proto size | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
+|---|--:|--:|--:|--:|--:|--:|:--:|:--:|:--:|
+| C++        | 434 | 494 | 324.9 | 257.4 | 748 600 | 521 095 | **1.14×** | **1.26×** | **1.44×** |
+| Rust       | 434 | 494 | 349.2 | 241.6 | 804 644 | 489 058 | **1.14×** | **1.45×** | **1.65×** |
+| Zig        | 434 | 494 | 548.5 | 262.6 | 1 263 730 | 531 549 | **1.14×** | **2.09×** | **2.38×** |
+| Go         | 434 | 494 | 143.4 | 138.7 | 330 318 | 280 804 | **1.14×** | **1.03×** | **1.18×** |
+| C#         | 434 | 494 | 180.1 | 125.4 | 414 875 | 253 868 | **1.14×** | **1.44×** | **1.63×** |
+| Java       | 434 | 494 | 229.2 | 248.7 | 528 083 | 503 387 | **1.14×** | 0.92× | **1.05×** |
+| TypeScript · Node/V8 † | 434 | 494 |  37.7 |  74.9 |  86 800 | 151 584 | **1.14×** | 0.50× | 0.57× |
+| TypeScript · Bun/JSC † | 434 | 494 |  38.1 |  52.4 |  87 874 | 106 030 | **1.14×** | 0.73× | 0.83× |
+| Python ‡   | 434 | 494 |  18.4 | 224.3 |  42 374 | 454 055 | **1.14×** | 0.08× | 0.09× |
 
-***Zig, C++, Rust, C# and Go all beat protobuf — Zig by 1.9×; the wire is ~13 % smaller everywhere.**
-adv >1 → SofaBuffers ahead; best-of-5, comparable only within a row.*
+***On the size-neutral per-message metric (`msg/s`), every compiled and JIT language now
+beats protobuf** — Zig by 2.4×, and even Java edges ahead (1.05×) after the round-trip fix
+([#86]). The wire is ~13 % smaller everywhere, so `MB/s` — which folds in that byte gap —
+reads a touch lower than the per-message win (Java lands at 0.92× there). adv >1 →
+SofaBuffers ahead; best-of-5, comparable only within a row.*
 
 - † The two **TypeScript** rows are the **identical** codec on the two JavaScript
 engines — Node (V8) and Bun (JavaScriptCore)
 
-- ‡ **Python is slowest (0.10×), and it's not a fallback.** Python trails because
+- ‡ **Python is slowest (0.08× MB/s, 0.09× msg/s), and it's not a fallback.** Python trails because
 protobuf-python is a thin shell over Google's C **`upb`** engine while SofaBuffers
 keeps a **per-field Python driver** — it runs the native Cython accelerator
 (`sofab.IMPL == "native"`), not a fallback. See
@@ -178,16 +190,16 @@ but these are the **embedded-friendly** implementations (fixed-capacity
 containers, built `-Os`), so speed is an interesting factor here, **not the
 ranking metric** (that is footprint, below).
 
-| opponent | sofab size | proto size | sofab MB/s | proto MB/s | **size** adv | **speed** adv |
-|---|--:|--:|--:|--:|:--:|:--:|
-| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 131.6 | 338.1 | **1.14×** | 0.39× |
-| sofab-c-embedded vs. nanopb        | 434 | 494 | 131.6 |  63.7 | **1.14×** | **2.07×** |
-| sofab-rust-embedded vs. micropb    | 434 | 494 | 157.7 | 132.3 | **1.14×** | **1.19×** |
-| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 137.6 |  59.4 | **1.14×** | **2.32×** |
+| opponent | sofab size | proto size | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
+|---|--:|--:|--:|--:|--:|--:|:--:|:--:|:--:|
+| sofab-c-embedded vs. protobuf-c    | 434 | 494 | 130.1 | 323.6 | 299 817 | 655 103 | **1.14×** | 0.40× | 0.46× |
+| sofab-c-embedded vs. nanopb        | 434 | 494 | 130.1 |  61.3 | 299 817 | 124 012 | **1.14×** | **2.12×** | **2.42×** |
+| sofab-rust-embedded vs. micropb    | 434 | 494 | 154.3 | 127.8 | 355 447 | 258 719 | **1.14×** | **1.21×** | **1.37×** |
+| sofab-cpp-embedded vs. embeddedproto | 434 | 494 | 135.4 |  58.6 | 312 069 | 118 590 | **1.14×** | **2.31×** | **2.63×** |
 
 ***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
-baseline** (~2× vs both nanopb and EmbeddedProto) — only the desktop-class
-`protobuf-c` is faster.*
+baseline on the size-neutral `msg/s` metric** (2.4× vs nanopb, 2.6× vs EmbeddedProto,
+1.4× vs micropb) — only the desktop-class `protobuf-c` is faster.*
 
 ### Embedded — bare-metal footprint (`--gc-sections` link delta; **lower is better**)
 
@@ -205,20 +217,20 @@ further below the numbers reported here.
 
 | target (ISA) | impl | `.text` | `.rodata` | `.data` | **footprint** | static-RAM |
 |---|---|--:|--:|--:|--:|--:|
-| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 336 | 344 | 0 | **3 680** | 0 |
+| **c-cortex-m** (thumbv7e-m+fp) | sofab | 3 400 | 344 | 0 | **3 744** | 0 |
 | | nanopb | 5 676 | 936 | 0 | 6 612 | 0 |
 | **cpp-cortex-m** (thumbv7e-m+fp) | sofab | 6 716 | 156 | 80 | **6 952** | 132 |
 | | embeddedproto | 8 344 | 904 | 80 | 9 328 | 96 |
-| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 6 004 | 330 | 0 | **6 334** | 0 |
+| **rust-cortex-m** (thumbv7e-m+fp) | sofab | 6 096 | 330 | 0 | **6 426** | 0 |
 | | micropb | 8 248 | 261 | 0 | 8 509 | 0 |
-| **c-riscv** (rv32imac) | sofab | 3 368 | 488 | 0 | **3 856** | 0 |
+| **c-riscv** (rv32imac) | sofab | 3 400 | 488 | 0 | **3 888** | 0 |
 | | nanopb | 6 384 | 1 112 | 0 | 7 496 | 0 |
-| **cpp-riscv** (rv32imac) | sofab | 6 028 | 300 | 76 | **6 404** | 420 |
+| **cpp-riscv** (rv32imac) | sofab | 6 040 | 300 | 76 | **6 416** | 420 |
 | | embeddedproto | 8 824 | 1 012 | 76 | 9 912 | 388 |
-| **rust-riscv** (rv32imac) | sofab | 6 808 | 386 | 0 | **7 194** | 0 |
+| **rust-riscv** (rv32imac) | sofab | 6 912 | 386 | 0 | **7 298** | 0 |
 | | micropb | 9 696 | 393 | 0 | 10 089 | 0 |
 
-***SofaBuffers wins all six rows — three languages × two ISAs** (1.34×–1.94×
+***SofaBuffers wins all six rows — three languages × two ISAs** (1.32×–1.93×
 less flash than the smallest protobuf alternative).*
 
 ### The big picture
@@ -226,11 +238,13 @@ less flash than the smallest protobuf alternative).*
 - **Smaller on the wire, in every language.** The SofaBuffers encoding is about
   13 % more compact than protobuf for the same message — the same win everywhere,
   not a per-language accident.
-- **Faster than protobuf where it counts, close behind everywhere else.** The gap
+- **Faster than protobuf per message in every compiled and JIT language.** The gap
   was never the wire format but the per-message code above the byte codec; with
-  that tuned, Zig, C++, Rust, C# and Go run ahead of Google's mature runtimes — Zig
-  by ~1.9× — while Java and TypeScript land modestly behind (0.85×/0.65×), tracking
-  each VM's maturity, not the format. Python is the lone outlier, because its protobuf baseline is a thin shell
+  that tuned — and with the round trip chained so protobuf pays its size pass every
+  encode ([#86]) — Zig, C++, Rust, C#, Go **and Java** all run ahead of Google's
+  mature runtimes on the size-neutral `msg/s` metric — Zig by ~2.4×, Java by a slim
+  1.05×. Only TypeScript trails (tracking JS-engine maturity, not the format), and
+  Python is the lone outlier, because its protobuf baseline is a thin shell
   over Google's C `upb` engine while SofaBuffers still drives every field from
   Python. *(How the codegen was tuned: [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md).)*
 - **The smallest embedded codec in every language, on both ISAs** — measured the
