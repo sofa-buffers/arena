@@ -18,6 +18,11 @@ BENCH lang=<lang> impl=<sofab|protobuf> serialized_bytes=<n> iters=<n> cpu_time_
 | `throughput_mbs` | `serialized_bytes * iters / cpu_time_s / 1e6` (MB/s) |
 | `sha256` | SHA-256 of the serialized message (hex) |
 
+The runner also reports a **`msgs/s`** column (`iters / cpu_time_s`) next to MB/s.
+It is **derived from the fields above**, not emitted — no target changes. MB/s scales
+by `serialized_bytes`, so it credits SofaBuffers' smaller wire; `msgs/s` is the
+size-neutral per-message codec speed. See #85.
+
 ## Rules every target follows
 
 1. **Identical message, identical state.** Every target encodes the exact same
