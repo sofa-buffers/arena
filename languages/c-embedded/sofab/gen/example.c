@@ -47,7 +47,7 @@ static const sofab_object_descr_field_t _fullscale_fields_message_example_string
     SOFAB_OBJECT_FIELD(3, fullscale_example_string_array_elems_t, items[3], SOFAB_OBJECT_FIELDTYPE_STRING),
     SOFAB_OBJECT_FIELD(4, fullscale_example_string_array_elems_t, items[4], SOFAB_OBJECT_FIELDTYPE_STRING),
 };
-const sofab_object_descr_t _fullscale_descr_message_example_string_array_elems = SOFAB_OBJECT_DESCR(_fullscale_fields_message_example_string_array_elems, 5, NULL, 0);
+const sofab_object_descr_t _fullscale_descr_message_example_string_array_elems = SOFAB_OBJECT_DESCR_SEQ(_fullscale_fields_message_example_string_array_elems, 5, NULL, 0);
 
 static const sofab_object_descr_field_t _fullscale_fields_message_example[] = {
     SOFAB_OBJECT_FIELD(0, fullscale_example_t, u8, SOFAB_OBJECT_FIELDTYPE_UNSIGNED),
