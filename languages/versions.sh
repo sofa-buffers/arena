@@ -46,4 +46,4 @@ JAVA_GSON=2.14.0
 # --- TypeScript (sofabgen template devDeps) ---------------------------------
 TS_TYPES_NODE=^26.1.1
 TS_TYPESCRIPT=^6.0.3
-TS_TSX=^4.23.0
+TS_TSX=^4.23.1
