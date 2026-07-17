@@ -45,6 +45,21 @@ function _padTo<T>(a: T[], n: number, zero: T): T[] {
   return a;
 }
 
+// _utf8Len returns the UTF-8 byte length of s without allocating (mirrors what the
+// encode path already does). Used to bound a decoded string against its schema
+// maxlen on the hot decode path (issue #153).
+function _utf8Len(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) n += 1;
+    else if (c < 0x800) n += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length && (s.charCodeAt(i + 1) & 0xfc00) === 0xdc00) { n += 4; i++; }
+    else n += 3;
+  }
+  return n;
+}
+
 export class ExampleArrays {
   u8: number[] = [0, 0, 0, 0, 0];
   i8: number[] = [0, 0, 0, 0, 0];
@@ -238,7 +253,7 @@ export class ExampleNested {
       switch (c.id) {
       case 0: o.f32 = c.readFp32(); break;
       case 1: o.f64 = c.readFp64(); break;
-      case 2: { const _s = c.readString(); if (new TextEncoder().encode(_s).length > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); o.str = _s; break; }
+      case 2: { const _s = c.readString(); if (_utf8Len(_s) > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); o.str = _s; break; }
       case 3: { const _b = c.readBlob(); if (_b.length > 4) throw new SofabError(SofabErrorCode.InvalidMsg, "bytes_field: blob byte length above schema maxlen 4"); o.bytes_field = _b; break; }
       default: c.skip(c.wire); break;
       }
@@ -354,7 +369,7 @@ export class Example {
       case 100: o.arrays = ExampleArrays.decodeFrom(c); break;
       case 200: {
         const arr: string[] = [];
-        while (c.readHeader()) { if (c.id >= 5) throw new SofabError(SofabErrorCode.InvalidMsg, "arr: array index above schema capacity 5"); const _id = c.id; while (arr.length <= _id) arr.push(""); const _s = c.readString(); if (new TextEncoder().encode(_s).length > 64) throw new SofabError(SofabErrorCode.InvalidMsg, "arr element: string byte length above schema maxlen 64"); arr[_id] = _s; }
+        while (c.readHeader()) { if (c.id >= 5) throw new SofabError(SofabErrorCode.InvalidMsg, "arr: array index above schema capacity 5"); const _id = c.id; while (arr.length <= _id) arr.push(""); const _s = c.readString(); if (_utf8Len(_s) > 64) throw new SofabError(SofabErrorCode.InvalidMsg, "arr element: string byte length above schema maxlen 64"); arr[_id] = _s; }
         o.string_array = arr;
         break;
       }

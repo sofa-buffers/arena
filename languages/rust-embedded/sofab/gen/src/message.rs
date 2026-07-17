@@ -329,7 +329,7 @@ impl<'a> Visitor for V<'a> {
         };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }
-            (_Loc::Root_string_array, _) => { while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
+            (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
             _ => {}
         }
     }
