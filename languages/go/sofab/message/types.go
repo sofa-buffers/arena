@@ -201,6 +201,9 @@ func (m *ExampleNested) Float64(id sofab.ID, v float64) error {
 func (m *ExampleNested) String(id sofab.ID, v string) error {
 	switch id {
 	case 2:
+		if len(v) > 32 {
+			return sofab.ErrInvalidMsg
+		}
 		m.Str = v
 	}
 	return nil
@@ -209,6 +212,9 @@ func (m *ExampleNested) String(id sofab.ID, v string) error {
 func (m *ExampleNested) Bytes(id sofab.ID, v []byte) error {
 	switch id {
 	case 3:
+		if len(v) > 4 {
+			return sofab.ErrInvalidMsg
+		}
 		m.BytesField = append([]byte(nil), v...)
 	}
 	return nil

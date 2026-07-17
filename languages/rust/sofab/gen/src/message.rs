@@ -304,6 +304,13 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn string(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // Bounded fields: a wire byte length above the schema maxlen is
+        // malformed input, INVALID before any bytes accumulate (never truncated).
+        match (self.cur, id) {
+            (_Loc::Root_nested, 2) => if total > 32 { self.inv = true; return; },
+            (_Loc::Root_string_array, _) => if total > 64 { self.inv = true; return; },
+            _ => {}
+        }
         // Single-shot: whole payload in one chunk -> build straight from the
         // slice, skipping the `acc` accumulate + second copy.
         // Invalid UTF-8 -> empty string, matching the no_std profile's
@@ -320,11 +327,17 @@ impl<'a> Visitor for V<'a> {
         };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => self.m.nested.str = _s,
-            (_Loc::Root_string_array, _) => { while self.m.string_array.len() <= id as usize { self.m.string_array.push(Default::default()); } self.m.string_array[id as usize] = _s; }
+            (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { self.m.string_array.push(Default::default()); } self.m.string_array[id as usize] = _s; }
             _ => {}
         }
     }
     fn blob(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // Bounded fields: a wire byte length above the schema maxlen is
+        // malformed input, INVALID before any bytes accumulate (never truncated).
+        match (self.cur, id) {
+            (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
+            _ => {}
+        }
         let _b = if offset == 0 && chunk.len() >= total {
             chunk[..total].to_vec()
         } else {

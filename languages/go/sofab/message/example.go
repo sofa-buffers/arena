@@ -100,7 +100,7 @@ func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 		return &m.Arrays, nil
 	case 200:
 		m.StringArray = m.StringArray[:0]
-		return &_strSeq{out: &m.StringArray}, nil
+		return &_strSeq{out: &m.StringArray, cap: 5, emax: 64}, nil
 	}
 	return _visitorBase{}, nil
 }

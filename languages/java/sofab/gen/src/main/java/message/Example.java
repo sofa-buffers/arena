@@ -21,12 +21,14 @@ class ExampleNested {
 class ExampleArraysNested {
     public float[] fp32 = new float[5];
     public double[] fp64 = new double[5];
+    private static final float[] _arrdef_fp32 = new float[5];
+    private static final double[] _arrdef_fp64 = new double[5];
 
     public void marshal(OStream os) throws IOException {
-        if (!java.util.Arrays.equals(this.fp32, new float[5])) {
+        if (!java.util.Arrays.equals(this.fp32, _arrdef_fp32)) {
             os.writeArrayFp32(0, Sbuf.trimTailF32(this.fp32));
         }
-        if (!java.util.Arrays.equals(this.fp64, new double[5])) {
+        if (!java.util.Arrays.equals(this.fp64, _arrdef_fp64)) {
             os.writeArrayFp64(1, Sbuf.trimTailF64(this.fp64));
         }
     }
@@ -42,30 +44,38 @@ class ExampleArrays {
     public long[] u64 = new long[5];
     public long[] i64 = new long[5];
     public ExampleArraysNested nested = new ExampleArraysNested();
+    private static final long[] _arrdef_u8 = new long[5];
+    private static final long[] _arrdef_i8 = new long[5];
+    private static final long[] _arrdef_u16 = new long[5];
+    private static final long[] _arrdef_i16 = new long[5];
+    private static final long[] _arrdef_u32 = new long[5];
+    private static final long[] _arrdef_i32 = new long[5];
+    private static final long[] _arrdef_u64 = new long[5];
+    private static final long[] _arrdef_i64 = new long[5];
 
     public void marshal(OStream os) throws IOException {
-        if (!java.util.Arrays.equals(this.u8, new long[5])) {
+        if (!java.util.Arrays.equals(this.u8, _arrdef_u8)) {
             os.writeArrayUnsigned(0, Sbuf.trimTail(this.u8));
         }
-        if (!java.util.Arrays.equals(this.i8, new long[5])) {
+        if (!java.util.Arrays.equals(this.i8, _arrdef_i8)) {
             os.writeArraySigned(1, Sbuf.trimTail(this.i8));
         }
-        if (!java.util.Arrays.equals(this.u16, new long[5])) {
+        if (!java.util.Arrays.equals(this.u16, _arrdef_u16)) {
             os.writeArrayUnsigned(2, Sbuf.trimTail(this.u16));
         }
-        if (!java.util.Arrays.equals(this.i16, new long[5])) {
+        if (!java.util.Arrays.equals(this.i16, _arrdef_i16)) {
             os.writeArraySigned(3, Sbuf.trimTail(this.i16));
         }
-        if (!java.util.Arrays.equals(this.u32, new long[5])) {
+        if (!java.util.Arrays.equals(this.u32, _arrdef_u32)) {
             os.writeArrayUnsigned(4, Sbuf.trimTail(this.u32));
         }
-        if (!java.util.Arrays.equals(this.i32, new long[5])) {
+        if (!java.util.Arrays.equals(this.i32, _arrdef_i32)) {
             os.writeArraySigned(5, Sbuf.trimTail(this.i32));
         }
-        if (!java.util.Arrays.equals(this.u64, new long[5])) {
+        if (!java.util.Arrays.equals(this.u64, _arrdef_u64)) {
             os.writeArrayUnsigned(6, Sbuf.trimTail(this.u64));
         }
-        if (!java.util.Arrays.equals(this.i64, new long[5])) {
+        if (!java.util.Arrays.equals(this.i64, _arrdef_i64)) {
             os.writeArraySigned(7, Sbuf.trimTail(this.i64));
         }
         os.writeSequenceBegin(10); (this.nested == null ? new ExampleArraysNested() : this.nested).marshal(os); os.writeSequenceEnd();
@@ -193,6 +203,15 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void string(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        // Bounded fields (schema maxlen): a wire byte length above the
+        // declared maxlen is malformed input, INVALID before any byte is
+        // accumulated -- never a truncation.
+        switch (cur) {
+        case 1: switch (id) {
+            case 2: if (total > 32) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32")); break;
+        } break;
+        case 4: if (total > 64) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64")); break;
+        }
         String _s;
         if (offset == 0 && chunkLength >= total) {
             _s = new String(data, chunkOffset, total, java.nio.charset.StandardCharsets.UTF_8);
@@ -207,10 +226,18 @@ class ExampleVisitor implements Visitor {
         case 1: switch (id) {
             case 2: m.nested.str = _s; break;
         } break;
-        case 4: while (m.string_array.size() <= id) m.string_array.add(""); m.string_array.set(id, _s); break;
+        case 4: if (id >= 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "Root_string_array element: array index above schema capacity 5")); while (m.string_array.size() <= id) m.string_array.add(""); m.string_array.set(id, _s); break;
         }
     }
     public void blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        // Bounded fields (schema maxlen): a wire byte length above the
+        // declared maxlen is malformed input, INVALID before any byte is
+        // accumulated -- never a truncation.
+        switch (cur) {
+        case 1: switch (id) {
+            case 3: if (total > 4) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "bytes_field: blob length above schema maxlen 4")); break;
+        } break;
+        }
         byte[] _b;
         if (offset == 0 && chunkLength >= total) {
             _b = java.util.Arrays.copyOfRange(data, chunkOffset, chunkOffset + total);

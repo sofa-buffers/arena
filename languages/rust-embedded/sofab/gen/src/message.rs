@@ -312,6 +312,13 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn string(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // Bounded fields: a wire byte length above the schema maxlen is
+        // malformed input, INVALID before any bytes accumulate (never truncated).
+        match (self.cur, id) {
+            (_Loc::Root_nested, 2) => if total > 32 { self.inv = true; return; },
+            (_Loc::Root_string_array, _) => if total > 64 { self.inv = true; return; },
+            _ => {}
+        }
         if offset == 0 { self.acc.clear(); }
         let _s = if offset == 0 && chunk.len() >= total {
             core::str::from_utf8(&chunk[..total]).unwrap_or("")
@@ -327,6 +334,12 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn blob(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // Bounded fields: a wire byte length above the schema maxlen is
+        // malformed input, INVALID before any bytes accumulate (never truncated).
+        match (self.cur, id) {
+            (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
+            _ => {}
+        }
         if offset == 0 { self.acc.clear(); }
         let _b: &[u8] = if offset == 0 && chunk.len() >= total {
             &chunk[..total]

@@ -61,7 +61,13 @@ struct _FixedStrSeq : sofab::IStreamMessage {
 template <typename T>
 struct _MsgSeq : sofab::IStreamMessage {
     std::vector<T> *out = nullptr;
-    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t, std::size_t _count) noexcept override {
+    // Schema fixed-count bound N (-1 == dynamic/unbounded). An element id >= N is
+    // a schema-bound violation (MESSAGE_SPEC S5.1/S7: an index at or past the
+    // fixed count is INVALID, never grown-into) - reject before emplacing, which
+    // also bounds the allocation against an over-index heap-amplification DoS.
+    long cap = -1;
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
+        if (cap >= 0 && static_cast<std::size_t>(id) >= static_cast<std::size_t>(cap)) { return; }
         T &row = out->emplace_back();
         // A count-less native-array row (matrix with dynamic rows) is a std::vector
         // that the corelib's span read fills only up to its current size, so size it
