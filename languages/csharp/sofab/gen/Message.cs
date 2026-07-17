@@ -225,6 +225,10 @@ internal sealed class ExampleVisitor : IVisitor {
         }
     }
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        switch ((cur, id)) {
+            case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
+            case (Root_string_array, _): if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
+        }
         string _s;
         if (offset == 0 && chunkLength >= total) {
             _s = Encoding.UTF8.GetString(data, chunkOffset, total);
@@ -237,10 +241,13 @@ internal sealed class ExampleVisitor : IVisitor {
         }
         switch ((cur, id)) {
             case (Root_nested, 2): m.nested.str = _s; break;
-            case (Root_string_array, _): while (m.string_array.Count <= id) m.string_array.Add(""); m.string_array[id] = _s; break;
+            case (Root_string_array, _): if (id >= 5) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: array index above schema capacity 5"); while (m.string_array.Count <= id) m.string_array.Add(""); m.string_array[id] = _s; break;
         }
     }
     public void Blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        switch ((cur, id)) {
+            case (Root_nested, 3): if (total > 4) throw new SofabException(SofabError.InvalidMessage, "bytes_field: blob length above schema maxlen 4"); break;
+        }
         byte[] _b;
         if (offset == 0 && chunkLength >= total) {
             _b = new byte[total];

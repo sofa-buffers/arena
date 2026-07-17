@@ -148,9 +148,9 @@ pub const Example = struct {
         var m: Example = .{};
         var v: _dec_Example = .{ .m = &m, .alloc = alloc };
         const st = try sofab.decode(data, &v);
-        // A scalar array carried more elements than its schema count:
-        // an element count above the schema capacity is invalid and is
-        // rejected, never clamped.
+        // A scalar array over its schema count, or a wrapper-array element
+        // id at/beyond the schema count: an index above the schema capacity
+        // is invalid and is rejected, never clamped.
         if (v.inv) return error.InvalidMessage;
         // The bytes end inside a field or an open sequence: INCOMPLETE.
         // This wrapper decodes a whole buffer, so a trailing .incomplete
@@ -168,7 +168,7 @@ const _dec_Example = struct {
     stack: [256]_Loc = undefined,
     sp: usize = 0,
     cur: _Loc = .root,
-    inv: bool = false, // a scalar array overflowed its schema count -> INVALID
+    inv: bool = false, // a scalar array over its schema count, or a wrapper element id >= count -> INVALID
     ai: usize = 0, // index into the native array currently being filled
 
     const _Loc = enum {
@@ -248,23 +248,23 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn string(self: *_dec_Example, id: sofab.Id, _: usize, offset: usize, chunk: []const u8) void {
+    pub fn string(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, chunk: []const u8) void {
         if (offset != 0) return; // decode() is single-shot; a split payload means truncated input
         switch (self.cur) {
             .root_nested => switch (id) {
-                2 => self.m.nested.str = chunk,
+                2 => if (total > 32) { self.inv = true; } else { self.m.nested.str = chunk; },
                 else => {},
             },
-            .root_string_array => _setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk),
+            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { _setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } },
             else => {},
         }
     }
 
-    pub fn blob(self: *_dec_Example, id: sofab.Id, _: usize, offset: usize, chunk: []const u8) void {
+    pub fn blob(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, chunk: []const u8) void {
         if (offset != 0) return; // decode() is single-shot; a split payload means truncated input
         switch (self.cur) {
             .root_nested => switch (id) {
-                3 => self.m.nested.bytes_field = chunk,
+                3 => if (total > 4) { self.inv = true; } else { self.m.nested.bytes_field = chunk; },
                 else => {},
             },
             else => {},
