@@ -3,12 +3,68 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"example.com/gen/message"
 	"fmt"
 	"io"
 	"os"
 )
+
+// Bench state at package scope: the results outlive the measured call so
+// main can observe them after collection stops, which is what keeps the op
+// from being optimized away. See tests/bench/README.md.
+var benchExampleIn *message.Example
+var benchExampleWire []byte
+var benchExampleOut *message.Example
+
+//go:noinline
+func run_encode_example() {
+	b, err := benchExampleIn.Encode()
+	if err != nil {
+		fail(err)
+	}
+	benchExampleWire = b
+}
+
+//go:noinline
+func run_decode_example() {
+	obj, err := message.DecodeExample(benchExampleWire)
+	if err != nil {
+		fail(err)
+	}
+	benchExampleOut = obj
+}
+
+// benchMain runs one op of <workload>. Everything here is setup and
+// observation; only the run_* call is collected.
+func benchMain(w string, in []byte) int {
+	if w == "encode_example" || w == "decode_example" {
+		benchExampleIn = message.NewExample()
+		if err := json.Unmarshal(in, benchExampleIn); err != nil {
+			fail(err)
+		}
+		if w == "encode_example" {
+			run_encode_example()
+		} else {
+			run_encode_example() // setup: the decode input (not collected)
+			run_decode_example()
+		}
+		var sink uint64
+		for _, c := range benchExampleWire {
+			sink = sink*31 + uint64(c)
+		}
+		if benchExampleOut != nil {
+			j, _ := json.Marshal(benchExampleOut)
+			sink += uint64(len(j))
+		}
+		fmt.Fprintf(os.Stderr, "sink=%d BYTES=%d\n", sink, len(benchExampleWire))
+		fmt.Fprintf(os.Stderr, "wire_hex=%s\n", hex.EncodeToString(benchExampleWire))
+		return 0
+	}
+	fmt.Fprintf(os.Stderr, "unknown workload: %s\n", w)
+	return 2
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -21,6 +77,14 @@ func main() {
 		msg = os.Args[2]
 	}
 	in, _ := io.ReadAll(os.Stdin)
+	// `bench <workload>` takes a workload, not a message name.
+	if mode == "bench" {
+		w := ""
+		if len(os.Args) > 2 {
+			w = os.Args[2]
+		}
+		os.Exit(benchMain(w, in))
+	}
 	switch msg {
 	case "example":
 		if mode == "encode" {
