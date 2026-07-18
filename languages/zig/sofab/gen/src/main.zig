@@ -343,6 +343,39 @@ fn fromJson_Example(alloc: std.mem.Allocator, v: std.json.Value) message.Example
     return o;
 }
 
+var _bench_example_in: message.Example = undefined;
+var _bench_example_wire: []const u8 = &[_]u8{};
+var _bench_example_alloc: std.mem.Allocator = undefined;
+
+export fn run_encode_example() void {
+    _bench_example_wire = _bench_example_in.encode(_bench_example_alloc) catch &[_]u8{};
+    std.mem.doNotOptimizeAway(&_bench_example_wire);
+}
+
+export fn run_decode_example() void {
+    const obj = message.Example.decode(_bench_example_alloc, _bench_example_wire) catch return;
+    std.mem.doNotOptimizeAway(&obj);
+}
+
+// benchMain runs one op of <workload>. Everything here is setup; only the
+// run_* call is collected.
+fn benchMain(alloc: std.mem.Allocator, w: []const u8, input: []const u8) !void {
+    if (std.mem.eql(u8, w, "encode_example") or std.mem.eql(u8, w, "decode_example")) {
+        const v = try std.json.parseFromSliceLeaky(std.json.Value, alloc, input, .{});
+        _bench_example_alloc = alloc;
+        _bench_example_in = fromJson_Example(alloc, v);
+        if (std.mem.eql(u8, w, "encode_example")) {
+            @call(.never_inline, run_encode_example, .{});
+        } else {
+            @call(.never_inline, run_encode_example, .{}); // setup: the decode input (not collected)
+            @call(.never_inline, run_decode_example, .{});
+        }
+        std.debug.print("BYTES={d}\n", .{_bench_example_wire.len});
+        return;
+    }
+    std.process.exit(2);
+}
+
 pub fn main(init: std.process.Init) !void {
     const alloc = init.arena.allocator();
     var args = std.process.Args.Iterator.init(init.minimal.args);
@@ -356,6 +389,12 @@ pub fn main(init: std.process.Init) !void {
     var wbuf: [4096]u8 = undefined;
     var stdout = std.Io.File.stdout().writer(init.io, &wbuf);
     const out = &stdout.interface;
+
+    // `bench <workload>` takes a workload, not a message name.
+    if (std.mem.eql(u8, mode, "bench")) {
+        try benchMain(alloc, name, input);
+        return;
+    }
 
     if (std.mem.eql(u8, name, "example")) {
         if (std.mem.eql(u8, mode, "encode")) {

@@ -321,11 +321,11 @@ impl<'a> Visitor for V<'a> {
         }
         if offset == 0 { self.acc.clear(); }
         let _s = if offset == 0 && chunk.len() >= total {
-            core::str::from_utf8(&chunk[..total]).unwrap_or("")
+            match core::str::from_utf8(&chunk[..total]) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } }
         } else {
             let _ = self.acc.extend_from_slice(chunk);
             if self.acc.len() < total { return; }
-            core::str::from_utf8(&self.acc[..total]).unwrap_or("")
+            match core::str::from_utf8(&self.acc[..total]) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } }
         };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }

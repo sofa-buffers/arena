@@ -5,12 +5,47 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public class Main {
+    // Fixed warmup ops per run, independent of `reps`, so it cancels in the
+    // subtraction while leaving the measured ops at steady, fully-JITted cost.
+    private static final int WARMUP = Integer.getInteger("sofab.warmup", 5000);
+    private static long benchSink = 0;
+
+    static int benchMain(String w, int reps, byte[] input) throws Exception {
+        if (w.equals("encode_example") || w.equals("decode_example")) {
+            JsonObject j = JsonParser.parseString(new String(input, StandardCharsets.UTF_8)).getAsJsonObject();
+            Example obj = new Example(); Json.from(j, obj);
+            byte[] wire = obj.encode(); // setup: the decode input
+            boolean enc = w.equals("encode_example");
+            for (int i = 0; i < WARMUP; i++) benchOp_example(enc, obj, wire);
+            for (int i = 0; i < reps; i++) benchOp_example(enc, obj, wire);
+            System.err.println("sink=" + benchSink + " bytes=" + wire.length);
+            StringBuilder hx = new StringBuilder();
+            for (byte b : wire) hx.append(String.format("%02x", b));
+            System.err.println("wire_hex=" + hx);
+            return 0;
+        }
+        System.err.println("unknown workload: " + w);
+        return 2;
+    }
+
+    private static void benchOp_example(boolean enc, Example obj, byte[] wire) {
+        if (enc) {
+            benchSink ^= obj.encode().length;
+        } else {
+            benchSink ^= Example.decode(wire).u8;
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         String mode = args.length > 0 ? args[0] : "";
         String name = args.length > 1 ? args[1] : "example";
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         byte[] tmp = new byte[8192]; int n; while ((n = System.in.read(tmp)) > 0) bos.write(tmp, 0, n);
         byte[] input = bos.toByteArray();
+        // `bench <workload> <reps>` takes a workload, not a message name.
+        if (mode.equals("bench")) {
+            System.exit(benchMain(name, args.length > 2 ? Integer.parseInt(args[2]) : 1000, input));
+        }
         switch (name) {
         case "example": {
             if (mode.equals("encode")) {

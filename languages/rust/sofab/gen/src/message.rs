@@ -313,15 +313,16 @@ impl<'a> Visitor for V<'a> {
         }
         // Single-shot: whole payload in one chunk -> build straight from the
         // slice, skipping the `acc` accumulate + second copy.
-        // Invalid UTF-8 -> empty string, matching the no_std profile's
-        // from_utf8(..).unwrap_or(""): the two Rust profiles
-        // must agree on a string's value.
+        // MESSAGE_SPEC 8 / CORELIB_PLAN 6.4: a string is UTF-8 and Rust's
+        // String is a Unicode type, so it is always strict. Invalid UTF-8 is
+        // the INVALID decode outcome (self.inv -> Error::InvalidMsg), never a
+        // lossy U+FFFD and never empty; the two Rust profiles agree (subsumes #80).
         let _s = if offset == 0 && chunk.len() >= total {
-            core::str::from_utf8(&chunk[..total]).map(|s| s.to_owned()).unwrap_or_default()
+            match core::str::from_utf8(&chunk[..total]) { Ok(_v) => _v.to_owned(), Err(_) => { self.inv = true; String::new() } }
         } else {
             self.acc.extend_from_slice(chunk);
             if self.acc.len() < total { return; }
-            let s = core::str::from_utf8(&self.acc).map(|s| s.to_owned()).unwrap_or_default();
+            let s = match core::str::from_utf8(&self.acc) { Ok(_v) => _v.to_owned(), Err(_) => { self.inv = true; String::new() } };
             self.acc.clear();
             s
         };

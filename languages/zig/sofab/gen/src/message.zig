@@ -252,10 +252,10 @@ const _dec_Example = struct {
         if (offset != 0) return; // decode() is single-shot; a split payload means truncated input
         switch (self.cur) {
             .root_nested => switch (id) {
-                2 => if (total > 32) { self.inv = true; } else { self.m.nested.str = chunk; },
+                2 => if (total > 32) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
                 else => {},
             },
-            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { _setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } },
+            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { _setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } } },
             else => {},
         }
     }

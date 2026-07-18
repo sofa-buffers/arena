@@ -2,6 +2,43 @@
 mod message;
 use message::*;
 use std::io::{Read, Write};
+use std::hint::black_box;
+
+#[inline(never)]
+#[no_mangle]
+pub fn run_encode_example(obj: &Example) -> usize {
+    let out = black_box(obj).encode();
+    black_box(&out);
+    out.len()
+}
+
+#[inline(never)]
+#[no_mangle]
+pub fn run_decode_example(wire: &[u8]) -> Example {
+    black_box(Example::try_decode(black_box(wire)).expect("decode"))
+}
+
+// bench_main runs one op of <workload>. Everything here is setup and
+// observation; only the run_* call is collected.
+fn bench_main(w: &str, input: &[u8]) -> i32 {
+    if w == "encode_example" || w == "decode_example" {
+        let obj: Example = serde_json::from_slice(input).expect("json");
+        let wire = obj.encode(); // setup: the decode input (not collected)
+        let mut sink: u64 = 0;
+        if w == "encode_example" {
+            sink = sink.wrapping_add(run_encode_example(&obj) as u64);
+        } else {
+            let out = run_decode_example(&wire);
+            sink = sink.wrapping_add(serde_json::to_vec(&out).map(|v| v.len() as u64).unwrap_or(0));
+        }
+        eprintln!("sink={} BYTES={}", sink, wire.len());
+        let hex: String = wire.iter().map(|b| format!("{:02x}", b)).collect();
+        eprintln!("wire_hex={}", hex);
+        return 0;
+    }
+    eprintln!("unknown workload: {}", w);
+    2
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -9,6 +46,10 @@ fn main() {
     let name = args.get(2).map(|s| s.as_str()).unwrap_or("example");
     let mut input = Vec::new();
     std::io::stdin().read_to_end(&mut input).unwrap();
+    // `bench <workload>` takes a workload, not a message name.
+    if mode == "bench" {
+        std::process::exit(bench_main(args.get(2).map(|s| s.as_str()).unwrap_or(""), &input));
+    }
     match name {
         "example" => {
             if mode == "encode" {

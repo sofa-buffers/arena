@@ -5,14 +5,54 @@ const MESSAGES: Record<string, { fromJSON(d: Record<string, unknown>): { marshal
   "example": M.Example,
 };
 
+// benchMain - see tests/bench/README.md.
+//
+// V8 JIT-compiles the hot path at runtime, so there is no native symbol to
+// --toggle-collect on. This is the `subtract` method instead: tests/bench runs
+// the same workload at two rep counts and subtracts the totals,
+//   Ir/op = ( Ir(R2) - Ir(R1) ) / ( R2 - R1 )
+// which cancels node startup, module loading, JIT compilation and JSON parsing
+// exactly. It only holds if the two runs differ in NOTHING but the rep count,
+// hence `node --predictable` in the bench recipe. Same shape as
+// corelib-ts/bench/run_callgrind.sh.
+const BENCH_WARMUP = Number(process.env.SOFAB_BENCH_WARMUP ?? 5000);
+
+async function benchMain(w: string, reps: number, input: Buffer): Promise<number> {
+  const { OStream } = await import("@sofa-buffers/corelib");
+  if (w === "encode_example" || w === "decode_example") {
+    const obj = M.Example.fromJSON(JSON.parse(input.toString("utf8")));
+    const setup = new OStream(); obj.marshal(setup);
+    const wire = setup.bytes(); // setup: the decode input
+    let sink = 0;
+    const body = w === "encode_example"
+      ? () => { const os = new OStream(); obj.marshal(os); sink ^= os.bytes().length; }
+      : () => { sink ^= Number(M.Example.decode(wire).u8); };
+    // Fixed warmup, independent of `reps`, so it cancels in the subtraction
+    // (corelib-java/.../Callgrind.java does the same). Without it V8 tiers up
+    // DURING the measured loop and Ir stops being affine in reps -- the two
+    // rep points then measure the JIT rather than the code.
+    for (let i = 0; i < BENCH_WARMUP; i++) body();
+    for (let i = 0; i < reps; i++) body();
+    process.stderr.write(`sink=${sink} bytes=${wire.length}\n`);
+    process.stderr.write(`wire_hex=${Buffer.from(wire).toString("hex")}\n`);
+    return 0;
+  }
+  process.stderr.write(`unknown workload: ${w}\n`);
+  return 2;
+}
+
 async function main(): Promise<number> {
   const mode = process.argv[2];
   const name = process.argv[3] ?? "example";
-  const cls = MESSAGES[name];
-  if (!cls) { process.stderr.write("unknown message\n"); return 2; }
   const chunks: Uint8Array[] = [];
   for await (const c of process.stdin) chunks.push(c as Uint8Array);
   const input = Buffer.concat(chunks);
+  // `bench <workload> <reps>` takes a workload, not a message name.
+  if (mode === "bench") {
+    return await benchMain(name, Number(process.argv[4] ?? 1000), input);
+  }
+  const cls = MESSAGES[name];
+  if (!cls) { process.stderr.write("unknown message\n"); return 2; }
   if (mode === "encode") {
     const obj = cls.fromJSON(JSON.parse(input.toString("utf8")));
     const os = new (await import("@sofa-buffers/corelib")).OStream();

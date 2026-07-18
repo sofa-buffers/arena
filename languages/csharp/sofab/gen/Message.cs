@@ -224,6 +224,11 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root_arrays_nested, 1): m.arrays.nested.fp64[ai++] = value; break;
         }
     }
+    private static readonly System.Text.UTF8Encoding _strictUtf8 = new System.Text.UTF8Encoding(false, true);
+    private static string _Utf8(byte[] b, int off, int len) {
+        try { return _strictUtf8.GetString(b, off, len); }
+        catch (System.Text.DecoderFallbackException) { throw new SofabException(SofabError.InvalidMessage, "string: invalid UTF-8"); }
+    }
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
         switch ((cur, id)) {
             case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
@@ -231,12 +236,12 @@ internal sealed class ExampleVisitor : IVisitor {
         }
         string _s;
         if (offset == 0 && chunkLength >= total) {
-            _s = Encoding.UTF8.GetString(data, chunkOffset, total);
+            _s = _Utf8(data, chunkOffset, total);
         } else {
             acc ??= new List<byte>();
             for (int _i = 0; _i < chunkLength; _i++) acc.Add(data[chunkOffset + _i]);
             if (acc.Count < total) return;
-            _s = Encoding.UTF8.GetString(acc.ToArray());
+            _s = _Utf8(acc.ToArray(), 0, total);
             acc.Clear();
         }
         switch ((cur, id)) {
