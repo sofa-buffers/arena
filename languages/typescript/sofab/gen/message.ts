@@ -67,10 +67,10 @@ export class ExampleArrays {
   i16: number[] = [0, 0, 0, 0, 0];
   u32: number[] = [0, 0, 0, 0, 0];
   i32: number[] = [0, 0, 0, 0, 0];
-  private _u64: Long[] = [Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n)];
+  private _u64: Long[] = [Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO];
   get u64(): Long[] { return this._u64; }
   set u64(vals: readonly (Long | bigint | number)[]) { this._u64 = vals.map(Long.fromValue); }
-  private _i64: Long[] = [Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n)];
+  private _i64: Long[] = [Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO];
   get i64(): Long[] { return this._i64; }
   set i64(vals: readonly (Long | bigint | number)[]) { this._i64 = vals.map(Long.fromValue); }
   nested: ExampleArraysNested = new ExampleArraysNested();
@@ -94,10 +94,10 @@ export class ExampleArrays {
     if (!arrEq(this.i32, [0, 0, 0, 0, 0])) {
       os.writeSignedArray(5, _trimTail(this.i32, 0));
     }
-    if (!longArrEq(this._u64, [Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n)])) {
+    if (!longArrEq(this._u64, [Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO])) {
       os.writeUnsignedArrayLong(6, _trimTailLong(this._u64));
     }
-    if (!longArrEq(this._i64, [Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n), Long.fromValue(0n)])) {
+    if (!longArrEq(this._i64, [Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO, Long.ZERO])) {
       os.writeSignedArrayLong(7, _trimTailLong(this._i64));
     }
     os.writeSequenceBegin(10);
@@ -148,8 +148,8 @@ export class ExampleArrays {
       case 3: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray() as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i16: array count above schema capacity 5"); o.i16 = _padTo(_a, 5, 0); break; }
       case 4: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray() as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u32: array count above schema capacity 5"); o.u32 = _padTo(_a, 5, 0); break; }
       case 5: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray() as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i32: array count above schema capacity 5"); o.i32 = _padTo(_a, 5, 0); break; }
-      case 6: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArrayLong(); if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u64: array count above schema capacity 5"); o._u64 = _padTo(_a, 5, Long.fromValue(0)); break; }
-      case 7: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArrayLong(); if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i64: array count above schema capacity 5"); o._i64 = _padTo(_a, 5, Long.fromValue(0)); break; }
+      case 6: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArrayLong(); if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u64: array count above schema capacity 5"); o._u64 = _padTo(_a, 5, Long.ZERO); break; }
+      case 7: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArrayLong(); if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i64: array count above schema capacity 5"); o._i64 = _padTo(_a, 5, Long.ZERO); break; }
       case 10: if (c.wire !== WireType.SequenceStart) { c.skip(c.wire); break; } o.nested = ExampleArraysNested.decodeFrom(c); break;
       default: c.skip(c.wire); break;
       }
