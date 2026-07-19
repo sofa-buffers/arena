@@ -12,7 +12,7 @@ always play in the same league.
 | [`README.md`](README.md) | the authoritative overview: the two categories and their opponents, the message, how fairness is kept (flags, gate, best-of-5), quick start, runner usage, repo layout, current results |
 | [`docs/BENCH.md`](docs/BENCH.md) | the benchmark contract every target obeys: `BENCH`/`FOOTPRINT` line format, timing rules, self-check, reference wires |
 | [`schema/STATE.md`](schema/STATE.md) / [`schema/state.json`](schema/state.json) | the canonical field values every target must fill |
-| [`scripts/run_benchmark.sh`](scripts/run_benchmark.sh) header + [`scripts/bootstrap.sh`](scripts/bootstrap.sh) comments | runner semantics; sofabgen/corelib version pinning |
+| [`scripts/run_benchmark.sh`](scripts/run_benchmark.sh) header + [`scripts/bootstrap.sh`](scripts/bootstrap.sh) comments | runner semantics; how sofabgen/corelib versions are resolved (bleeding edge, not pinned) |
 | [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md) | perf methodology + what was already tried (before optimizing anything) |
 | `languages/<target>/{meta,setup.sh,bench.sh,footprint.sh}` | the per-target ground truth for flags, tuning and generation |
 
@@ -101,10 +101,13 @@ Everything below is only what is **not** written in those files.
 
 ### Bump sofabgen / corelibs
 
-1. Bump `SOFABGEN_VERSION` in `scripts/bootstrap.sh`, extend its comment block
-   with what the release changes, re-run bootstrap — the version stamp forces a
-   fresh binary **and** fresh corelib clones (they release in lockstep; a stale
-   corelib can silently produce a wrong wire).
+1. Nothing to bump — `scripts/bootstrap.sh` pins neither side: corelibs are
+   reset to their remote `main` HEAD and sofabgen resolves to the *latest*
+   release via the GitHub API on every run. Just re-run bootstrap; the
+   `tools/.sofabgen-version` stamp forces a fresh binary when the resolved
+   release differs (they release in lockstep; a stale corelib can silently
+   produce a wrong wire). For a reproducible run, pin per invocation with
+   `SOFABGEN_VERSION=vX.Y.Z ./scripts/bootstrap.sh`.
 2. Adjust `languages/*/sofab/cfg.yaml` if codegen options changed; full run;
    if the wire moved, update all four reference sync points; commit
    regenerated sources; refresh `results/RESULTS.txt` + README tables.
