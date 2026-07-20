@@ -25,7 +25,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   (rustup)                   Rust target (SofaBuffers corelib-rs + prost); adds
 #                                thumbv7em/riscv32imac std libs for the no_std
 #                                staticlibs of the rust bare-metal footprint targets
-#   (dotnet 9)                 C# target (SofaBuffers corelib-cs + Google.Protobuf)
+#   (dotnet 9 + 10)            C# target (SofaBuffers corelib-cs + Google.Protobuf)
+#                                — benches build net9.0; the 10.0 SDK is needed
+#                                only to restore corelib-cs' net10.0 leg
 #   (nodejs)                   TypeScript target (corelib-ts + protobufjs) + Claude Code
 #   (bun)                      typescript-bun target — the same TS codec run on
 #                                Bun's JavaScriptCore engine (Node runs it on V8)
@@ -67,14 +69,19 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     && rustup component add rustfmt \
     && rustc --version
 
-# --- .NET SDK 9 ---------------------------------------------------------------
+# --- .NET SDK 9 + 10 ----------------------------------------------------------
+# Both benches target net9.0, but corelib-cs multi-targets net9.0;net10.0 and a
+# 9.0 SDK cannot even restore the net10.0 leg (NETSDK1045) — so the 10.0 SDK has
+# to be present too. Installed side by side into the same dir; the SDK a project
+# builds with stays pinned by its own TargetFramework, identical for both impls.
 ENV DOTNET_ROOT=/usr/local/dotnet \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 RUN curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
     && /tmp/dotnet-install.sh --channel 9.0 --install-dir /usr/local/dotnet \
+    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/local/dotnet \
     && rm /tmp/dotnet-install.sh \
-    && dotnet --version
+    && dotnet --list-sdks
 
 # --- Go (official toolchain) --------------------------------------------------
 # apt's golang-go on Ubuntu 24.04 is 1.22; protoc-gen-go v1.36 and the Go target's

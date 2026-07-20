@@ -216,7 +216,7 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, ai: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, ai: 0, askip: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
@@ -228,7 +228,7 @@ mod example_dec {
         let overflow;
         let invalid;
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, ai: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, ai: 0, askip: 0 };
             let mut is = IStream::new();
             is.feed(data, &mut v)?;
             overflow = v.err;
@@ -260,10 +260,12 @@ struct V<'a> {
     err: bool,
     inv: bool,
     ai: usize, // index into the fixed native array currently being filled
+    askip: usize, // elements left to discard from a S7.3-contradictory array
 }
 
 impl<'a> Visitor for V<'a> {
     fn unsigned(&mut self, id: Id, value: Unsigned) {
+        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
         match (self.cur, id) {
             (_Loc::Root, 0) => self.m.u8 = value as u8,
             (_Loc::Root, 2) => self.m.u16 = value as u16,
@@ -277,6 +279,7 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn signed(&mut self, id: Id, value: Signed) {
+        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
         match (self.cur, id) {
             (_Loc::Root, 1) => self.m.i8 = value as i8,
             (_Loc::Root, 3) => self.m.i16 = value as i16,
@@ -353,8 +356,22 @@ impl<'a> Visitor for V<'a> {
             _ => {}
         }
     }
-    fn array_begin(&mut self, id: Id, _kind: ArrayKind, _count: usize) {
+    fn array_begin(&mut self, id: Id, kind: ArrayKind, count: usize) {
         self.ai = 0;
+        self.askip = match kind {
+            ArrayKind::Unsigned | ArrayKind::Signed => match (self.cur, id) {
+                (_Loc::Root_arrays, 0) => 0,
+                (_Loc::Root_arrays, 1) => 0,
+                (_Loc::Root_arrays, 2) => 0,
+                (_Loc::Root_arrays, 3) => 0,
+                (_Loc::Root_arrays, 4) => 0,
+                (_Loc::Root_arrays, 5) => 0,
+                (_Loc::Root_arrays, 6) => 0,
+                (_Loc::Root_arrays, 7) => 0,
+                _ => count,
+            },
+            _ => 0,
+        };
         match (self.cur, id) {
             _ => {}
         }
