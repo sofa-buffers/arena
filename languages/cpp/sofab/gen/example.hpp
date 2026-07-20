@@ -90,16 +90,20 @@ struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
         switch (id) {
         case 0:
+            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Fp32) break;
             is.read(f32);
             break;
         case 1:
+            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Fp64) break;
             is.read(f64);
             break;
         case 2:
+            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::String) break;
             if (_size > 32) { is.invalidate(); return; }
             is.read(str);
             break;
         case 3:
+            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Blob) break;
             if (_size > 4) { is.invalidate(); return; }
             { std::string _t; is.read(_t); bytes_field.assign(_t.begin(), _t.end()); }
             break;
@@ -125,10 +129,12 @@ struct ExampleArraysNested : sofab::OStreamMessage, sofab::IStreamMessage {
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
+            if (is.wire() != sofab::Wire::ArrayFixlen || is.fixType() != sofab::Fix::Fp32) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(fp32);
             break;
         case 1:
+            if (is.wire() != sofab::Wire::ArrayFixlen || is.fixType() != sofab::Fix::Fp64) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(fp64);
             break;
@@ -180,38 +186,47 @@ struct ExampleArrays : sofab::OStreamMessage, sofab::IStreamMessage {
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
+            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(u8);
             break;
         case 1:
+            if (is.wire() != sofab::Wire::ArraySigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(i8);
             break;
         case 2:
+            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(u16);
             break;
         case 3:
+            if (is.wire() != sofab::Wire::ArraySigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(i16);
             break;
         case 4:
+            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(u32);
             break;
         case 5:
+            if (is.wire() != sofab::Wire::ArraySigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(i32);
             break;
         case 6:
+            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(u64);
             break;
         case 7:
+            if (is.wire() != sofab::Wire::ArraySigned) break;
             if (_count > 5) { is.invalidate(); return; }
             is.read(i64);
             break;
         case 10:
+            if (is.wire() != sofab::Wire::SequenceStart) break;
             is.read(nested);
             break;
         default: break;
@@ -272,36 +287,48 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
         switch (id) {
         case 0:
+            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u8);
             break;
         case 1:
+            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i8);
             break;
         case 2:
+            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u16);
             break;
         case 3:
+            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i16);
             break;
         case 4:
+            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u32);
             break;
         case 5:
+            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i32);
             break;
         case 6:
+            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u64);
             break;
         case 7:
+            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i64);
             break;
         case 10:
+            if (is.wire() != sofab::Wire::SequenceStart) break;
             is.read(nested);
             break;
         case 100:
+            if (is.wire() != sofab::Wire::SequenceStart) break;
             is.read(arrays);
             break;
         case 200:
+            if (is.wire() != sofab::Wire::SequenceStart) break;
+            string_array.clear();
             { _StrSeq _r0{string_array, 5, 64}; is.read(_r0); }
             break;
         default: break;

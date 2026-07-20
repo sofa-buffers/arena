@@ -4,7 +4,7 @@ import io
 from dataclasses import dataclass, field
 from enum import IntEnum
 import math
-from sofab import Encoder, Decoder, SofaDecodeError, WireType
+from sofab import Encoder, Decoder, SofaDecodeError, WireType, FixlenSubtype
 
 def _trim_tail(a: list, zero) -> list:
     """Return a[:M'], M' being one past the last non-default element (0 if all
@@ -73,46 +73,73 @@ class ExampleArrays:
             if fld is None or fld.type == WireType.SEQUENCE_END:
                 return
             if fld.id == 0:
+                if fld.type != WireType.ARRAY_UNSIGNED:
+                    d.skip()
+                    continue
                 self.u8 = d.read_unsigned_array()
                 if len(self.u8) > 5:
                     raise SofaDecodeError("u8: array count above schema capacity 5")
                 self.u8 = _pad_to(self.u8, 5, 0)
             elif fld.id == 1:
+                if fld.type != WireType.ARRAY_SIGNED:
+                    d.skip()
+                    continue
                 self.i8 = d.read_signed_array()
                 if len(self.i8) > 5:
                     raise SofaDecodeError("i8: array count above schema capacity 5")
                 self.i8 = _pad_to(self.i8, 5, 0)
             elif fld.id == 2:
+                if fld.type != WireType.ARRAY_UNSIGNED:
+                    d.skip()
+                    continue
                 self.u16 = d.read_unsigned_array()
                 if len(self.u16) > 5:
                     raise SofaDecodeError("u16: array count above schema capacity 5")
                 self.u16 = _pad_to(self.u16, 5, 0)
             elif fld.id == 3:
+                if fld.type != WireType.ARRAY_SIGNED:
+                    d.skip()
+                    continue
                 self.i16 = d.read_signed_array()
                 if len(self.i16) > 5:
                     raise SofaDecodeError("i16: array count above schema capacity 5")
                 self.i16 = _pad_to(self.i16, 5, 0)
             elif fld.id == 4:
+                if fld.type != WireType.ARRAY_UNSIGNED:
+                    d.skip()
+                    continue
                 self.u32 = d.read_unsigned_array()
                 if len(self.u32) > 5:
                     raise SofaDecodeError("u32: array count above schema capacity 5")
                 self.u32 = _pad_to(self.u32, 5, 0)
             elif fld.id == 5:
+                if fld.type != WireType.ARRAY_SIGNED:
+                    d.skip()
+                    continue
                 self.i32 = d.read_signed_array()
                 if len(self.i32) > 5:
                     raise SofaDecodeError("i32: array count above schema capacity 5")
                 self.i32 = _pad_to(self.i32, 5, 0)
             elif fld.id == 6:
+                if fld.type != WireType.ARRAY_UNSIGNED:
+                    d.skip()
+                    continue
                 self.u64 = d.read_unsigned_array()
                 if len(self.u64) > 5:
                     raise SofaDecodeError("u64: array count above schema capacity 5")
                 self.u64 = _pad_to(self.u64, 5, 0)
             elif fld.id == 7:
+                if fld.type != WireType.ARRAY_SIGNED:
+                    d.skip()
+                    continue
                 self.i64 = d.read_signed_array()
                 if len(self.i64) > 5:
                     raise SofaDecodeError("i64: array count above schema capacity 5")
                 self.i64 = _pad_to(self.i64, 5, 0)
             elif fld.id == 10:
+                if fld.type != WireType.SEQUENCE_START:
+                    d.skip()
+                    continue
                 self.nested._unmarshal(d)
             else:
                 d.skip()
@@ -181,11 +208,17 @@ class ExampleArraysNested:
             if fld is None or fld.type == WireType.SEQUENCE_END:
                 return
             if fld.id == 0:
+                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP32:
+                    d.skip()
+                    continue
                 self.fp32 = d.read_float32_array()
                 if len(self.fp32) > 5:
                     raise SofaDecodeError("fp32: array count above schema capacity 5")
                 self.fp32 = _pad_to(self.fp32, 5, 0.0)
             elif fld.id == 1:
+                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP64:
+                    d.skip()
+                    continue
                 self.fp64 = d.read_float64_array()
                 if len(self.fp64) > 5:
                     raise SofaDecodeError("fp64: array count above schema capacity 5")
@@ -242,14 +275,26 @@ class ExampleNested:
             if fld is None or fld.type == WireType.SEQUENCE_END:
                 return
             if fld.id == 0:
+                if fld.type != WireType.FIXLEN or fld.subtype != FixlenSubtype.FP32:
+                    d.skip()
+                    continue
                 self.f32 = d.float32()
             elif fld.id == 1:
+                if fld.type != WireType.FIXLEN or fld.subtype != FixlenSubtype.FP64:
+                    d.skip()
+                    continue
                 self.f64 = d.float64()
             elif fld.id == 2:
+                if fld.type != WireType.FIXLEN or fld.subtype != FixlenSubtype.STRING:
+                    d.skip()
+                    continue
                 if d.fixlen_len() > 32:
                     raise SofaDecodeError("str: string byte length above schema maxlen 32")
                 self.str = d.string()
             elif fld.id == 3:
+                if fld.type != WireType.FIXLEN or fld.subtype != FixlenSubtype.BLOB:
+                    d.skip()
+                    continue
                 self.bytes_field = d.bytes()
                 if len(self.bytes_field) > 4:
                     raise SofaDecodeError("bytes_field: blob byte length above schema maxlen 4")
@@ -338,26 +383,59 @@ class Example:
             if fld is None or fld.type == WireType.SEQUENCE_END:
                 return
             if fld.id == 0:
+                if fld.type != WireType.UNSIGNED:
+                    d.skip()
+                    continue
                 self.u8 = d.unsigned()
             elif fld.id == 1:
+                if fld.type != WireType.SIGNED:
+                    d.skip()
+                    continue
                 self.i8 = d.signed()
             elif fld.id == 2:
+                if fld.type != WireType.UNSIGNED:
+                    d.skip()
+                    continue
                 self.u16 = d.unsigned()
             elif fld.id == 3:
+                if fld.type != WireType.SIGNED:
+                    d.skip()
+                    continue
                 self.i16 = d.signed()
             elif fld.id == 4:
+                if fld.type != WireType.UNSIGNED:
+                    d.skip()
+                    continue
                 self.u32 = d.unsigned()
             elif fld.id == 5:
+                if fld.type != WireType.SIGNED:
+                    d.skip()
+                    continue
                 self.i32 = d.signed()
             elif fld.id == 6:
+                if fld.type != WireType.UNSIGNED:
+                    d.skip()
+                    continue
                 self.u64 = d.unsigned()
             elif fld.id == 7:
+                if fld.type != WireType.SIGNED:
+                    d.skip()
+                    continue
                 self.i64 = d.signed()
             elif fld.id == 10:
+                if fld.type != WireType.SEQUENCE_START:
+                    d.skip()
+                    continue
                 self.nested._unmarshal(d)
             elif fld.id == 100:
+                if fld.type != WireType.SEQUENCE_START:
+                    d.skip()
+                    continue
                 self.arrays._unmarshal(d)
             elif fld.id == 200:
+                if fld.type != WireType.SEQUENCE_START:
+                    d.skip()
+                    continue
                 self.string_array = []
                 while True:
                     _ef0 = d.next()

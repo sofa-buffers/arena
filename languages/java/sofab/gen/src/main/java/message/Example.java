@@ -143,6 +143,7 @@ class ExampleVisitor implements Visitor {
     private final Example m;
     private int cur = 0;
     private int ai = 0;                 // index into the primitive array currently being filled
+    private int askip = 0;              // elements left to discard from a wire-type-contradictory array (S7.3)
     private static final int ARRAY_INIT_CAP = 16; // bounded eager reservation; grow lazily
     private int acap = 0;               // declared element count = growth ceiling for the array being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
@@ -151,6 +152,9 @@ class ExampleVisitor implements Visitor {
     ExampleVisitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
+        // S7.3 (generator#183): drop an element of an integer array whose id
+        // does not declare one -- armed by arrayBegin, self-terminating on count.
+        if (askip > 0) { askip--; return; }
         switch (cur) {
         case 0: switch (id) {
             case 0: m.u8 = value; break;
@@ -167,6 +171,9 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void signed(int id, long value) {
+        // S7.3 (generator#183): drop an element of an integer array whose id
+        // does not declare one -- armed by arrayBegin, self-terminating on count.
+        if (askip > 0) { askip--; return; }
         switch (cur) {
         case 0: switch (id) {
             case 1: m.i8 = value; break;
@@ -278,6 +285,19 @@ class ExampleVisitor implements Visitor {
     public void arrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
         acap = count;
+        // MESSAGE_SPEC S7.3 (generator#183): an integer array delivered at an id
+        // that does not declare one is a wire-type contradiction -- arm a discard
+        // counter so unsigned()/signed() drop exactly `count` elements. Every id
+        // that really declares an integer-element array disarms it below.
+        askip = 0;
+        if (kind == ArrayKind.UNSIGNED || kind == ArrayKind.SIGNED) {
+            askip = count;
+            switch (cur) {
+            case 2: switch (id) {
+                case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: askip = 0; break;
+            } break;
+            }
+        }
         switch (cur) {
         case 2: switch (id) {
             case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); acap = 5; m.arrays.u8 = new long[5]; break;

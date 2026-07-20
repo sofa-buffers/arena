@@ -178,6 +178,7 @@ internal sealed class ExampleVisitor : IVisitor {
     private readonly Example m;
     private int cur = 0;
     private int ai = 0;                // index into the primitive array currently being filled
+    private int askip = 0;             // elements left to discard from a wire-type-contradictory array
     private int[] stk = new int[16];   // sequence scope stack (unboxed, was Stack<int>)
     private int sp = 0;
     private List<byte> acc;            // lazy: only split string/blob payloads need it
@@ -189,6 +190,7 @@ internal sealed class ExampleVisitor : IVisitor {
     private const int Root_string_array = 4;
 
     public void Unsigned(int id, ulong value) {
+        if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
         switch ((cur, id)) {
             case (Root, 0): m.u8 = (byte)value; break;
             case (Root, 2): m.u16 = (ushort)value; break;
@@ -201,6 +203,7 @@ internal sealed class ExampleVisitor : IVisitor {
         }
     }
     public void Signed(int id, long value) {
+        if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
         switch ((cur, id)) {
             case (Root, 1): m.i8 = (sbyte)value; break;
             case (Root, 3): m.i16 = (short)value; break;
@@ -270,6 +273,20 @@ internal sealed class ExampleVisitor : IVisitor {
     }
     public void ArrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
+        // An integer array header at an id that does not declare an integer
+        // array is a wire-type contradiction: discard its `count` elements,
+        // exactly as an unknown id would be skipped.
+        askip = (kind == ArrayKind.Unsigned || kind == ArrayKind.Signed) ? (cur, id) switch {
+            (Root_arrays, 0) => 0,
+            (Root_arrays, 1) => 0,
+            (Root_arrays, 2) => 0,
+            (Root_arrays, 3) => 0,
+            (Root_arrays, 4) => 0,
+            (Root_arrays, 5) => 0,
+            (Root_arrays, 6) => 0,
+            (Root_arrays, 7) => 0,
+            _ => count,
+        } : 0;
         switch ((cur, id)) {
             case (Root_arrays, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[5]; break;
             case (Root_arrays, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[5]; break;

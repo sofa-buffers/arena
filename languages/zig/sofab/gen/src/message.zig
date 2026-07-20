@@ -170,6 +170,7 @@ const _dec_Example = struct {
     cur: _Loc = .root,
     inv: bool = false, // a scalar array over its schema count, or a wrapper element id >= count -> INVALID
     ai: usize = 0, // index into the native array currently being filled
+    askip: usize = 0, // elements left to discard from a S7.3-contradictory array
 
     const _Loc = enum {
         root,
@@ -181,6 +182,7 @@ const _dec_Example = struct {
     };
 
     pub fn unsigned(self: *_dec_Example, id: sofab.Id, value: sofab.Unsigned) void {
+        if (self.askip > 0) { self.askip -= 1; return; }
         switch (self.cur) {
             .root => switch (id) {
                 0 => self.m.u8 = @truncate(value),
@@ -201,6 +203,7 @@ const _dec_Example = struct {
     }
 
     pub fn signed(self: *_dec_Example, id: sofab.Id, value: sofab.Signed) void {
+        if (self.askip > 0) { self.askip -= 1; return; }
         switch (self.cur) {
             .root => switch (id) {
                 1 => self.m.i8 = @truncate(value),
@@ -271,8 +274,22 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn arrayBegin(self: *_dec_Example, _: sofab.Id, _: sofab.ArrayKind, _: usize) void {
+    pub fn arrayBegin(self: *_dec_Example, id: sofab.Id, kind: sofab.ArrayKind, count: usize) void {
         self.ai = 0;
+        self.askip = if (kind == .unsigned or kind == .signed) switch (self.cur) {
+            .root_arrays => switch (id) {
+                0 => 0,
+                1 => 0,
+                2 => 0,
+                3 => 0,
+                4 => 0,
+                5 => 0,
+                6 => 0,
+                7 => 0,
+                else => count,
+            },
+            else => count,
+        } else 0;
     }
 
     pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {
