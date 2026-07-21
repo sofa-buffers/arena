@@ -171,6 +171,7 @@ const _dec_Example = struct {
     inv: bool = false, // a scalar array over its schema count, or a wrapper element id >= count -> INVALID
     ai: usize = 0, // index into the native array currently being filled
     askip: usize = 0, // elements left to discard from a S7.3-contradictory array
+    afill: usize = 0, // elements still expected by an armed native-array fill (S7.3)
 
     const _Loc = enum {
         root,
@@ -192,10 +193,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                0 => _putc(&self.m.arrays.u8, &self.ai, @truncate(value), &self.inv),
-                2 => _putc(&self.m.arrays.u16, &self.ai, @truncate(value), &self.inv),
-                4 => _putc(&self.m.arrays.u32, &self.ai, @truncate(value), &self.inv),
-                6 => _putc(&self.m.arrays.u64, &self.ai, value, &self.inv),
+                0 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u8, &self.ai, @truncate(value), &self.inv); } },
+                2 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u16, &self.ai, @truncate(value), &self.inv); } },
+                4 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u32, &self.ai, @truncate(value), &self.inv); } },
+                6 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u64, &self.ai, value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -213,10 +214,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                1 => _putc(&self.m.arrays.i8, &self.ai, @truncate(value), &self.inv),
-                3 => _putc(&self.m.arrays.i16, &self.ai, @truncate(value), &self.inv),
-                5 => _putc(&self.m.arrays.i32, &self.ai, @truncate(value), &self.inv),
-                7 => _putc(&self.m.arrays.i64, &self.ai, value, &self.inv),
+                1 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i8, &self.ai, @truncate(value), &self.inv); } },
+                3 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i16, &self.ai, @truncate(value), &self.inv); } },
+                5 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i32, &self.ai, @truncate(value), &self.inv); } },
+                7 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i64, &self.ai, value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -230,7 +231,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => _putc(&self.m.arrays.nested.fp32, &self.ai, value, &self.inv),
+                0 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.nested.fp32, &self.ai, value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -244,7 +245,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                1 => _putc(&self.m.arrays.nested.fp64, &self.ai, value, &self.inv),
+                1 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.nested.fp64, &self.ai, value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -290,6 +291,30 @@ const _dec_Example = struct {
             },
             else => count,
         } else 0;
+        self.afill = switch (kind) {
+            .unsigned, .signed => switch (self.cur) {
+                .root_arrays => switch (id) {
+                    0 => count,
+                    1 => count,
+                    2 => count,
+                    3 => count,
+                    4 => count,
+                    5 => count,
+                    6 => count,
+                    7 => count,
+                    else => 0,
+                },
+                else => 0,
+            },
+            .fixlen => switch (self.cur) {
+                .root_arrays_nested => switch (id) {
+                    0 => count,
+                    1 => count,
+                    else => 0,
+                },
+                else => 0,
+            },
+        };
     }
 
     pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {

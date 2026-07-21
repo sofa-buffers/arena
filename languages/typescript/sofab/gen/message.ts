@@ -386,7 +386,7 @@ export class Example {
       case 200: {
         if (c.wire !== WireType.SequenceStart) { c.skip(c.wire); break; }
         const arr: string[] = [];
-        while (c.readHeader()) { if (c.id >= 5) throw new SofabError(SofabErrorCode.InvalidMsg, "arr: array index above schema capacity 5"); const _id = c.id; while (arr.length <= _id) arr.push(""); const _s = c.readString(); if (_utf8Len(_s) > 64) throw new SofabError(SofabErrorCode.InvalidMsg, "arr element: string byte length above schema maxlen 64"); arr[_id] = _s; }
+        while (c.readHeader()) { if ((c.wire as WireType) !== WireType.Fixlen || c.fixSub !== FixlenSubtype.String) { c.skip(c.wire); continue; } if (c.id >= 5) throw new SofabError(SofabErrorCode.InvalidMsg, "arr: array index above schema capacity 5"); const _id = c.id; while (arr.length <= _id) arr.push(""); const _s = c.readString(); if (_utf8Len(_s) > 64) throw new SofabError(SofabErrorCode.InvalidMsg, "arr element: string byte length above schema maxlen 64"); arr[_id] = _s; }
         o.string_array = arr;
         break;
       }
