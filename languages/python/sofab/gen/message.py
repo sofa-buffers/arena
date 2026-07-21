@@ -441,6 +441,9 @@ class Example:
                     _ef0 = d.next()
                     if _ef0 is None or _ef0.type == WireType.SEQUENCE_END:
                         break
+                    if _ef0.type != WireType.FIXLEN or _ef0.subtype != FixlenSubtype.STRING:
+                        d.skip()
+                        continue
                     if _ef0.id >= 5:
                         raise SofaDecodeError("self.string_array: array index above schema capacity 5")
                     while len(self.string_array) <= _ef0.id:

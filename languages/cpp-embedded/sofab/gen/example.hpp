@@ -43,6 +43,9 @@ template <typename Container>
 struct _FixedBlobSeq : sofab::IStreamMessage {
     Container *out = nullptr;
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+        // S7.3 (issue #189): skip a wrapper element whose wire type/subtype is not a
+        // blob, like an unknown id -- return without read() and the driver skips it.
+        if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Blob) { return; }
         if (static_cast<std::size_t>(id) >= out->capacity()) { is.invalidate(); return; }
         while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
         auto &b = (*out)[id];
@@ -54,6 +57,9 @@ template <typename Container>
 struct _FixedStrSeq : sofab::IStreamMessage {
     Container *out = nullptr;
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+        // S7.3 (issue #189): skip a wrapper element whose wire type/subtype is not a
+        // string, like an unknown id -- return without read() and the driver skips it.
+        if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::String) { return; }
         if (static_cast<std::size_t>(id) >= out->capacity()) { is.invalidate(); return; }
         while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
         auto &s = (*out)[id];

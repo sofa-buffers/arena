@@ -179,6 +179,7 @@ internal sealed class ExampleVisitor : IVisitor {
     private int cur = 0;
     private int ai = 0;                // index into the primitive array currently being filled
     private int askip = 0;             // elements left to discard from a wire-type-contradictory array
+    private int afill = 0;             // elements still expected by an armed native-array fill (S7.3)
     private int[] stk = new int[16];   // sequence scope stack (unboxed, was Stack<int>)
     private int sp = 0;
     private List<byte> acc;            // lazy: only split string/blob payloads need it
@@ -196,10 +197,10 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root, 2): m.u16 = (ushort)value; break;
             case (Root, 4): m.u32 = (uint)value; break;
             case (Root, 6): m.u64 = (ulong)value; break;
-            case (Root_arrays, 0): m.arrays.u8[ai++] = (byte)value; break;
-            case (Root_arrays, 2): m.arrays.u16[ai++] = (ushort)value; break;
-            case (Root_arrays, 4): m.arrays.u32[ai++] = (uint)value; break;
-            case (Root_arrays, 6): m.arrays.u64[ai++] = (ulong)value; break;
+            case (Root_arrays, 0): if (afill == 0) break; afill--; m.arrays.u8[ai++] = (byte)value; break;
+            case (Root_arrays, 2): if (afill == 0) break; afill--; m.arrays.u16[ai++] = (ushort)value; break;
+            case (Root_arrays, 4): if (afill == 0) break; afill--; m.arrays.u32[ai++] = (uint)value; break;
+            case (Root_arrays, 6): if (afill == 0) break; afill--; m.arrays.u64[ai++] = (ulong)value; break;
         }
     }
     public void Signed(int id, long value) {
@@ -209,22 +210,22 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root, 3): m.i16 = (short)value; break;
             case (Root, 5): m.i32 = (int)value; break;
             case (Root, 7): m.i64 = (long)value; break;
-            case (Root_arrays, 1): m.arrays.i8[ai++] = (sbyte)value; break;
-            case (Root_arrays, 3): m.arrays.i16[ai++] = (short)value; break;
-            case (Root_arrays, 5): m.arrays.i32[ai++] = (int)value; break;
-            case (Root_arrays, 7): m.arrays.i64[ai++] = (long)value; break;
+            case (Root_arrays, 1): if (afill == 0) break; afill--; m.arrays.i8[ai++] = (sbyte)value; break;
+            case (Root_arrays, 3): if (afill == 0) break; afill--; m.arrays.i16[ai++] = (short)value; break;
+            case (Root_arrays, 5): if (afill == 0) break; afill--; m.arrays.i32[ai++] = (int)value; break;
+            case (Root_arrays, 7): if (afill == 0) break; afill--; m.arrays.i64[ai++] = (long)value; break;
         }
     }
     public void Fp32(int id, float value) {
         switch ((cur, id)) {
             case (Root_nested, 0): m.nested.f32 = value; break;
-            case (Root_arrays_nested, 0): m.arrays.nested.fp32[ai++] = value; break;
+            case (Root_arrays_nested, 0): if (afill == 0) break; afill--; m.arrays.nested.fp32[ai++] = value; break;
         }
     }
     public void Fp64(int id, double value) {
         switch ((cur, id)) {
             case (Root_nested, 1): m.nested.f64 = value; break;
-            case (Root_arrays_nested, 1): m.arrays.nested.fp64[ai++] = value; break;
+            case (Root_arrays_nested, 1): if (afill == 0) break; afill--; m.arrays.nested.fp64[ai++] = value; break;
         }
     }
     private static readonly System.Text.UTF8Encoding _strictUtf8 = new System.Text.UTF8Encoding(false, true);
@@ -287,6 +288,25 @@ internal sealed class ExampleVisitor : IVisitor {
             (Root_arrays, 7) => 0,
             _ => count,
         } : 0;
+        afill = kind switch {
+            ArrayKind.Unsigned or ArrayKind.Signed => (cur, id) switch {
+                (Root_arrays, 0) => count,
+                (Root_arrays, 1) => count,
+                (Root_arrays, 2) => count,
+                (Root_arrays, 3) => count,
+                (Root_arrays, 4) => count,
+                (Root_arrays, 5) => count,
+                (Root_arrays, 6) => count,
+                (Root_arrays, 7) => count,
+                _ => 0,
+            },
+            ArrayKind.Fixlen => (cur, id) switch {
+                (Root_arrays_nested, 0) => count,
+                (Root_arrays_nested, 1) => count,
+                _ => 0,
+            },
+            _ => 0,
+        };
         switch ((cur, id)) {
             case (Root_arrays, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[5]; break;
             case (Root_arrays, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[5]; break;

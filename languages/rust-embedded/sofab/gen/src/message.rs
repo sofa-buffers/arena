@@ -224,7 +224,7 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, ai: 0, askip: 0 };
+            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, ai: 0, askip: 0, afill: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
@@ -235,16 +235,21 @@ mod example_dec {
         let mut m = Example::default();
         let overflow;
         let invalid;
+        let fed;
         {
-            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, ai: 0, askip: 0 };
+            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, ai: 0, askip: 0, afill: 0 };
             let mut is = IStream::new();
-            is.feed(data, &mut v)?;
+            fed = is.feed(data, &mut v);
             overflow = v.err;
             invalid = v.inv;
         }
-        // A scalar array carried more elements than its schema `count`.
-        // An element count above the schema capacity is invalid and is rejected, never clamped.
+        // A scalar array carried more elements than its schema `count`, an
+        // invalid-UTF-8 string, an over-length string/blob, or an over-index
+        // wrapper element: INVALID, and it dominates a truncated tail (S5.2).
         if invalid { return Err(sofab::Error::InvalidMsg); }
+        // No INVALID flag: now surface feed's own verdict (a clean Incomplete
+        // on a truncated-but-otherwise-valid message, or a structural InvalidMsg).
+        fed?;
         // A fixed-capacity field overflowed during the fill:
         // report it rather than return a silently-truncated value.
         if overflow { return Err(sofab::Error::BufferFull); }
@@ -269,6 +274,7 @@ struct V<'a> {
     inv: bool,
     ai: usize, // index into the fixed native array currently being filled
     askip: usize, // elements left to discard from a S7.3-contradictory array
+    afill: usize, // elements still expected by an armed native-array fill (S7.3)
 }
 
 impl<'a> Visitor for V<'a> {
@@ -279,10 +285,10 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 2) => self.m.u16 = value as u16,
             (_Loc::Root, 4) => self.m.u32 = value as u32,
             (_Loc::Root, 6) => self.m.u64 = value as u64,
-            (_Loc::Root_arrays, 0) => { if self.ai < 5 { self.m.arrays.u8[self.ai] = value as u8; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 2) => { if self.ai < 5 { self.m.arrays.u16[self.ai] = value as u16; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 4) => { if self.ai < 5 { self.m.arrays.u32[self.ai] = value as u32; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 6) => { if self.ai < 5 { self.m.arrays.u64[self.ai] = value as u64; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u8[self.ai] = value as u8; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u16[self.ai] = value as u16; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u32[self.ai] = value as u32; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 6) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u64[self.ai] = value as u64; self.ai += 1; } else { self.inv = true; } }
             _ => {}
         }
     }
@@ -293,24 +299,24 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 3) => self.m.i16 = value as i16,
             (_Loc::Root, 5) => self.m.i32 = value as i32,
             (_Loc::Root, 7) => self.m.i64 = value as i64,
-            (_Loc::Root_arrays, 1) => { if self.ai < 5 { self.m.arrays.i8[self.ai] = value as i8; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 3) => { if self.ai < 5 { self.m.arrays.i16[self.ai] = value as i16; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 5) => { if self.ai < 5 { self.m.arrays.i32[self.ai] = value as i32; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 7) => { if self.ai < 5 { self.m.arrays.i64[self.ai] = value as i64; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i8[self.ai] = value as i8; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i16[self.ai] = value as i16; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i32[self.ai] = value as i32; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 7) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i64[self.ai] = value as i64; self.ai += 1; } else { self.inv = true; } }
             _ => {}
         }
     }
     fn fp32(&mut self, id: Id, value: f32) {
         match (self.cur, id) {
             (_Loc::Root_nested, 0) => self.m.nested.f32 = value,
-            (_Loc::Root_arrays_nested, 0) => { if self.ai < 5 { self.m.arrays.nested.fp32[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays_nested, 0) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.nested.fp32[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
             _ => {}
         }
     }
     fn fp64(&mut self, id: Id, value: f64) {
         match (self.cur, id) {
             (_Loc::Root_nested, 1) => self.m.nested.f64 = value,
-            (_Loc::Root_arrays_nested, 1) => { if self.ai < 5 { self.m.arrays.nested.fp64[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays_nested, 1) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.nested.fp64[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
             _ => {}
         }
     }
@@ -371,6 +377,24 @@ impl<'a> Visitor for V<'a> {
                 _ => count,
             },
             _ => 0,
+        };
+        self.afill = match kind {
+            ArrayKind::Unsigned | ArrayKind::Signed => match (self.cur, id) {
+                (_Loc::Root_arrays, 0) => count,
+                (_Loc::Root_arrays, 1) => count,
+                (_Loc::Root_arrays, 2) => count,
+                (_Loc::Root_arrays, 3) => count,
+                (_Loc::Root_arrays, 4) => count,
+                (_Loc::Root_arrays, 5) => count,
+                (_Loc::Root_arrays, 6) => count,
+                (_Loc::Root_arrays, 7) => count,
+                _ => 0,
+            },
+            _ => match (self.cur, id) {
+                (_Loc::Root_arrays_nested, 0) => count,
+                (_Loc::Root_arrays_nested, 1) => count,
+                _ => 0,
+            },
         };
         match (self.cur, id) {
             _ => {}

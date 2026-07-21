@@ -144,6 +144,7 @@ class ExampleVisitor implements Visitor {
     private int cur = 0;
     private int ai = 0;                 // index into the primitive array currently being filled
     private int askip = 0;              // elements left to discard from a wire-type-contradictory array (S7.3)
+    private int afill = 0;              // elements still expected by an armed native-array fill (S7.3)
     private static final int ARRAY_INIT_CAP = 16; // bounded eager reservation; grow lazily
     private int acap = 0;               // declared element count = growth ceiling for the array being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
@@ -163,10 +164,10 @@ class ExampleVisitor implements Visitor {
             case 6: m.u64 = value; break;
         } break;
         case 2: switch (id) {
-            case 0: m.arrays.u8 = ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = value; break;
-            case 2: m.arrays.u16 = ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = value; break;
-            case 4: m.arrays.u32 = ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = value; break;
-            case 6: m.arrays.u64 = ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; break;
+            case 0: if (afill == 0) break; afill--; m.arrays.u8 = ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = value; break;
+            case 2: if (afill == 0) break; afill--; m.arrays.u16 = ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = value; break;
+            case 4: if (afill == 0) break; afill--; m.arrays.u32 = ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = value; break;
+            case 6: if (afill == 0) break; afill--; m.arrays.u64 = ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; break;
         } break;
         }
     }
@@ -182,10 +183,10 @@ class ExampleVisitor implements Visitor {
             case 7: m.i64 = value; break;
         } break;
         case 2: switch (id) {
-            case 1: m.arrays.i8 = ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = value; break;
-            case 3: m.arrays.i16 = ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = value; break;
-            case 5: m.arrays.i32 = ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = value; break;
-            case 7: m.arrays.i64 = ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; break;
+            case 1: if (afill == 0) break; afill--; m.arrays.i8 = ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = value; break;
+            case 3: if (afill == 0) break; afill--; m.arrays.i16 = ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = value; break;
+            case 5: if (afill == 0) break; afill--; m.arrays.i32 = ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = value; break;
+            case 7: if (afill == 0) break; afill--; m.arrays.i64 = ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; break;
         } break;
         }
     }
@@ -195,7 +196,7 @@ class ExampleVisitor implements Visitor {
             case 0: m.nested.f32 = value; break;
         } break;
         case 3: switch (id) {
-            case 0: m.arrays.nested.fp32 = ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; break;
+            case 0: if (afill == 0) break; afill--; m.arrays.nested.fp32 = ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; break;
         } break;
         }
     }
@@ -205,7 +206,7 @@ class ExampleVisitor implements Visitor {
             case 1: m.nested.f64 = value; break;
         } break;
         case 3: switch (id) {
-            case 1: m.arrays.nested.fp64 = ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; break;
+            case 1: if (afill == 0) break; afill--; m.arrays.nested.fp64 = ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; break;
         } break;
         }
     }
@@ -290,11 +291,19 @@ class ExampleVisitor implements Visitor {
         // counter so unsigned()/signed() drop exactly `count` elements. Every id
         // that really declares an integer-element array disarms it below.
         askip = 0;
+        afill = 0;
         if (kind == ArrayKind.UNSIGNED || kind == ArrayKind.SIGNED) {
             askip = count;
             switch (cur) {
             case 2: switch (id) {
-                case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: askip = 0; break;
+                case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: askip = 0; afill = count; break;
+            } break;
+            }
+        }
+        else if (kind == ArrayKind.FIXLEN) {
+            switch (cur) {
+            case 3: switch (id) {
+                case 0: case 1: afill = count; break;
             } break;
             }
         }
