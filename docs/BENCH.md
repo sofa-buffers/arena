@@ -10,7 +10,7 @@ BENCH lang=<lang> impl=<sofab|protobuf> serialized_bytes=<n> iters=<n> cpu_time_
 
 | field | meaning |
 |---|---|
-| `lang` | `c`, `cpp`, `python`, `go`, `rust`, `zig`, `java`, `csharp`, `typescript` |
+| `lang` | `c`, `cpp`, `python`, `go`, `rust`, `zig`, `dart`, `java`, `csharp`, `typescript` |
 | `impl` | `sofab` or `protobuf` — the serialization library under test |
 | `serialized_bytes` | wire size of one serialized message (bytes) |
 | `iters` | how many encode+decode round-trips were timed |
