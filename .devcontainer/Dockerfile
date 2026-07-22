@@ -33,6 +33,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 #                                Bun's JavaScriptCore engine (Node runs it on V8)
 #   (zig tarball)              Zig target (SofaBuffers corelib-zig + zig-protobuf)
 #                                — official 0.16.0 baked below
+#   (dart sdk)                 Dart target (SofaBuffers corelib-dart + the
+#                                protoc_plugin protobuf baseline) — official
+#                                3.12.x SDK baked below, plus protoc-gen-dart
+#                                (the protoc_plugin pub package) for its codegen
 #   gcc-arm-none-eabi          bare-metal Cortex-M cross toolchain (c/cpp/rust-
 #     + libnewlib + libstdc++    cortex-m footprint targets: --gc-sections
 #                                link-delta builds; binaries are never executed)
@@ -107,6 +111,28 @@ RUN ZIG_VERSION=0.16.0 && case "$(dpkg --print-architecture)" in \
     && tar -C /usr/local/zig --strip-components=1 -xJf /tmp/zig.txz \
     && rm /tmp/zig.txz \
     && zig version
+
+# --- Dart (official SDK) ------------------------------------------------------
+# The dart maxspeed target: SofaBuffers corelib-dart and the protoc_plugin
+# protobuf baseline both build on the Dart SDK (ships `dart`, `dart compile`,
+# `dart pub`). Pinned; arch derived so the image builds on amd64 and arm64 (the
+# SDK zip names use x64 / arm64). Extracts to /usr/local/dart-sdk (unzip above).
+ENV PATH=/usr/local/dart-sdk/bin:$PATH
+RUN DART_VERSION=3.12.2 && case "$(dpkg --print-architecture)" in \
+        amd64) DA=x64;; arm64) DA=arm64;; *) DA=x64;; esac \
+    && curl -fsSL "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-${DA}-release.zip" -o /tmp/dart.zip \
+    && unzip -q /tmp/dart.zip -d /usr/local \
+    && rm /tmp/dart.zip \
+    && dart --version
+
+# --- protoc-gen-dart (Dart protobuf plugin) -----------------------------------
+# The Dart analogue of protoc-gen-go (also baked below): the protobuf baseline's
+# codegen plugin, shipped as the `protoc_plugin` pub package. Activated into a
+# shared PUB_CACHE so `protoc --dart_out` finds `protoc-gen-dart` on PATH for
+# every user/shell — no bench-time `pub global activate`.
+ENV PUB_CACHE=/usr/local/pub-cache PATH=/usr/local/pub-cache/bin:$PATH
+RUN dart pub global activate protoc_plugin \
+    && command -v protoc-gen-dart
 
 # --- xpack riscv-none-elf-gcc (bare-metal RISC-V C++ toolchain) ---------------
 # Ubuntu's gcc-riscv64-unknown-elf ships picolibc but NO bare-metal libstdc++,

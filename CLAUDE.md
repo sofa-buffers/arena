@@ -102,12 +102,15 @@ Everything below is only what is **not** written in those files.
 ### Bump sofabgen / corelibs
 
 1. Nothing to bump — `scripts/bootstrap.sh` pins neither side: corelibs are
-   reset to their remote `main` HEAD and sofabgen resolves to the *latest*
-   release via the GitHub API on every run. Just re-run bootstrap; the
-   `tools/.sofabgen-version` stamp forces a fresh binary when the resolved
-   release differs (they release in lockstep; a stale corelib can silently
-   produce a wrong wire). For a reproducible run, pin per invocation with
-   `SOFABGEN_VERSION=vX.Y.Z ./scripts/bootstrap.sh`.
+   reset to their remote `main` HEAD and sofabgen is fetched from the
+   generator's *newest successful CI build on main* (the per-commit
+   `sofabgen-<os>-<arch>` workflow **artifact**, not a tagged release) via the
+   GitHub Actions API on every run. Just re-run bootstrap; the
+   `tools/.sofabgen-version` stamp (now the resolved workflow **run id**) forces
+   a fresh binary when the tip advances (a stale corelib can silently produce a
+   wrong wire). The artifacts API is auth-only, so a `GITHUB_TOKEN` in
+   `.devcontainer/.env` is now **required**. For a reproducible run, pin per
+   invocation with `SOFABGEN_RUN_ID=<run-id> ./scripts/bootstrap.sh`.
 2. Adjust `languages/*/sofab/cfg.yaml` if codegen options changed; full run;
    if the wire moved, update all four reference sync points; commit
    regenerated sources; refresh `results/RESULTS.txt` + README tables.
