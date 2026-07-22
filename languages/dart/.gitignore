@@ -1,0 +1,13 @@
+# AOT-compiled native executables (rebuilt by setup.sh via `dart compile exe`)
+sofab/gen/bin/bench
+protobuf/bench
+
+# Dart package resolution + build cache
+.dart_tool/
+pubspec.lock
+
+# Driver files copied in by setup.sh — the committed sources live in
+# sofab/bench.dart, protobuf/bench.dart and common/bench_common.dart.
+sofab/gen/bin/bench.dart
+sofab/gen/bin/bench_common.dart
+protobuf/bench_common.dart
