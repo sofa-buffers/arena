@@ -88,14 +88,11 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
 > JIT, VM, interpreter, native). It is machine-dependent and varies run-to-run. Two
 > throughput columns, both higher-is-better: **`MB/s`** counts bytes/second, so it
 > folds in the ~13 % wire-size gap; **`msg/s`** counts messages/second — the
-> **size-neutral** per-message codec speed (see [#85]). The columns comparable
+> **size-neutral** per-message codec speed. The columns comparable
 > *across* rows are **wire size** and the **per-target ratios**. Each timed
-> iteration re-encodes the message it just decoded (`encode(decode(blob))`, see
-> [#86]), so a freshly parsed instance makes protobuf pay its size pass every encode
+> iteration re-encodes the message it just decoded (`encode(decode(blob))`),
+> so a freshly parsed instance makes protobuf pay its size pass every encode
 > — no memoization discount from an artificial reuse loop.
-
-[#85]: https://github.com/sofa-buffers/arena/issues/85
-[#86]: https://github.com/sofa-buffers/arena/issues/86
 
 > **Reading footprint (`.text`/RAM).** The reported metric is the **bare-metal
 > link delta** (`c-cortex-m`, `cpp-cortex-m`, `rust-cortex-m`, `c-riscv`,
@@ -114,7 +111,7 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
 > delta supersedes it. The host `rust-embedded` target reports wire +
 > throughput only (a host object-sum for Rust is std-dominated, not codec);
 > Rust footprint lives in the bare-metal rows (real generated `no_std` code
-> since sofabgen 0.9.0 closed generator issue #40).
+> since sofabgen 0.9.0).
 
 ## Quick start
 
@@ -185,7 +182,7 @@ columns and keep only the size **advantage** (`1.14×`).
 
 ***On the size-neutral per-message metric (`msg/s`), every compiled language beats
 protobuf** — Zig by 1.9×, Dart by 1.8×, Rust by 1.7×, C# by 1.6×, C++ by 1.3×, Go by
-1.2× — and even **Java edges ahead** (1.04×) after the round-trip fix ([#86]). The
+1.2× — and even **Java edges ahead** (1.04×) after the round-trip fix. The
 wire is ~13 % smaller everywhere, so `MB/s` — which folds in that byte gap — reads
 lower than the per-message figure (Java 0.92× there). adv >1 → SofaBuffers ahead;
 best-of-5, comparable only within a row.*
@@ -258,7 +255,7 @@ less flash than the smallest protobuf alternative).*
 - **Faster than protobuf per message in every compiled language.** The gap
   was never the wire format but the per-message code above the byte codec; with
   that tuned — and with the round trip chained so protobuf pays its size pass every
-  encode ([#86]) — Zig, Dart, C++, Rust, C# and Go all run ahead of Google's
+  encode — Zig, Dart, C++, Rust, C# and Go all run ahead of Google's
   mature runtimes on the size-neutral `msg/s` metric (Zig by ~1.9×, Dart by ~1.8×),
   with even **Java edging ahead** (1.04×). TypeScript trails on Node/V8 while pulling
   ahead on Bun/JSC (1.11×) — tracking JS-engine maturity, not the format — and
