@@ -31,6 +31,8 @@
 #   LANGS="python go" ./scripts/run_benchmark.sh
 #   BENCH_ITERS=100000 ./scripts/run_benchmark.sh
 #   RUNS=5 ./scripts/run_benchmark.sh                # best-of-5 throughput (noise)
+#   COOLDOWN_S=30 ./scripts/run_benchmark.sh         # longer idle pause between runs
+#   COOLDOWN_S=0 ./scripts/run_benchmark.sh          # no pause (fast, hotter CPU)
 #
 # The cross-language correctness gate is fatal: if any present impl's wire bytes
 # diverge from the shared reference (sofab 434 B / proto 494 B) the run exits
@@ -48,6 +50,12 @@ DO_SETUP=1
 # impl (noise is downward). Footprint is deterministic. Default 5 (best-of-5, the
 # reported metric); set RUNS=1 for a quick single run while iterating.
 RUNS="${RUNS:-5}"
+# Back-to-back benches heat the CPU up until it thermally throttles, which biases
+# every later run downwards and shows up as run-to-run noise. Idle for COOLDOWN_S
+# seconds before each executed bench (between the repeats of one target AND across
+# targets) so every run starts from a comparable thermal state. Build-only
+# bare-metal targets emit no BENCH line and are never cooled down. 0 disables.
+COOLDOWN_S="${COOLDOWN_S:-10}"
 
 export STATE_JSON="$ROOT/schema/state.json"
 export SOFABGEN="$ROOT/tools/sofabgen"
@@ -73,6 +81,14 @@ expected_sofab_sha() { echo "$REF_SOFAB_SHA"; }
 expected_sha() { [ "$2" = sofab ] && expected_sofab_sha "$1" || echo "$REF_PROTO_SHA"; }
 
 field() { sed -n "s/.*\b$2=\([^ ]*\).*/\1/p" <<<"$1"; }   # <line> <key>
+
+BENCH_RAN=0     # has any bench executed yet? (nothing to cool down before the first)
+cooldown() {    # <what-comes-next> — idle so the next run does not start on a hot CPU
+    [ "$COOLDOWN_S" -gt 0 ] 2>/dev/null || return 0
+    [ "$BENCH_RAN" = 1 ] || return 0
+    echo "    (cooling down ${COOLDOWN_S}s before $1)"
+    sleep "$COOLDOWN_S"
+}
 
 register_impl() {   # <lang> <impl>
     local lang="$1" impl="$2"
@@ -128,7 +144,10 @@ for lang in $LANGS; do
     echo "--- bench ($lang)$([ "$RUNS" -gt 1 ] && echo " x$RUNS best-of") ---"
     : > "$RAW/$lang.out"; : > "$RAW/$lang.err"; bok=1
     for _r in $(seq 1 "$RUNS"); do
+        cooldown "$lang run $_r/$RUNS"
         "$dir/bench.sh" >>"$RAW/$lang.out" 2>>"$RAW/$lang.err" || bok=0
+        # A target that emitted a BENCH line actually burned CPU -> cool down next time.
+        grep -q '^BENCH' "$RAW/$lang.out" && BENCH_RAN=1
     done
     if [ "$bok" = 1 ]; then STATUS[$lang]=OK; else echo "!! bench FAILED for $lang (see $RAW/$lang.err)"; STATUS[$lang]=BENCH_FAIL; fi
     while IFS= read -r line; do

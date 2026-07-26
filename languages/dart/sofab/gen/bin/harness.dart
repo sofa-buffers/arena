@@ -125,7 +125,7 @@ void _benchOpExample(bool enc, Example obj, Uint8List wire) {
 
 void main(List<String> args) {
   if (args.isEmpty) {
-    stderr.writeln('usage: harness <encode|decode|trydecode|bench> [Message|workload]');
+    stderr.writeln('usage: harness <encode|decode|trydecode|recode|bench> [Message|workload]');
     exit(2);
   }
   final mode = args[0];
@@ -152,6 +152,14 @@ void main(List<String> args) {
         final st = Example.tryDecode(input, obj);
         stdout.writeln(st.name.toUpperCase());
         stdout.writeln(jsonEncode(_toJsonExample(obj)));
+      } else if (mode == 'recode') {
+        final obj = Example();
+        final st = Example.tryDecode(input, obj);
+        if (st != sofab.DecodeStatus.complete) {
+          stderr.writeln('decode failed: ${st.name}');
+          exit(1);
+        }
+        stdout.add(obj.encode());
       } else {
         stderr.writeln('unknown mode');
         exit(2);

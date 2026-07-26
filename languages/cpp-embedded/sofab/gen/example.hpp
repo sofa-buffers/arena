@@ -14,96 +14,21 @@ static_assert(sofab::API_VERSION == 1,
 
 namespace fullscale {
 
-#ifndef SOFABUFFERS_GEN_PRELUDE
-#define SOFABUFFERS_GEN_PRELUDE
-template <typename Container>
-struct _MsgSeqFixed : sofab::IStreamMessage {
-    Container *out = nullptr;
-    void deserialize(sofab::IStreamImpl &is, sofab::id, std::size_t, std::size_t) noexcept override {
-        is.read(out->emplace_back());
-    }
-};
-// _FixedBlobSeq / _FixedStrSeq place a blob / string element at its index id:
-// a default (empty) element is omitted on the wire, so the
-// inline vector is grown with empty-default slots up to id and the value is
-// stored at that index rather than appended in arrival order. Inline storage
-// never reallocates, so an earlier bound-then-filled element stays address-stable
-// while later slots grow.
-// An element index at or beyond the fixed capacity N is a schema-bound violation
-// (MESSAGE_SPEC S5.1/S7: an index at or past the fixed count is INVALID, never
-// grown-into) — reject it via is.invalidate() so feed()/try_decode report
-// Error::InvalidMessage, converging with the heap profile and no_std Rust
-// (generator#149 / F-0013 / S7.1: a declared bound binds every target). The
-// reject returns before the fill loop, so it also bounds an over-index
-// amplification: InlineVector::emplace_back() is a no-op once full (N never
-// grows), so an unbounded fill loop would otherwise spin forever on such an index
-// (issue #126). invalidate() is the callback→decoder abort channel the c-cpp
-// IStreamImpl gained in corelib-c-cpp#92.
-template <typename Container>
-struct _FixedBlobSeq : sofab::IStreamMessage {
-    Container *out = nullptr;
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
-        // S7.3 (issue #189): skip a wrapper element whose wire type/subtype is not a
-        // blob, like an unknown id -- return without read() and the driver skips it.
-        if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Blob) { return; }
-        if (static_cast<std::size_t>(id) >= out->capacity()) { is.invalidate(); return; }
-        while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
-        auto &b = (*out)[id];
-        b.set_len(_size);
-        if (_size) is.read(b.data(), b.size());
-    }
-};
-template <typename Container>
-struct _FixedStrSeq : sofab::IStreamMessage {
-    Container *out = nullptr;
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
-        // S7.3 (issue #189): skip a wrapper element whose wire type/subtype is not a
-        // string, like an unknown id -- return without read() and the driver skips it.
-        if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::String) { return; }
-        if (static_cast<std::size_t>(id) >= out->capacity()) { is.invalidate(); return; }
-        while (out->size() <= static_cast<std::size_t>(id)) out->emplace_back();
-        auto &s = (*out)[id];
-        s.set_len(_size);
-        if (_size) is.read(s);
-    }
-};
-template <typename T>
-struct _MsgSeq : sofab::IStreamMessage {
-    std::vector<T> *out = nullptr;
-    // Schema fixed-count bound N (-1 == dynamic/unbounded). An element id >= N is
-    // a schema-bound violation (MESSAGE_SPEC S5.1/S7: an index at or past the
-    // fixed count is INVALID, never grown-into) - reject before emplacing, which
-    // also bounds the allocation against an over-index heap-amplification DoS.
-    long cap = -1;
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
-        if (cap >= 0 && static_cast<std::size_t>(id) >= static_cast<std::size_t>(cap)) { return; }
-        T &row = out->emplace_back();
-        // A count-less native-array row (matrix with dynamic rows) is a std::vector
-        // that the corelib's span read fills only up to its current size, so size it
-        // to the row's wire count first. Struct/union rows are IStreamMessage
-        // (no resize) and fixed std::array rows have no resize(), so both skip this.
-        if constexpr (requires { row.resize(_count); } && !std::is_base_of_v<sofab::IStreamMessage, T>) {
-            row.resize(_count);
-        }
-        is.read(row);
-    }
-};
-template <typename C>
-std::span<const typename C::value_type> _trimTail(const C &_a) noexcept {
-    using _T = typename C::value_type;
-    const _T _z{};
-    std::size_t _n = _a.size();
-    while (_n > 0 && std::memcmp(&_a[_n - 1], &_z, sizeof(_T)) == 0) --_n;
-    return std::span<const _T>(_a.data(), _n);
-}
-#endif
-
-struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
+struct ExampleNested : sofab::Message {
     double f64 = 0.0;
     sofab::FixedString<32> str = "";
     sofab::FixedBytes<4> bytes_field = {};
     float f32 = 0.0f;
 
+    /**
+     * @brief Write this message's fields to an output stream.
+     *
+     * Called by @ref encode / @ref encodeTo, and directly when writing into a
+     * stream you own. Fields equal to their default are omitted.
+     *
+     * @param os Stream to write to.
+     * @return The result of the writes.
+     */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (f32 != 0.0f) { (void)os.write(0, f32); }
         if (f64 != 0.0) { (void)os.write(1, f64); }
@@ -112,59 +37,82 @@ struct ExampleNested : sofab::OStreamMessage, sofab::IStreamMessage {
         return os.writeIf(0, false, false);
     }
 
+    /**
+     * @brief Bind one decoded field to its member.
+     *
+     * Called once per field as the stream is fed. An id this message does
+     * not know, or one whose wire type contradicts the member's, binds
+     * nothing and is skipped.
+     *
+     * @param is Stream delivering the field.
+     * @param id Field identifier.
+     */
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
         switch (id) {
         case 0:
-            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Fp32) break;
             is.read(f32);
             break;
         case 1:
-            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Fp64) break;
             is.read(f64);
             break;
         case 2:
-            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::String) break;
-            str.set_len(_size); if (_size) is.read(str);
+            is.readString(str, _size, 32);
             break;
         case 3:
-            if (is.wire() != sofab::Wire::Fixlen || is.fixType() != sofab::Fix::Blob) break;
-            bytes_field.set_len(_size); is.read(bytes_field.data(), bytes_field.size());
+            is.readBlob(bytes_field, _size, 4);
             break;
         default: break;
         }
     }
 };
 
-struct ExampleArraysNested : sofab::OStreamMessage, sofab::IStreamMessage {
+struct ExampleArraysNested : sofab::Message {
     std::array<float, 5> fp32 = {};
     std::array<double, 5> fp64 = {};
 
+    /**
+     * @brief Write this message's fields to an output stream.
+     *
+     * Called by @ref encode / @ref encodeTo, and directly when writing into a
+     * stream you own. Fields equal to their default are omitted.
+     *
+     * @param os Stream to write to.
+     * @return The result of the writes.
+     */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (fp32 != std::array<float, 5>{}) {
-            (void)os.write(0, _trimTail(fp32));
+            (void)os.write(0, sofab::trimTail(fp32));
         }
         if (fp64 != std::array<double, 5>{}) {
-            (void)os.write(1, _trimTail(fp64));
+            (void)os.write(1, sofab::trimTail(fp64));
         }
         return os.writeIf(0, false, false);
     }
 
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+    /**
+     * @brief Bind one decoded field to its member.
+     *
+     * Called once per field as the stream is fed. An id this message does
+     * not know, or one whose wire type contradicts the member's, binds
+     * nothing and is skipped.
+     *
+     * @param is Stream delivering the field.
+     * @param id Field identifier.
+     */
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
-            if (is.wire() != sofab::Wire::ArrayFixlen || is.fixType() != sofab::Fix::Fp32) break;
-            is.read(fp32);
+            is.readArray(fp32, _count, 5);
             break;
         case 1:
-            if (is.wire() != sofab::Wire::ArrayFixlen || is.fixType() != sofab::Fix::Fp64) break;
-            is.read(fp64);
+            is.readArray(fp64, _count, 5);
             break;
         default: break;
         }
     }
 };
 
-struct ExampleArrays : sofab::OStreamMessage, sofab::IStreamMessage {
+struct ExampleArrays : sofab::Message {
     std::array<std::uint8_t, 5> u8 = {};
     std::array<std::int8_t, 5> i8 = {};
     std::array<std::uint16_t, 5> u16 = {};
@@ -175,71 +123,81 @@ struct ExampleArrays : sofab::OStreamMessage, sofab::IStreamMessage {
     std::array<std::int64_t, 5> i64 = {};
     ExampleArraysNested nested = {};
 
+    /**
+     * @brief Write this message's fields to an output stream.
+     *
+     * Called by @ref encode / @ref encodeTo, and directly when writing into a
+     * stream you own. Fields equal to their default are omitted.
+     *
+     * @param os Stream to write to.
+     * @return The result of the writes.
+     */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (u8 != std::array<std::uint8_t, 5>{}) {
-            (void)os.write(0, _trimTail(u8));
+            (void)os.write(0, sofab::trimTail(u8));
         }
         if (i8 != std::array<std::int8_t, 5>{}) {
-            (void)os.write(1, _trimTail(i8));
+            (void)os.write(1, sofab::trimTail(i8));
         }
         if (u16 != std::array<std::uint16_t, 5>{}) {
-            (void)os.write(2, _trimTail(u16));
+            (void)os.write(2, sofab::trimTail(u16));
         }
         if (i16 != std::array<std::int16_t, 5>{}) {
-            (void)os.write(3, _trimTail(i16));
+            (void)os.write(3, sofab::trimTail(i16));
         }
         if (u32 != std::array<std::uint32_t, 5>{}) {
-            (void)os.write(4, _trimTail(u32));
+            (void)os.write(4, sofab::trimTail(u32));
         }
         if (i32 != std::array<std::int32_t, 5>{}) {
-            (void)os.write(5, _trimTail(i32));
+            (void)os.write(5, sofab::trimTail(i32));
         }
         if (u64 != std::array<std::uint64_t, 5>{}) {
-            (void)os.write(6, _trimTail(u64));
+            (void)os.write(6, sofab::trimTail(u64));
         }
         if (i64 != std::array<std::int64_t, 5>{}) {
-            (void)os.write(7, _trimTail(i64));
+            (void)os.write(7, sofab::trimTail(i64));
         }
         (void)os.write(10, nested);
         return os.writeIf(0, false, false);
     }
 
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+    /**
+     * @brief Bind one decoded field to its member.
+     *
+     * Called once per field as the stream is fed. An id this message does
+     * not know, or one whose wire type contradicts the member's, binds
+     * nothing and is skipped.
+     *
+     * @param is Stream delivering the field.
+     * @param id Field identifier.
+     */
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
-            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
-            is.read(u8);
+            is.readArray(u8, _count, 5);
             break;
         case 1:
-            if (is.wire() != sofab::Wire::ArraySigned) break;
-            is.read(i8);
+            is.readArray(i8, _count, 5);
             break;
         case 2:
-            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
-            is.read(u16);
+            is.readArray(u16, _count, 5);
             break;
         case 3:
-            if (is.wire() != sofab::Wire::ArraySigned) break;
-            is.read(i16);
+            is.readArray(i16, _count, 5);
             break;
         case 4:
-            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
-            is.read(u32);
+            is.readArray(u32, _count, 5);
             break;
         case 5:
-            if (is.wire() != sofab::Wire::ArraySigned) break;
-            is.read(i32);
+            is.readArray(i32, _count, 5);
             break;
         case 6:
-            if (is.wire() != sofab::Wire::ArrayUnsigned) break;
-            is.read(u64);
+            is.readArray(u64, _count, 5);
             break;
         case 7:
-            if (is.wire() != sofab::Wire::ArraySigned) break;
-            is.read(i64);
+            is.readArray(i64, _count, 5);
             break;
         case 10:
-            if (is.wire() != sofab::Wire::SequenceStart) break;
             is.read(nested);
             break;
         default: break;
@@ -248,7 +206,7 @@ struct ExampleArrays : sofab::OStreamMessage, sofab::IStreamMessage {
 };
 
 /** @brief This example demonstrates the use of SofaBuffers to encode and decode a message. */
-struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
+struct Example : sofab::Message {
     std::uint64_t u64 = 0;
     std::int64_t i64 = 0;
     ExampleNested nested = {};
@@ -262,25 +220,53 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
     std::int8_t i8 = 0;
     static constexpr std::size_t _maxSize = 1011;
 
+    /**
+     * @brief Encode this message into a new byte vector.
+     * @return The encoded bytes (empty if the message encodes to nothing).
+     */
     std::vector<std::uint8_t> encode() const {
-        sofab::OStreamInline<_maxSize> os;
+        std::vector<std::uint8_t> out(_maxSize);
+        sofab::OStreamView os{out.data(), out.size()};
         serialize(os);
-        return std::vector<std::uint8_t>(os.data(), os.data() + os.bytesUsed());
+        out.resize(os.bytesUsed());
+        return out;
     }
+    /**
+     * @brief Encode this message into caller-provided storage (no allocation).
+     * @param dst Destination buffer.
+     * @param cap Capacity of @p dst in bytes.
+     * @return Bytes written, or 0 if the message does not fit in @p cap;
+     *         in which case @p dst holds however much was written first.
+     */
     std::size_t encodeTo(std::uint8_t *dst, std::size_t cap) const noexcept {
-        sofab::OStreamInline<_maxSize> os;
+        sofab::OStreamView os{dst, cap};
         serialize(os);
-        std::size_t n = os.bytesUsed();
-        if (n > cap) { return 0; }
-        for (std::size_t i = 0; i < n; ++i) { dst[i] = os.data()[i]; }
-        return n;
+        if (!os.ok()) { return 0; }
+        return os.bytesUsed();
     }
+    /**
+     * @brief Decode a message, best effort.
+     *
+     * Never reports failure: malformed input yields whatever was decoded
+     * before the error. Use @ref try_decode when the verdict matters.
+     *
+     * @param data Encoded bytes.
+     * @param len  Number of bytes at @p data.
+     * @return The decoded message.
+     */
     static Example decode(const std::uint8_t *data, std::size_t len) {
         sofab::IStreamObject<Example> in;
         in.feed(data, len);
         return *in;
     }
 
+    /**
+     * @brief Decode a message, reporting whether the input was acceptable.
+     * @param data Encoded bytes.
+     * @param len  Number of bytes at @p data.
+     * @param out  Receives the message on success; untouched otherwise.
+     * @return The decode result; check @c ok() before reading @p out.
+     */
     static sofab::IStreamImpl::Result try_decode(const std::uint8_t *data, std::size_t len, Example &out) {
         sofab::IStreamObject<Example> in;
         sofab::IStreamImpl::Result r = in.feed(data, len);
@@ -288,6 +274,15 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
         return r;
     }
 
+    /**
+     * @brief Write this message's fields to an output stream.
+     *
+     * Called by @ref encode / @ref encodeTo, and directly when writing into a
+     * stream you own. Fields equal to their default are omitted.
+     *
+     * @param os Stream to write to.
+     * @return The result of the writes.
+     */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (u8 != 0) { (void)os.write(0, u8); }
         if (i8 != 0) { (void)os.write(1, i8); }
@@ -305,52 +300,50 @@ struct Example : sofab::OStreamMessage, sofab::IStreamMessage {
         return os.writeIf(0, false, false);
     }
 
+    /**
+     * @brief Bind one decoded field to its member.
+     *
+     * Called once per field as the stream is fed. An id this message does
+     * not know, or one whose wire type contradicts the member's, binds
+     * nothing and is skipped.
+     *
+     * @param is Stream delivering the field.
+     * @param id Field identifier.
+     */
     void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
         switch (id) {
         case 0:
-            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u8);
             break;
         case 1:
-            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i8);
             break;
         case 2:
-            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u16);
             break;
         case 3:
-            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i16);
             break;
         case 4:
-            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u32);
             break;
         case 5:
-            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i32);
             break;
         case 6:
-            if (is.wire() != sofab::Wire::Unsigned) break;
             is.read(u64);
             break;
         case 7:
-            if (is.wire() != sofab::Wire::Signed) break;
             is.read(i64);
             break;
         case 10:
-            if (is.wire() != sofab::Wire::SequenceStart) break;
             is.read(nested);
             break;
         case 100:
-            if (is.wire() != sofab::Wire::SequenceStart) break;
             is.read(arrays);
             break;
         case 200:
-            if (is.wire() != sofab::Wire::SequenceStart) break;
-            string_array.clear();
-            { static _FixedStrSeq<sofab::InlineVector<sofab::FixedString<64>, 5>> _r0; _r0.out = &string_array; is.read(_r0); }
+            { static sofab::FixedStringSeq<sofab::InlineVector<sofab::FixedString<64>, 5>> _r0; is.readSequence(_r0, string_array); }
             break;
         default: break;
         }

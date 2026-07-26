@@ -61,6 +61,17 @@ async function main(): Promise<number> {
   } else if (mode === "decode") {
     const obj = cls.decode(new Uint8Array(input));
     process.stdout.write(JSON.stringify(obj.toJSON()) + "\n");
+  } else if (mode === "status") {
+    try {
+      cls.decode(new Uint8Array(input));
+      process.stdout.write("COMPLETE\n");
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code === "INVALID_MSG") process.stdout.write("INVALID\n");
+      else if (code === "INCOMPLETE") process.stdout.write("INCOMPLETE\n");
+      else if (code === "LIMIT_EXCEEDED") process.stdout.write("LIMIT_EXCEEDED\n");
+      else throw e;
+    }
   } else { process.stderr.write("unknown mode\n"); return 2; }
   return 0;
 }

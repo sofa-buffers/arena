@@ -225,6 +225,7 @@ const _dec_Example = struct {
     }
 
     pub fn fp32(self: *_dec_Example, id: sofab.Id, value: f32) void {
+        if (self.askip > 0) { self.askip -= 1; return; }
         switch (self.cur) {
             .root_nested => switch (id) {
                 0 => self.m.nested.f32 = value,
@@ -239,6 +240,7 @@ const _dec_Example = struct {
     }
 
     pub fn fp64(self: *_dec_Example, id: sofab.Id, value: f64) void {
+        if (self.askip > 0) { self.askip -= 1; return; }
         switch (self.cur) {
             .root_nested => switch (id) {
                 1 => self.m.nested.f64 = value,
@@ -277,20 +279,30 @@ const _dec_Example = struct {
 
     pub fn arrayBegin(self: *_dec_Example, id: sofab.Id, kind: sofab.ArrayKind, count: usize) void {
         self.ai = 0;
-        self.askip = if (kind == .unsigned or kind == .signed) switch (self.cur) {
-            .root_arrays => switch (id) {
-                0 => 0,
-                1 => 0,
-                2 => 0,
-                3 => 0,
-                4 => 0,
-                5 => 0,
-                6 => 0,
-                7 => 0,
+        self.askip = switch (kind) {
+            .unsigned, .signed => switch (self.cur) {
+                .root_arrays => switch (id) {
+                    0 => 0,
+                    1 => 0,
+                    2 => 0,
+                    3 => 0,
+                    4 => 0,
+                    5 => 0,
+                    6 => 0,
+                    7 => 0,
+                    else => count,
+                },
                 else => count,
             },
-            else => count,
-        } else 0;
+            .fixlen => switch (self.cur) {
+                .root_arrays_nested => switch (id) {
+                    0 => 0,
+                    1 => 0,
+                    else => count,
+                },
+                else => count,
+            },
+        };
         self.afill = switch (kind) {
             .unsigned, .signed => switch (self.cur) {
                 .root_arrays => switch (id) {
@@ -315,6 +327,25 @@ const _dec_Example = struct {
                 else => 0,
             },
         };
+        switch (self.cur) {
+            .root_arrays => switch (id) {
+                0 => { if (count > 5) { self.inv = true; return; } },
+                1 => { if (count > 5) { self.inv = true; return; } },
+                2 => { if (count > 5) { self.inv = true; return; } },
+                3 => { if (count > 5) { self.inv = true; return; } },
+                4 => { if (count > 5) { self.inv = true; return; } },
+                5 => { if (count > 5) { self.inv = true; return; } },
+                6 => { if (count > 5) { self.inv = true; return; } },
+                7 => { if (count > 5) { self.inv = true; return; } },
+                else => {},
+            },
+            .root_arrays_nested => switch (id) {
+                0 => { if (count > 5) { self.inv = true; return; } },
+                1 => { if (count > 5) { self.inv = true; return; } },
+                else => {},
+            },
+            else => {},
+        }
     }
 
     pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {
