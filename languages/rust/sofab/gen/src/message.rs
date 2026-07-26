@@ -299,6 +299,7 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn fp32(&mut self, id: Id, value: f32) {
+        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
         match (self.cur, id) {
             (_Loc::Root_nested, 0) => self.m.nested.f32 = value,
             (_Loc::Root_arrays_nested, 0) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.nested.fp32[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
@@ -306,6 +307,7 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn fp64(&mut self, id: Id, value: f64) {
+        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
         match (self.cur, id) {
             (_Loc::Root_nested, 1) => self.m.nested.f64 = value,
             (_Loc::Root_arrays_nested, 1) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.nested.fp64[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
@@ -376,7 +378,11 @@ impl<'a> Visitor for V<'a> {
                 (_Loc::Root_arrays, 7) => 0,
                 _ => count,
             },
-            _ => 0,
+            _ => match (self.cur, id) {
+                (_Loc::Root_arrays_nested, 0) => 0,
+                (_Loc::Root_arrays_nested, 1) => 0,
+                _ => count,
+            },
         };
         self.afill = match kind {
             ArrayKind::Unsigned | ArrayKind::Signed => match (self.cur, id) {
@@ -397,6 +403,16 @@ impl<'a> Visitor for V<'a> {
             },
         };
         match (self.cur, id) {
+            (_Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; }  },
             _ => {}
         }
     }

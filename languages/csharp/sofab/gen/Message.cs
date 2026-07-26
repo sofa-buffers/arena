@@ -217,12 +217,14 @@ internal sealed class ExampleVisitor : IVisitor {
         }
     }
     public void Fp32(int id, float value) {
+        if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
         switch ((cur, id)) {
             case (Root_nested, 0): m.nested.f32 = value; break;
             case (Root_arrays_nested, 0): if (afill == 0) break; afill--; m.arrays.nested.fp32[ai++] = value; break;
         }
     }
     public void Fp64(int id, double value) {
+        if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
         switch ((cur, id)) {
             case (Root_nested, 1): m.nested.f64 = value; break;
             case (Root_arrays_nested, 1): if (afill == 0) break; afill--; m.arrays.nested.fp64[ai++] = value; break;
@@ -274,20 +276,28 @@ internal sealed class ExampleVisitor : IVisitor {
     }
     public void ArrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
-        // An integer array header at an id that does not declare an integer
-        // array is a wire-type contradiction: discard its `count` elements,
-        // exactly as an unknown id would be skipped.
-        askip = (kind == ArrayKind.Unsigned || kind == ArrayKind.Signed) ? (cur, id) switch {
-            (Root_arrays, 0) => 0,
-            (Root_arrays, 1) => 0,
-            (Root_arrays, 2) => 0,
-            (Root_arrays, 3) => 0,
-            (Root_arrays, 4) => 0,
-            (Root_arrays, 5) => 0,
-            (Root_arrays, 6) => 0,
-            (Root_arrays, 7) => 0,
-            _ => count,
-        } : 0;
+        // An array header at an id that does not declare a native array of the
+        // matching element kind is a wire-type contradiction: discard its
+        // `count` elements, exactly as an unknown id would be skipped.
+        askip = kind switch {
+            ArrayKind.Unsigned or ArrayKind.Signed => (cur, id) switch {
+                (Root_arrays, 0) => 0,
+                (Root_arrays, 1) => 0,
+                (Root_arrays, 2) => 0,
+                (Root_arrays, 3) => 0,
+                (Root_arrays, 4) => 0,
+                (Root_arrays, 5) => 0,
+                (Root_arrays, 6) => 0,
+                (Root_arrays, 7) => 0,
+                _ => count,
+            },
+            ArrayKind.Fixlen => (cur, id) switch {
+                (Root_arrays_nested, 0) => 0,
+                (Root_arrays_nested, 1) => 0,
+                _ => count,
+            },
+            _ => 0,
+        };
         afill = kind switch {
             ArrayKind.Unsigned or ArrayKind.Signed => (cur, id) switch {
                 (Root_arrays, 0) => count,

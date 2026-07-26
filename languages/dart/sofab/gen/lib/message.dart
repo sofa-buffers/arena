@@ -66,6 +66,22 @@ void _padTo<T>(List<T> a, int n, T zero) {
   while (a.length < n) { a.add(zero); }
 }
 
+// Widen the 32 raw wire bits of an fp32 NaN to a display double for element
+// access; the exact bits are kept alongside for a bit-for-bit re-encode (MESSAGE_SPEC S4.6).
+double _f32FromBits(int bits) =>
+    (ByteData(4)..setUint32(0, bits, Endian.little)).getFloat32(0, Endian.little);
+
+// Bit-exact fp32 array copy into a fresh Float32List of length [n] (>= the
+// source length; a fixed-count array passes its schema N, leaving the tail at
+// the +0.0 default). A raw byte copy preserves a signaling/payload NaN that a
+// per-element widen through a Dart double would quiet (MESSAGE_SPEC S4.6); writeFp32Array
+// re-emits a Float32List's bytes verbatim.
+Float32List _f32copy(Float32List v, int n) {
+  final out = Float32List(n < v.length ? v.length : n);
+  Uint8List.sublistView(out).setRange(0, v.length * 4, Uint8List.sublistView(v));
+  return out;
+}
+
 class _StrSeq extends sofab.MessageVisitor {
   _StrSeq(this.out, this.cap, this.emax, this.e);
   final List<String> out;
@@ -160,6 +176,35 @@ class _ExampleArraysVisitor extends sofab.MessageVisitor {
     }
   }
   @override
+  void onArrayBegin(int id, int count) {
+    switch (id) {
+      case 0:
+        if (count > 5) e.inv = true;
+        return;
+      case 1:
+        if (count > 5) e.inv = true;
+        return;
+      case 2:
+        if (count > 5) e.inv = true;
+        return;
+      case 3:
+        if (count > 5) e.inv = true;
+        return;
+      case 4:
+        if (count > 5) e.inv = true;
+        return;
+      case 5:
+        if (count > 5) e.inv = true;
+        return;
+      case 6:
+        if (count > 5) e.inv = true;
+        return;
+      case 7:
+        if (count > 5) e.inv = true;
+        return;
+    }
+  }
+  @override
   sofab.MessageVisitor? onSequenceStart(int id) {
     switch (id) {
       case 10:
@@ -188,8 +233,7 @@ class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
     switch (id) {
       case 0:
         if (values.length > 5) { e.inv = true; return; }
-        o.fp32 = List<double>.from(values);
-        _padTo(o.fp32, 5, 0.0);
+        o.fp32 = _f32copy(values, 5);
         return;
     }
   }
@@ -204,6 +248,17 @@ class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
     }
   }
   @override
+  void onArrayBegin(int id, int count) {
+    switch (id) {
+      case 0:
+        if (count > 5) e.inv = true;
+        return;
+      case 1:
+        if (count > 5) e.inv = true;
+        return;
+    }
+  }
+  @override
   sofab.MessageVisitor? onSequenceStart(int id) {
     return null;
   }
@@ -211,12 +266,15 @@ class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
 
 class ExampleNested {
   double f32 = 0.0;
+  int? _f32Fp32Bits;
   double f64 = 0.0;
   String str = '';
   Uint8List bytes_field = Uint8List(0);
 
   void marshal(sofab.Encoder e) {
-    if (f32 != 0.0) { e.writeFp32(0, f32); }
+    if (f32 != 0.0) {
+      if (f32.isNaN && _f32Fp32Bits != null) { e.writeFp32Bits(0, _f32Fp32Bits!); } else { e.writeFp32(0, f32); }
+    }
     if (f64 != 0.0) { e.writeFp64(1, f64); }
     if (str != '') { e.writeString(2, str); }
     if (bytes_field.isNotEmpty) { e.writeBlob(3, bytes_field); }
@@ -232,6 +290,16 @@ class _ExampleNestedVisitor extends sofab.MessageVisitor {
     switch (id) {
       case 0:
         o.f32 = value;
+        o._f32Fp32Bits = null;
+        return;
+    }
+  }
+  @override
+  void onFp32Bits(int id, int bits) {
+    switch (id) {
+      case 0:
+        o._f32Fp32Bits = bits;
+        o.f32 = _f32FromBits(bits);
         return;
     }
   }
@@ -258,6 +326,17 @@ class _ExampleNestedVisitor extends sofab.MessageVisitor {
       case 3:
         if (value.length > 4) { e.inv = true; return; }
         o.bytes_field = Uint8List.fromList(value);
+        return;
+    }
+  }
+  @override
+  void onFixlenHeader(int id, int subtype, int length) {
+    switch (id) {
+      case 2:
+        if (subtype == sofab.FixlenType.string && length > 32) e.inv = true;
+        return;
+      case 3:
+        if (subtype == sofab.FixlenType.blob && length > 4) e.inv = true;
         return;
     }
   }

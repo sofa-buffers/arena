@@ -110,6 +110,50 @@ func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
 	return nil
 }
 
+func (m *ExampleArrays) ArrayBegin(id sofab.ID, count int) error {
+	switch id {
+	case 0:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 1:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 2:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 3:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 4:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 5:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 6:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 7:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	}
+	return nil
+}
+
+func (m *ExampleArrays) FixlenHeader(id sofab.ID, subtype int, length int) error {
+	switch id {
+	}
+	return nil
+}
+
 func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	switch id {
 	case 10:
@@ -154,6 +198,26 @@ func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
 		}
 		m.Fp64 = v
 		m.Fp64 = _padTo(m.Fp64, 5, 0)
+	}
+	return nil
+}
+
+func (m *ExampleArraysNested) ArrayBegin(id sofab.ID, count int) error {
+	switch id {
+	case 0:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	case 1:
+		if count > 5 {
+			return sofab.ErrInvalidMsg
+		}
+	}
+	return nil
+}
+
+func (m *ExampleArraysNested) FixlenHeader(id sofab.ID, subtype int, length int) error {
+	switch id {
 	}
 	return nil
 }
@@ -216,6 +280,26 @@ func (m *ExampleNested) Bytes(id sofab.ID, v []byte) error {
 			return sofab.ErrInvalidMsg
 		}
 		m.BytesField = append([]byte(nil), v...)
+	}
+	return nil
+}
+
+func (m *ExampleNested) ArrayBegin(id sofab.ID, count int) error {
+	switch id {
+	}
+	return nil
+}
+
+func (m *ExampleNested) FixlenHeader(id sofab.ID, subtype int, length int) error {
+	switch id {
+	case 2:
+		if subtype == 2 && length > 32 {
+			return sofab.ErrInvalidMsg
+		}
+	case 3:
+		if subtype == 3 && length > 4 {
+			return sofab.ErrInvalidMsg
+		}
 	}
 	return nil
 }
