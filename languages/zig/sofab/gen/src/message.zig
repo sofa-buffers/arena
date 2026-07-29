@@ -16,60 +16,83 @@ const sofab = @import("sofab");
 pub const DecodeError = sofab.Error || error{IncompleteMessage};
 
 pub const ExampleArrays = struct {
-    u8: [5]u8 = @splat(0),
-    i8: [5]i8 = @splat(0),
-    u16: [5]u16 = @splat(0),
-    i16: [5]i16 = @splat(0),
-    u32: [5]u32 = @splat(0),
-    i32: [5]i32 = @splat(0),
-    u64: [5]u64 = @splat(0),
-    i64: [5]i64 = @splat(0),
+    u8: FixedArray(u8, 5) = .{},
+    i8: FixedArray(i8, 5) = .{},
+    u16: FixedArray(u16, 5) = .{},
+    i16: FixedArray(i16, 5) = .{},
+    u32: FixedArray(u32, 5) = .{},
+    i32: FixedArray(i32, 5) = .{},
+    u64: FixedArray(u64, 5) = .{},
+    i64: FixedArray(i64, 5) = .{},
     nested: ExampleArraysNested = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn marshal(self: *const ExampleArrays, os: *sofab.OStream) sofab.Error!void {
-        if (!std.mem.allEqual(u8, self.u8[0..], 0)) {
-            try os.writeArrayUnsigned(0, _trimTail(self.u8[0..]));
+        if (self.u8.len != 0) {
+            try os.writeArrayUnsigned(0, self.u8.slice());
         }
-        if (!std.mem.allEqual(i8, self.i8[0..], 0)) {
-            try os.writeArraySigned(1, _trimTail(self.i8[0..]));
+        if (self.i8.len != 0) {
+            try os.writeArraySigned(1, self.i8.slice());
         }
-        if (!std.mem.allEqual(u16, self.u16[0..], 0)) {
-            try os.writeArrayUnsigned(2, _trimTail(self.u16[0..]));
+        if (self.u16.len != 0) {
+            try os.writeArrayUnsigned(2, self.u16.slice());
         }
-        if (!std.mem.allEqual(i16, self.i16[0..], 0)) {
-            try os.writeArraySigned(3, _trimTail(self.i16[0..]));
+        if (self.i16.len != 0) {
+            try os.writeArraySigned(3, self.i16.slice());
         }
-        if (!std.mem.allEqual(u32, self.u32[0..], 0)) {
-            try os.writeArrayUnsigned(4, _trimTail(self.u32[0..]));
+        if (self.u32.len != 0) {
+            try os.writeArrayUnsigned(4, self.u32.slice());
         }
-        if (!std.mem.allEqual(i32, self.i32[0..], 0)) {
-            try os.writeArraySigned(5, _trimTail(self.i32[0..]));
+        if (self.i32.len != 0) {
+            try os.writeArraySigned(5, self.i32.slice());
         }
-        if (!std.mem.allEqual(u64, self.u64[0..], 0)) {
-            try os.writeArrayUnsigned(6, _trimTail(self.u64[0..]));
+        if (self.u64.len != 0) {
+            try os.writeArrayUnsigned(6, self.u64.slice());
         }
-        if (!std.mem.allEqual(i64, self.i64[0..], 0)) {
-            try os.writeArraySigned(7, _trimTail(self.i64[0..]));
+        if (self.i64.len != 0) {
+            try os.writeArraySigned(7, self.i64.slice());
         }
-        try os.writeSequenceBegin(10);
+        try os.writeSequenceBeginLazy(10);
         try self.nested.marshal(os);
         try os.writeSequenceEnd();
+    }
+
+    /// True when every field equals its declared default, compared per field
+    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    pub fn isDefault(self: *const ExampleArrays) bool {
+        if (self.u8.len != 0) return false;
+        if (self.i8.len != 0) return false;
+        if (self.u16.len != 0) return false;
+        if (self.i16.len != 0) return false;
+        if (self.u32.len != 0) return false;
+        if (self.i32.len != 0) return false;
+        if (self.u64.len != 0) return false;
+        if (self.i64.len != 0) return false;
+        if (!self.nested.isDefault()) return false;
+        return true;
     }
 };
 
 pub const ExampleArraysNested = struct {
-    fp32: [5]f32 = @splat(0.0),
-    fp64: [5]f64 = @splat(0.0),
+    fp32: FixedArray(f32, 5) = .{},
+    fp64: FixedArray(f64, 5) = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn marshal(self: *const ExampleArraysNested, os: *sofab.OStream) sofab.Error!void {
-        if (!std.mem.allEqual(f32, self.fp32[0..], 0.0)) {
-            try os.writeArrayFp32(0, _trimTail(self.fp32[0..]));
+        if (self.fp32.len != 0) {
+            try os.writeArrayFp32(0, self.fp32.slice());
         }
-        if (!std.mem.allEqual(f64, self.fp64[0..], 0.0)) {
-            try os.writeArrayFp64(1, _trimTail(self.fp64[0..]));
+        if (self.fp64.len != 0) {
+            try os.writeArrayFp64(1, self.fp64.slice());
         }
+    }
+
+    /// True when every field equals its declared default, compared per field
+    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    pub fn isDefault(self: *const ExampleArraysNested) bool {
+        if (self.fp32.len != 0) return false;
+        if (self.fp64.len != 0) return false;
+        return true;
     }
 };
 
@@ -85,6 +108,16 @@ pub const ExampleNested = struct {
         if (self.f64 != 0.0) try os.writeFp64(1, self.f64);
         if (self.str.len != 0) try os.writeString(2, self.str);
         if (self.bytes_field.len != 0) try os.writeBlob(3, self.bytes_field);
+    }
+
+    /// True when every field equals its declared default, compared per field
+    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    pub fn isDefault(self: *const ExampleNested) bool {
+        if (self.f32 != 0.0) return false;
+        if (self.f64 != 0.0) return false;
+        if (self.str.len != 0) return false;
+        if (self.bytes_field.len != 0) return false;
+        return true;
     }
 };
 
@@ -102,8 +135,8 @@ pub const Example = struct {
     arrays: ExampleArrays = .{},
     string_array: []const []const u8 = &.{},
 
-    /// Upper bound on the encoded size of any value of this message.
-    pub const MAX_SIZE: usize = 1011;
+    /// Worst-case encoded size of this message, derived from the schema.
+    pub const MAX_SIZE: usize = 732;
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn marshal(self: *const Example, os: *sofab.OStream) sofab.Error!void {
@@ -115,17 +148,34 @@ pub const Example = struct {
         if (self.i32 != 0) try os.writeSigned(5, self.i32);
         if (self.u64 != 0) try os.writeUnsigned(6, self.u64);
         if (self.i64 != 0) try os.writeSigned(7, self.i64);
-        try os.writeSequenceBegin(10);
+        try os.writeSequenceBeginLazy(10);
         try self.nested.marshal(os);
         try os.writeSequenceEnd();
-        try os.writeSequenceBegin(100);
+        try os.writeSequenceBeginLazy(100);
         try self.arrays.marshal(os);
         try os.writeSequenceEnd();
-        try os.writeSequenceBegin(200);
+        try os.writeSequenceBeginLazy(200);
         for (self.string_array, 0..) |_e0, _i0| {
-            if (_e0.len != 0) try os.writeString(@intCast(_i0), _e0);
+            if (_e0.len != 0 or _i0 == self.string_array.len - 1) try os.writeString(@intCast(_i0), _e0);
         }
         try os.writeSequenceEnd();
+    }
+
+    /// True when every field equals its declared default, compared per field
+    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    pub fn isDefault(self: *const Example) bool {
+        if (self.u8 != 0) return false;
+        if (self.i8 != 0) return false;
+        if (self.u16 != 0) return false;
+        if (self.i16 != 0) return false;
+        if (self.u32 != 0) return false;
+        if (self.i32 != 0) return false;
+        if (self.u64 != 0) return false;
+        if (self.i64 != 0) return false;
+        if (!self.nested.isDefault()) return false;
+        if (!self.arrays.isDefault()) return false;
+        if (self.string_array.len != 0) return false;
+        return true;
     }
 
     /// Encode into a fresh buffer allocated from `alloc`.
@@ -170,7 +220,7 @@ const _dec_Example = struct {
     cur: _Loc = .root,
     inv: bool = false, // a scalar array over its schema count, or a wrapper element id >= count -> INVALID
     ai: usize = 0, // index into the native array currently being filled
-    askip: usize = 0, // elements left to discard from a S7.3-contradictory array
+    askip: usize = 0, // elements left to discard from a wire-type-contradictory array
     afill: usize = 0, // elements still expected by an armed native-array fill (S7.3)
 
     const _Loc = enum {
@@ -193,10 +243,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u8, &self.ai, @truncate(value), &self.inv); } },
-                2 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u16, &self.ai, @truncate(value), &self.inv); } },
-                4 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u32, &self.ai, @truncate(value), &self.inv); } },
-                6 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.u64, &self.ai, value, &self.inv); } },
+                0 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u8.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.u8.len = self.ai; } },
+                2 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u16.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.u16.len = self.ai; } },
+                4 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u32.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.u32.len = self.ai; } },
+                6 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u64.items, &self.ai, value, &self.inv); self.m.arrays.u64.len = self.ai; } },
                 else => {},
             },
             else => {},
@@ -214,10 +264,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i8, &self.ai, @truncate(value), &self.inv); } },
-                3 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i16, &self.ai, @truncate(value), &self.inv); } },
-                5 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i32, &self.ai, @truncate(value), &self.inv); } },
-                7 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.i64, &self.ai, value, &self.inv); } },
+                1 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i8.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.i8.len = self.ai; } },
+                3 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i16.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.i16.len = self.ai; } },
+                5 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i32.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.i32.len = self.ai; } },
+                7 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i64.items, &self.ai, value, &self.inv); self.m.arrays.i64.len = self.ai; } },
                 else => {},
             },
             else => {},
@@ -232,7 +282,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.nested.fp32, &self.ai, value, &self.inv); } },
+                0 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.nested.fp32.items, &self.ai, value, &self.inv); self.m.arrays.nested.fp32.len = self.ai; } },
                 else => {},
             },
             else => {},
@@ -247,7 +297,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; _putc(&self.m.arrays.nested.fp64, &self.ai, value, &self.inv); } },
+                1 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.nested.fp64.items, &self.ai, value, &self.inv); self.m.arrays.nested.fp64.len = self.ai; } },
                 else => {},
             },
             else => {},
@@ -261,7 +311,7 @@ const _dec_Example = struct {
                 2 => if (total > 32) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
                 else => {},
             },
-            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { _setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } } },
+            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { sofab.arrays.setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } } },
             else => {},
         }
     }
@@ -329,19 +379,19 @@ const _dec_Example = struct {
         };
         switch (self.cur) {
             .root_arrays => switch (id) {
-                0 => { if (count > 5) { self.inv = true; return; } },
-                1 => { if (count > 5) { self.inv = true; return; } },
-                2 => { if (count > 5) { self.inv = true; return; } },
-                3 => { if (count > 5) { self.inv = true; return; } },
-                4 => { if (count > 5) { self.inv = true; return; } },
-                5 => { if (count > 5) { self.inv = true; return; } },
-                6 => { if (count > 5) { self.inv = true; return; } },
-                7 => { if (count > 5) { self.inv = true; return; } },
+                0 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u8.len = 0; },
+                1 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i8.len = 0; },
+                2 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u16.len = 0; },
+                3 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i16.len = 0; },
+                4 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u32.len = 0; },
+                5 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i32.len = 0; },
+                6 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u64.len = 0; },
+                7 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i64.len = 0; },
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => { if (count > 5) { self.inv = true; return; } },
-                1 => { if (count > 5) { self.inv = true; return; } },
+                0 => if (kind == .fixlen) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp32.len = 0; },
+                1 => if (kind == .fixlen) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp64.len = 0; },
                 else => {},
             },
             else => {},
@@ -394,78 +444,68 @@ const _EncodeSink = struct {
     }
 };
 
-/// Store the next native-array element into a dynamic (count-less) slice,
-/// bounds-checked; the slice is pre-sized to the wire count, so the bound
-/// only guards a failed allocation (the data is then dropped).
-fn _put(s: anytype, i: *usize, v: std.meta.Elem(@TypeOf(s))) void {
-    if (i.* >= s.len) return;
-    @constCast(&s[i.*]).* = v;
-    i.* += 1;
-}
-
-/// Store the next native-array element into a fixed [N]T destination. An
-/// element past the schema capacity N flags the message malformed: a wire
-/// count above the schema count is invalid and must be rejected, not
-/// clamped.
-fn _putc(s: anytype, i: *usize, v: std.meta.Elem(@TypeOf(s)), inv: *bool) void {
-    if (i.* >= s.len) {
-        inv.* = true;
-        return;
-    }
-    @constCast(&s[i.*]).* = v;
-    i.* += 1;
-}
-
-/// Trim the trailing run of element-default elements off a fixed-count
-/// native array: returns a[0..M'], where M' is one past the last element
-/// that differs from the element default (0 when every element is the
-/// default). A `count: N` array is fixed-length, so the canonical wire
-/// carries only those M' elements and the decoder rebuilds the trailing
-/// default run from the schema count (MESSAGE_SPEC S3). A dynamic
-/// (count-less) array has no N to refill from and is never trimmed.
+/// Mutable pointer to element `i` of a decode-allocated wrapper array.
 ///
-/// Elements compare by BIT PATTERN (the element's byte image), never by
-/// ==: a trailing -0.0 (which == 0.0) must survive the round-trip instead
-/// of being silently trimmed to +0.0, and a NaN is never a default. Every
-/// native element type (u8..u64, i8..i64, f32, f64, bool, and the enum/
-/// bitfield integer backings) is padding-free, so the byte image is exact.
+/// The element id IS the array index (S5.1), so sequenceBegin
+/// grows the destination to id + 1 -- default-filling the gaps left by omitted
+/// elements -- records the id, and every child store then lands HERE, at that
+/// index. Appending instead would shorten the array by the size of any interior
+/// id gap, and would decode a REOPENED element id as a second element instead of
+/// merging into the first (S7.4). It is the object-element twin of what
+/// sofab.arrays.setElem does for a string/blob element.
 ///
-/// `a` is a fixed field's `[0..]` (a *const [N]T) or its sliceAsBytes
-/// image, so the result is always a slice, never the pointer-to-array.
-fn _trimTail(a: anytype) []const std.meta.Elem(@TypeOf(a)) {
-    var n = a.len;
-    while (n > 0 and std.mem.allEqual(u8, std.mem.asBytes(&a[n - 1]), 0)) : (n -= 1) {}
-    return a[0..n];
+/// Gaps are ordinary here: an interior element equal to the element default is
+/// omitted by a conformant encoder (S2), and only the LAST element is guaranteed
+/// present -- which is what makes the decoded length, highest present id + 1,
+/// exact.
+fn _at(s: anytype, i: usize) *std.meta.Elem(@TypeOf(s)) {
+    return @constCast(&s[i]);
 }
 
-/// Mutable pointer to the last element of a decode-allocated slice.
-fn _last(s: anytype) *std.meta.Elem(@TypeOf(s)) {
-    return @constCast(&s[s.len - 1]);
+/// Storage for a `count: N` native array: N elements of inline capacity plus
+/// the length.
+///
+/// `count` is a CAPACITY, never a length (S3): the field carries
+/// 0..N elements and the wire count M IS the length, so a bare `[N]T` -- which
+/// can only ever BE N long -- cannot represent the value. This can, without
+/// giving up the inline storage that keeps a bounded array allocation-free on
+/// both encode and decode.
+///
+/// The value is `items[0..len]`; `items[len..]` is spare capacity and never
+/// reaches the wire. `.{}` is the EMPTY array -- which is what a fresh count:N
+/// array is: N is a bound, not a content.
+pub fn FixedArray(comptime T: type, comptime N: usize) type {
+    return struct {
+        const Self = @This();
+
+        /// The schema `count`: the most elements this field may carry.
+        pub const capacity: usize = N;
+
+        items: [N]T = std.mem.zeroes([N]T),
+        len: usize = 0,
+
+        /// The array's value: exactly the elements the wire carries.
+        pub fn slice(self: *const Self) []const T {
+            return self.items[0..self.len];
+        }
+
+        /// Replace the value with `vals`, truncated to the capacity N.
+        pub fn set(self: *Self, vals: []const T) void {
+            const n = @min(vals.len, N);
+            @memcpy(self.items[0..n], vals[0..n]);
+            self.len = n;
+        }
+
+        /// A value holding `vals` (truncated to N) -- the literal form.
+        pub fn init(vals: []const T) Self {
+            var s: Self = .{};
+            s.set(vals);
+            return s;
+        }
+    };
 }
 
-/// Grow a decode-owned slice to n elements, filling new slots with `fill`.
-/// Returns false when the allocation fails (the caller then drops the data).
-fn _grow(comptime T: type, a: std.mem.Allocator, s: *[]const T, n: usize, fill: T) bool {
-    if (s.*.len >= n) return true;
-    const new = a.alloc(T, n) catch return false;
-    @memcpy(new[0..s.*.len], s.*);
-    @memset(new[s.*.len..], fill);
-    s.* = new;
-    return true;
-}
-
-/// Allocate a zeroed native-array destination of exactly `n` elements (the
-/// wire count); on allocation failure the array decodes as empty.
+/// Native-array destination of exactly the announced wire count.
 fn _allocN(comptime T: type, a: std.mem.Allocator, n: usize) []const T {
-    const s = a.alloc(T, n) catch return &.{};
-    @memset(s, std.mem.zeroes(T));
-    return s;
-}
-
-/// Place a wrapper-array string/blob element at its wire id (= array index),
-/// growing the destination and filling id gaps left by omitted default
-/// elements.
-fn _setElem(comptime T: type, a: std.mem.Allocator, s: *[]const T, id: usize, fill: T, v: T) void {
-    if (!_grow(T, a, s, id + 1, fill)) return;
-    @constCast(&s.*[id]).* = v;
+    return sofab.arrays.allocN(T, a, n);
 }

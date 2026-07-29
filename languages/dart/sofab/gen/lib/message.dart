@@ -3,10 +3,10 @@
 import 'dart:typed_data';
 import 'package:sofabuffers/sofabuffers.dart' as sofab;
 
-// A sticky INVALID flag shared across all visitors of one decode. corelib-dart
+// A sticky INVALID flag shared across all visitors of one decode. The corelib
 // visitor callbacks return void, so a schema-bound violation (over-count,
 // over-index, over-maxlen) sets this and the generated decode converts it to a
-// terminal INVALID after the corelib returns (the Rust/Zig sticky-flag model).
+// terminal INVALID after the corelib returns.
 class _Dec {
   bool inv = false;
 }
@@ -28,53 +28,14 @@ int _u8len(String s) {
   return n;
 }
 
-// Trailing-default-run trim for a fixed-count int array (MESSAGE_SPEC S3):
-// drop the trailing run of element-default (0) values the canonical wire elides.
-List<int> _trimInt(List<int> a) {
-  var n = a.length;
-  while (n > 0 && a[n - 1] == 0) { n--; }
-  return n == a.length ? a : a.sublist(0, n);
-}
-
-// Float trims compare by BIT PATTERN, so a trailing -0.0 (== 0.0) survives the
-// round-trip and a NaN is never mistaken for the default (MESSAGE_SPEC S3).
-List<double> _trimF32(List<double> a) {
-  final bd = ByteData(4);
-  var n = a.length;
-  while (n > 0) {
-    bd.setFloat32(0, a[n - 1]);
-    if (bd.getInt32(0) != 0) break;
-    n--;
-  }
-  return n == a.length ? a : a.sublist(0, n);
-}
-
-List<double> _trimF64(List<double> a) {
-  final bd = ByteData(8);
-  var n = a.length;
-  while (n > 0) {
-    bd.setFloat64(0, a[n - 1]);
-    if (bd.getInt64(0) != 0) break;
-    n--;
-  }
-  return n == a.length ? a : a.sublist(0, n);
-}
-
-// Grow [a] to exactly [n] elements with the element default [zero]: a decoded
-// fixed-count array has exactly its schema count elements (MESSAGE_SPEC S3).
-void _padTo<T>(List<T> a, int n, T zero) {
-  while (a.length < n) { a.add(zero); }
-}
-
 // Widen the 32 raw wire bits of an fp32 NaN to a display double for element
-// access; the exact bits are kept alongside for a bit-for-bit re-encode (MESSAGE_SPEC S4.6).
+// access; the exact bits are kept alongside for a bit-for-bit re-encode.
 double _f32FromBits(int bits) =>
     (ByteData(4)..setUint32(0, bits, Endian.little)).getFloat32(0, Endian.little);
 
 // Bit-exact fp32 array copy into a fresh Float32List of length [n] (>= the
-// source length; a fixed-count array passes its schema N, leaving the tail at
-// the +0.0 default). A raw byte copy preserves a signaling/payload NaN that a
-// per-element widen through a Dart double would quiet (MESSAGE_SPEC S4.6); writeFp32Array
+// source length). A raw byte copy preserves a signaling/payload NaN that a
+// per-element widen through a Dart double would quiet; writeFp32Array
 // re-emits a Float32List's bytes verbatim.
 Float32List _f32copy(Float32List v, int n) {
   final out = Float32List(n < v.length ? v.length : n);
@@ -98,26 +59,65 @@ class _StrSeq extends sofab.MessageVisitor {
 }
 
 class ExampleArrays {
-  List<int> u8 = <int>[0, 0, 0, 0, 0];
-  List<int> i8 = <int>[0, 0, 0, 0, 0];
-  List<int> u16 = <int>[0, 0, 0, 0, 0];
-  List<int> i16 = <int>[0, 0, 0, 0, 0];
-  List<int> u32 = <int>[0, 0, 0, 0, 0];
-  List<int> i32 = <int>[0, 0, 0, 0, 0];
-  List<int> u64 = <int>[0, 0, 0, 0, 0];
-  List<int> i64 = <int>[0, 0, 0, 0, 0];
+  List<int> u8 = <int>[];
+  List<int> i8 = <int>[];
+  List<int> u16 = <int>[];
+  List<int> i16 = <int>[];
+  List<int> u32 = <int>[];
+  List<int> i32 = <int>[];
+  List<int> u64 = <int>[];
+  List<int> i64 = <int>[];
   ExampleArraysNested nested = ExampleArraysNested();
 
   void marshal(sofab.Encoder e) {
-    { final _t = _trimInt(u8); if (_t.isNotEmpty) { e.writeUnsignedArray(0, _t); } }
-    { final _t = _trimInt(i8); if (_t.isNotEmpty) { e.writeSignedArray(1, _t); } }
-    { final _t = _trimInt(u16); if (_t.isNotEmpty) { e.writeUnsignedArray(2, _t); } }
-    { final _t = _trimInt(i16); if (_t.isNotEmpty) { e.writeSignedArray(3, _t); } }
-    { final _t = _trimInt(u32); if (_t.isNotEmpty) { e.writeUnsignedArray(4, _t); } }
-    { final _t = _trimInt(i32); if (_t.isNotEmpty) { e.writeSignedArray(5, _t); } }
-    { final _t = _trimInt(u64); if (_t.isNotEmpty) { e.writeUnsignedArray(6, _t); } }
-    { final _t = _trimInt(i64); if (_t.isNotEmpty) { e.writeSignedArray(7, _t); } }
-    e.beginSequence(10); nested.marshal(e); e.endSequence();
+    if (u8.isNotEmpty) { e.writeUnsignedArray(0, u8); }
+    if (i8.isNotEmpty) { e.writeSignedArray(1, i8); }
+    if (u16.isNotEmpty) { e.writeUnsignedArray(2, u16); }
+    if (i16.isNotEmpty) { e.writeSignedArray(3, i16); }
+    if (u32.isNotEmpty) { e.writeUnsignedArray(4, u32); }
+    if (i32.isNotEmpty) { e.writeSignedArray(5, i32); }
+    if (u64.isNotEmpty) { e.writeUnsignedArray(6, u64); }
+    if (i64.isNotEmpty) { e.writeSignedArray(7, i64); }
+    e.beginSequenceLazy(10); nested.marshal(e); e.endSequence();
+  }
+
+  /// Restores every field to its declared default, in place.
+  ///
+  /// A field is only written during decode when the wire carries it, and a
+  /// field equal to its default is not on the wire at all, so a destination
+  /// must start from the defaults for an absent field to read back as its
+  /// default. [tryDecode] does that for you; call this directly when driving
+  /// the decode visitor yourself, or to recycle an instance.
+  ///
+  /// Lists are cleared and refilled rather than replaced, so a reused
+  /// instance keeps its backing storage. (A list member assigned a
+  /// fixed-length list by the caller is the one exception -- see the fp32
+  /// array note in the generator docs.)
+  void reset() {
+    u8.clear();
+    i8.clear();
+    u16.clear();
+    i16.clear();
+    u32.clear();
+    i32.clear();
+    u64.clear();
+    i64.clear();
+    nested.reset();
+  }
+
+  /// Whether every field equals its declared default, compared per field and
+  /// recursively -- i.e. whether [marshal] would write no child at all.
+  bool get _isDefault {
+    if (!(u8.isEmpty)) return false;
+    if (!(i8.isEmpty)) return false;
+    if (!(u16.isEmpty)) return false;
+    if (!(i16.isEmpty)) return false;
+    if (!(u32.isEmpty)) return false;
+    if (!(i32.isEmpty)) return false;
+    if (!(u64.isEmpty)) return false;
+    if (!(i64.isEmpty)) return false;
+    if (!(nested._isDefault)) return false;
+    return true;
   }
 }
 
@@ -131,22 +131,18 @@ class _ExampleArraysVisitor extends sofab.MessageVisitor {
       case 0:
         if (values.length > 5) { e.inv = true; return; }
         o.u8 = List<int>.from(values);
-        _padTo(o.u8, 5, 0);
         return;
       case 2:
         if (values.length > 5) { e.inv = true; return; }
         o.u16 = List<int>.from(values);
-        _padTo(o.u16, 5, 0);
         return;
       case 4:
         if (values.length > 5) { e.inv = true; return; }
         o.u32 = List<int>.from(values);
-        _padTo(o.u32, 5, 0);
         return;
       case 6:
         if (values.length > 5) { e.inv = true; return; }
         o.u64 = List<int>.from(values);
-        _padTo(o.u64, 5, 0);
         return;
     }
   }
@@ -156,22 +152,18 @@ class _ExampleArraysVisitor extends sofab.MessageVisitor {
       case 1:
         if (values.length > 5) { e.inv = true; return; }
         o.i8 = List<int>.from(values);
-        _padTo(o.i8, 5, 0);
         return;
       case 3:
         if (values.length > 5) { e.inv = true; return; }
         o.i16 = List<int>.from(values);
-        _padTo(o.i16, 5, 0);
         return;
       case 5:
         if (values.length > 5) { e.inv = true; return; }
         o.i32 = List<int>.from(values);
-        _padTo(o.i32, 5, 0);
         return;
       case 7:
         if (values.length > 5) { e.inv = true; return; }
         o.i64 = List<int>.from(values);
-        _padTo(o.i64, 5, 0);
         return;
     }
   }
@@ -215,12 +207,37 @@ class _ExampleArraysVisitor extends sofab.MessageVisitor {
 }
 
 class ExampleArraysNested {
-  List<double> fp32 = <double>[0.0, 0.0, 0.0, 0.0, 0.0];
-  List<double> fp64 = <double>[0.0, 0.0, 0.0, 0.0, 0.0];
+  List<double> fp32 = <double>[];
+  List<double> fp64 = <double>[];
 
   void marshal(sofab.Encoder e) {
-    { final _t = _trimF32(fp32); if (_t.isNotEmpty) { e.writeFp32Array(0, _t); } }
-    { final _t = _trimF64(fp64); if (_t.isNotEmpty) { e.writeFp64Array(1, _t); } }
+    if (fp32.isNotEmpty) { e.writeFp32Array(0, fp32); }
+    if (fp64.isNotEmpty) { e.writeFp64Array(1, fp64); }
+  }
+
+  /// Restores every field to its declared default, in place.
+  ///
+  /// A field is only written during decode when the wire carries it, and a
+  /// field equal to its default is not on the wire at all, so a destination
+  /// must start from the defaults for an absent field to read back as its
+  /// default. [tryDecode] does that for you; call this directly when driving
+  /// the decode visitor yourself, or to recycle an instance.
+  ///
+  /// Lists are cleared and refilled rather than replaced, so a reused
+  /// instance keeps its backing storage. (A list member assigned a
+  /// fixed-length list by the caller is the one exception -- see the fp32
+  /// array note in the generator docs.)
+  void reset() {
+    fp32 = <double>[];
+    fp64.clear();
+  }
+
+  /// Whether every field equals its declared default, compared per field and
+  /// recursively -- i.e. whether [marshal] would write no child at all.
+  bool get _isDefault {
+    if (!(fp32.isEmpty)) return false;
+    if (!(fp64.isEmpty)) return false;
+    return true;
   }
 }
 
@@ -233,7 +250,7 @@ class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
     switch (id) {
       case 0:
         if (values.length > 5) { e.inv = true; return; }
-        o.fp32 = _f32copy(values, 5);
+        o.fp32 = _f32copy(values, values.length);
         return;
     }
   }
@@ -243,7 +260,6 @@ class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
       case 1:
         if (values.length > 5) { e.inv = true; return; }
         o.fp64 = List<double>.from(values);
-        _padTo(o.fp64, 5, 0.0);
         return;
     }
   }
@@ -278,6 +294,36 @@ class ExampleNested {
     if (f64 != 0.0) { e.writeFp64(1, f64); }
     if (str != '') { e.writeString(2, str); }
     if (bytes_field.isNotEmpty) { e.writeBlob(3, bytes_field); }
+  }
+
+  /// Restores every field to its declared default, in place.
+  ///
+  /// A field is only written during decode when the wire carries it, and a
+  /// field equal to its default is not on the wire at all, so a destination
+  /// must start from the defaults for an absent field to read back as its
+  /// default. [tryDecode] does that for you; call this directly when driving
+  /// the decode visitor yourself, or to recycle an instance.
+  ///
+  /// Lists are cleared and refilled rather than replaced, so a reused
+  /// instance keeps its backing storage. (A list member assigned a
+  /// fixed-length list by the caller is the one exception -- see the fp32
+  /// array note in the generator docs.)
+  void reset() {
+    f32 = 0.0;
+    _f32Fp32Bits = null;
+    f64 = 0.0;
+    str = '';
+    bytes_field = Uint8List(0);
+  }
+
+  /// Whether every field equals its declared default, compared per field and
+  /// recursively -- i.e. whether [marshal] would write no child at all.
+  bool get _isDefault {
+    if (!(f32 == 0.0)) return false;
+    if (!(f64 == 0.0)) return false;
+    if (!(str == '')) return false;
+    if (!(bytes_field.isEmpty)) return false;
+    return true;
   }
 }
 
@@ -369,24 +415,80 @@ class Example {
     if (i32 != 0) { e.writeSigned(5, i32); }
     if (u64 != 0) { e.writeUnsigned(6, u64); }
     if (i64 != 0) { e.writeSigned(7, i64); }
-    e.beginSequence(10); nested.marshal(e); e.endSequence();
-    e.beginSequence(100); arrays.marshal(e); e.endSequence();
-    e.beginSequence(200);
-    for (var _i0 = 0; _i0 < string_array.length; _i0++) { if (string_array[_i0].isNotEmpty) e.writeString(_i0, string_array[_i0]); }
+    e.beginSequenceLazy(10); nested.marshal(e); e.endSequence();
+    e.beginSequenceLazy(100); arrays.marshal(e); e.endSequence();
+    e.beginSequenceLazy(200);
+    for (var _i0 = 0; _i0 < string_array.length; _i0++) { if (string_array[_i0].isNotEmpty || _i0 == string_array.length - 1) e.writeString(_i0, string_array[_i0]); }
     e.endSequence();
+  }
+
+  /// Restores every field to its declared default, in place.
+  ///
+  /// A field is only written during decode when the wire carries it, and a
+  /// field equal to its default is not on the wire at all, so a destination
+  /// must start from the defaults for an absent field to read back as its
+  /// default. [tryDecode] does that for you; call this directly when driving
+  /// the decode visitor yourself, or to recycle an instance.
+  ///
+  /// Lists are cleared and refilled rather than replaced, so a reused
+  /// instance keeps its backing storage. (A list member assigned a
+  /// fixed-length list by the caller is the one exception -- see the fp32
+  /// array note in the generator docs.)
+  void reset() {
+    u8 = 0;
+    i8 = 0;
+    u16 = 0;
+    i16 = 0;
+    u32 = 0;
+    i32 = 0;
+    u64 = 0;
+    i64 = 0;
+    nested.reset();
+    arrays.reset();
+    string_array.clear();
+  }
+
+  /// Whether every field equals its declared default, compared per field and
+  /// recursively -- i.e. whether [marshal] would write no child at all.
+  bool get _isDefault {
+    if (!(u8 == 0)) return false;
+    if (!(i8 == 0)) return false;
+    if (!(u16 == 0)) return false;
+    if (!(i16 == 0)) return false;
+    if (!(u32 == 0)) return false;
+    if (!(i32 == 0)) return false;
+    if (!(u64 == 0)) return false;
+    if (!(i64 == 0)) return false;
+    if (!(nested._isDefault)) return false;
+    if (!(arrays._isDefault)) return false;
+    if (!(string_array.isEmpty)) return false;
+    return true;
   }
 
   /// Worst-case serialized size (schema-bounded fields; a cap for
   /// unbounded ones).
-  static const int maxSize = 1011;
+  static const int maxSize = 732;
   /// Serializes this message to a fresh byte buffer.
   Uint8List encode() => sofab.Encoder.encodeToBytes(marshal);
 
-  /// Status-surfacing one-shot decode (MESSAGE_SPEC S7): fills [out] and
+  /// Status-surfacing one-shot decode: fills [out] and
   /// returns the terminal decode outcome. `invalid` covers both malformed
   /// bytes and a schema-bound violation (over-count/over-index/over-maxlen);
   /// `incomplete` means the bytes end inside a field or an open sequence.
+  ///
+  /// [out] is REUSABLE: it is [reset] to the declared defaults first. That
+  /// reset is what makes a reused destination correct: a field equal to its
+  /// default is not written to the wire at all, nested objects and arrays
+  /// included, so nothing in the bytes can clear a value left over from an
+  /// earlier decode.
   static sofab.DecodeStatus tryDecode(Uint8List data, Example out) {
+    out.reset();
+    return _decodeInto(data, out);
+  }
+
+  /// Decodes into a destination the caller guarantees is already at its
+  /// defaults, so [decode]'s fresh instance skips the redundant reset.
+  static sofab.DecodeStatus _decodeInto(Uint8List data, Example out) {
     final e = _Dec();
     final st = sofab.Decoder.decode(data, _ExampleVisitor(out, e));
     return e.inv ? sofab.DecodeStatus.invalid : st;
@@ -397,7 +499,7 @@ class Example {
   /// when a truncated or malformed message must be distinguished.
   static Example decode(Uint8List data) {
     final m = Example();
-    tryDecode(data, m);
+    _decodeInto(data, m);
     return m;
   }
 }

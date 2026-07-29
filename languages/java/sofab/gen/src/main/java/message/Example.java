@@ -16,69 +16,110 @@ class ExampleNested {
         if ((this.str == null || !this.str.isEmpty())) { os.writeString(2, this.str == null ? "" : this.str); }
         if (this.bytes_field == null || this.bytes_field.length != 0) { os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
     }
+    /** True when every field still equals its declared default, compared per field and recursively -- i.e. marshal would write nothing at all. */
+    boolean isDefault() {
+        if (this.f32 != 0f) return false;
+        if (this.f64 != 0) return false;
+        if ((this.str == null || !this.str.isEmpty())) return false;
+        if (this.bytes_field == null || this.bytes_field.length != 0) return false;
+        return true;
+    }
+    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
+    public void reset() {
+        this.f32 = 0f;
+        this.f64 = 0;
+        this.str = "";
+        this.bytes_field = Sbuf.EMPTY_BYTES;
+    }
 }
 
 class ExampleArraysNested {
-    public float[] fp32 = new float[5];
-    public double[] fp64 = new double[5];
-    private static final float[] _arrdef_fp32 = new float[5];
-    private static final double[] _arrdef_fp64 = new double[5];
+    public float[] fp32 = Sbuf.EMPTY_FLOATS;
+    public double[] fp64 = Sbuf.EMPTY_DOUBLES;
 
     public void marshal(OStream os) throws IOException {
-        if (!java.util.Arrays.equals(this.fp32, _arrdef_fp32)) {
-            os.writeArrayFp32(0, Sbuf.trimTailF32(this.fp32));
+        if (this.fp32 != null && this.fp32.length != 0) {
+            os.writeArrayFp32(0, this.fp32);
         }
-        if (!java.util.Arrays.equals(this.fp64, _arrdef_fp64)) {
-            os.writeArrayFp64(1, Sbuf.trimTailF64(this.fp64));
+        if (this.fp64 != null && this.fp64.length != 0) {
+            os.writeArrayFp64(1, this.fp64);
         }
+    }
+    /** True when every field still equals its declared default, compared per field and recursively -- i.e. marshal would write nothing at all. */
+    boolean isDefault() {
+        if (this.fp32 != null && this.fp32.length != 0) return false;
+        if (this.fp64 != null && this.fp64.length != 0) return false;
+        return true;
+    }
+    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
+    public void reset() {
+        this.fp32 = Sbuf.EMPTY_FLOATS;
+        this.fp64 = Sbuf.EMPTY_DOUBLES;
     }
 }
 
 class ExampleArrays {
-    public long[] u8 = new long[5];
-    public long[] i8 = new long[5];
-    public long[] u16 = new long[5];
-    public long[] i16 = new long[5];
-    public long[] u32 = new long[5];
-    public long[] i32 = new long[5];
-    public long[] u64 = new long[5];
-    public long[] i64 = new long[5];
+    public long[] u8 = Sbuf.EMPTY_LONGS;
+    public long[] i8 = Sbuf.EMPTY_LONGS;
+    public long[] u16 = Sbuf.EMPTY_LONGS;
+    public long[] i16 = Sbuf.EMPTY_LONGS;
+    public long[] u32 = Sbuf.EMPTY_LONGS;
+    public long[] i32 = Sbuf.EMPTY_LONGS;
+    public long[] u64 = Sbuf.EMPTY_LONGS;
+    public long[] i64 = Sbuf.EMPTY_LONGS;
     public ExampleArraysNested nested = new ExampleArraysNested();
-    private static final long[] _arrdef_u8 = new long[5];
-    private static final long[] _arrdef_i8 = new long[5];
-    private static final long[] _arrdef_u16 = new long[5];
-    private static final long[] _arrdef_i16 = new long[5];
-    private static final long[] _arrdef_u32 = new long[5];
-    private static final long[] _arrdef_i32 = new long[5];
-    private static final long[] _arrdef_u64 = new long[5];
-    private static final long[] _arrdef_i64 = new long[5];
 
     public void marshal(OStream os) throws IOException {
-        if (!java.util.Arrays.equals(this.u8, _arrdef_u8)) {
-            os.writeArrayUnsigned(0, Sbuf.trimTail(this.u8));
+        if (this.u8 != null && this.u8.length != 0) {
+            os.writeArrayUnsigned(0, this.u8);
         }
-        if (!java.util.Arrays.equals(this.i8, _arrdef_i8)) {
-            os.writeArraySigned(1, Sbuf.trimTail(this.i8));
+        if (this.i8 != null && this.i8.length != 0) {
+            os.writeArraySigned(1, this.i8);
         }
-        if (!java.util.Arrays.equals(this.u16, _arrdef_u16)) {
-            os.writeArrayUnsigned(2, Sbuf.trimTail(this.u16));
+        if (this.u16 != null && this.u16.length != 0) {
+            os.writeArrayUnsigned(2, this.u16);
         }
-        if (!java.util.Arrays.equals(this.i16, _arrdef_i16)) {
-            os.writeArraySigned(3, Sbuf.trimTail(this.i16));
+        if (this.i16 != null && this.i16.length != 0) {
+            os.writeArraySigned(3, this.i16);
         }
-        if (!java.util.Arrays.equals(this.u32, _arrdef_u32)) {
-            os.writeArrayUnsigned(4, Sbuf.trimTail(this.u32));
+        if (this.u32 != null && this.u32.length != 0) {
+            os.writeArrayUnsigned(4, this.u32);
         }
-        if (!java.util.Arrays.equals(this.i32, _arrdef_i32)) {
-            os.writeArraySigned(5, Sbuf.trimTail(this.i32));
+        if (this.i32 != null && this.i32.length != 0) {
+            os.writeArraySigned(5, this.i32);
         }
-        if (!java.util.Arrays.equals(this.u64, _arrdef_u64)) {
-            os.writeArrayUnsigned(6, Sbuf.trimTail(this.u64));
+        if (this.u64 != null && this.u64.length != 0) {
+            os.writeArrayUnsigned(6, this.u64);
         }
-        if (!java.util.Arrays.equals(this.i64, _arrdef_i64)) {
-            os.writeArraySigned(7, Sbuf.trimTail(this.i64));
+        if (this.i64 != null && this.i64.length != 0) {
+            os.writeArraySigned(7, this.i64);
         }
-        os.writeSequenceBegin(10); (this.nested == null ? new ExampleArraysNested() : this.nested).marshal(os); os.writeSequenceEnd();
+        os.writeSequenceBeginLazy(10); (this.nested == null ? new ExampleArraysNested() : this.nested).marshal(os); os.writeSequenceEnd();
+    }
+    /** True when every field still equals its declared default, compared per field and recursively -- i.e. marshal would write nothing at all. */
+    boolean isDefault() {
+        if (this.u8 != null && this.u8.length != 0) return false;
+        if (this.i8 != null && this.i8.length != 0) return false;
+        if (this.u16 != null && this.u16.length != 0) return false;
+        if (this.i16 != null && this.i16.length != 0) return false;
+        if (this.u32 != null && this.u32.length != 0) return false;
+        if (this.i32 != null && this.i32.length != 0) return false;
+        if (this.u64 != null && this.u64.length != 0) return false;
+        if (this.i64 != null && this.i64.length != 0) return false;
+        if (this.nested != null && !this.nested.isDefault()) return false;
+        return true;
+    }
+    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
+    public void reset() {
+        this.u8 = Sbuf.EMPTY_LONGS;
+        this.i8 = Sbuf.EMPTY_LONGS;
+        this.u16 = Sbuf.EMPTY_LONGS;
+        this.i16 = Sbuf.EMPTY_LONGS;
+        this.u32 = Sbuf.EMPTY_LONGS;
+        this.i32 = Sbuf.EMPTY_LONGS;
+        this.u64 = Sbuf.EMPTY_LONGS;
+        this.i64 = Sbuf.EMPTY_LONGS;
+        if (this.nested == null) this.nested = new ExampleArraysNested(); else this.nested.reset();
     }
 }
 
@@ -105,13 +146,43 @@ public class Example {
         if (this.i32 != 0L) { os.writeSigned(5, this.i32); }
         if (this.u64 != 0L) { os.writeUnsigned(6, this.u64); }
         if (this.i64 != 0L) { os.writeSigned(7, this.i64); }
-        os.writeSequenceBegin(10); (this.nested == null ? new ExampleNested() : this.nested).marshal(os); os.writeSequenceEnd();
-        os.writeSequenceBegin(100); (this.arrays == null ? new ExampleArrays() : this.arrays).marshal(os); os.writeSequenceEnd();
-        os.writeSequenceBegin(200);
-        for (int _i0 = 0; _i0 < this.string_array.size(); _i0++) { String _e0 = this.string_array.get(_i0); if (_e0 != null && !_e0.isEmpty()) os.writeString(_i0, _e0); }
+        os.writeSequenceBeginLazy(10); (this.nested == null ? new ExampleNested() : this.nested).marshal(os); os.writeSequenceEnd();
+        os.writeSequenceBeginLazy(100); (this.arrays == null ? new ExampleArrays() : this.arrays).marshal(os); os.writeSequenceEnd();
+        List<String> _t0 = Sbuf.orEmpty(this.string_array);
+        os.writeSequenceBeginLazy(200);
+        for (int _i0 = 0; _i0 < _t0.size(); _i0++) { String _e0 = _t0.get(_i0); if (_e0 == null) _e0 = ""; if (!_e0.isEmpty() || _i0 == _t0.size() - 1) os.writeString(_i0, _e0); }
         os.writeSequenceEnd();
     }
-    public static final int MAX_SIZE = 1011;
+    /** True when every field still equals its declared default, compared per field and recursively -- i.e. marshal would write nothing at all. */
+    boolean isDefault() {
+        if (this.u8 != 0L) return false;
+        if (this.i8 != 0L) return false;
+        if (this.u16 != 0L) return false;
+        if (this.i16 != 0L) return false;
+        if (this.u32 != 0L) return false;
+        if (this.i32 != 0L) return false;
+        if (this.u64 != 0L) return false;
+        if (this.i64 != 0L) return false;
+        if (this.nested != null && !this.nested.isDefault()) return false;
+        if (this.arrays != null && !this.arrays.isDefault()) return false;
+        if (!Sbuf.orEmpty(this.string_array).isEmpty()) return false;
+        return true;
+    }
+    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
+    public void reset() {
+        this.u8 = 0L;
+        this.i8 = 0L;
+        this.u16 = 0L;
+        this.i16 = 0L;
+        this.u32 = 0L;
+        this.i32 = 0L;
+        this.u64 = 0L;
+        this.i64 = 0L;
+        if (this.nested == null) this.nested = new ExampleNested(); else this.nested.reset();
+        if (this.arrays == null) this.arrays = new ExampleArrays(); else this.arrays.reset();
+        this.string_array = Sbuf.resetList(this.string_array);
+    }
+    public static final int MAX_SIZE = 732;
     // Per-thread scratch buffer: encode() marshals into it and returns an
     // exact-size copy, so the worst-case buffer is not re-allocated (and
     // zeroed) on every call. Do not call encode() reentrantly from a
@@ -133,6 +204,7 @@ public class Example {
         return m;
     }
     public static DecodeStatus tryDecode(byte[] data, Example out) throws SofabException {
+        out.reset();
         IStream is = new IStream();
         is.feed(data, new ExampleVisitor(out));
         return is.status();
@@ -153,7 +225,7 @@ class ExampleVisitor implements Visitor {
     ExampleVisitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
-        // S7.3 (generator#183/#193): drop an element of an array whose id does
+        // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
         switch (cur) {
@@ -172,7 +244,7 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void signed(int id, long value) {
-        // S7.3 (generator#183/#193): drop an element of an array whose id does
+        // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
         switch (cur) {
@@ -191,7 +263,7 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void fp32(int id, float value) {
-        // S7.3 (generator#183/#193): drop an element of an array whose id does
+        // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
         switch (cur) {
@@ -204,7 +276,7 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void fp64(int id, double value) {
-        // S7.3 (generator#183/#193): drop an element of an array whose id does
+        // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
         switch (cur) {
@@ -216,25 +288,8 @@ class ExampleVisitor implements Visitor {
         } break;
         }
     }
-    private static boolean _utf8ok(byte[] b, int i, int end) {
-        while (i < end) {
-            int c = b[i] & 0xff;
-            if (c < 0x80) { i++; continue; }
-            int n, lo, hi;
-            if (c < 0xC2) return false;
-            else if (c < 0xE0) { n = 1; lo = 0x80; hi = 0xBF; }
-            else if (c < 0xF0) { n = 2; lo = (c == 0xE0) ? 0xA0 : 0x80; hi = (c == 0xED) ? 0x9F : 0xBF; }
-            else if (c < 0xF5) { n = 3; lo = (c == 0xF0) ? 0x90 : 0x80; hi = (c == 0xF4) ? 0x8F : 0xBF; }
-            else return false;
-            if (i + n >= end) return false;
-            int cc = b[i + 1] & 0xff; if (cc < lo || cc > hi) return false;
-            for (int k = 2; k <= n; k++) { cc = b[i + k] & 0xff; if (cc < 0x80 || cc > 0xBF) return false; }
-            i += n + 1;
-        }
-        return true;
-    }
     private static String _utf8(byte[] b, int off, int len) {
-        if (_utf8ok(b, off, off + len)) return new String(b, off, len, java.nio.charset.StandardCharsets.UTF_8);
+        if (Utf8.valid(b, off, off + len)) return new String(b, off, len, java.nio.charset.StandardCharsets.UTF_8);
         throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string: invalid UTF-8"));
     }
     public void string(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
@@ -292,7 +347,7 @@ class ExampleVisitor implements Visitor {
     public void arrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
         acap = count;
-        // MESSAGE_SPEC S7.3 (generator#183): an integer array delivered at an id
+        // An integer array delivered at an id
         // that does not declare one is a wire-type contradiction -- arm a discard
         // counter so unsigned()/signed() drop exactly `count` elements. Every id
         // that really declares an integer-element array disarms it below.
@@ -316,18 +371,18 @@ class ExampleVisitor implements Visitor {
         }
         switch (cur) {
         case 2: switch (id) {
-            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); acap = 5; m.arrays.u8 = new long[5]; break;
-            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); acap = 5; m.arrays.i8 = new long[5]; break;
-            case 2: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); acap = 5; m.arrays.u16 = new long[5]; break;
-            case 3: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); acap = 5; m.arrays.i16 = new long[5]; break;
-            case 4: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); acap = 5; m.arrays.u32 = new long[5]; break;
-            case 5: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); acap = 5; m.arrays.i32 = new long[5]; break;
-            case 6: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); acap = 5; m.arrays.u64 = new long[5]; break;
-            case 7: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); acap = 5; m.arrays.i64 = new long[5]; break;
+            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); m.arrays.u8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); m.arrays.i8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 2: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); m.arrays.u16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 3: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); m.arrays.i16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 4: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); m.arrays.u32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 5: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); m.arrays.i32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 6: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); m.arrays.u64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 7: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); m.arrays.i64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
         } break;
         case 3: switch (id) {
-            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); acap = 5; m.arrays.nested.fp32 = new float[5]; break;
-            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); acap = 5; m.arrays.nested.fp64 = new double[5]; break;
+            case 0: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); m.arrays.nested.fp32 = new float[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 1: if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); m.arrays.nested.fp64 = new double[Math.min(count, ARRAY_INIT_CAP)]; break;
         } break;
         }
     }

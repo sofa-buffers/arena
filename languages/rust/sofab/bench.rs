@@ -5,7 +5,7 @@
 // corelib-rs (std) runtime. Prints one uniform BENCH line (see docs/BENCH.md).
 //
 // Built as a second binary inside the generated crate (alongside `harness`),
-// so it can `mod message;` and reuse the generated marshal/decode directly.
+// so it can `mod message;` and reuse the generated serialize/decode directly.
 mod message;
 
 use message::Example;
@@ -50,7 +50,7 @@ fn main() {
         let dec = Example::decode(&blob);
         let used = {
             let mut os = OStream::new(&mut buf);
-            dec.marshal(&mut os);
+            dec.serialize(&mut os);
             os.bytes_used()
         };
         black_box(&buf[..used]);

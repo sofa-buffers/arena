@@ -1,7 +1,7 @@
 // no_std FFI surface over the sofabgen-generated codec (corelib-rs-no-std).
 //
 // The C footprint driver calls sofab_roundtrip(); everything the generated
-// marshal/decode reaches stays live under --gc-sections, so the link delta is
+// serialize/decode reaches stays live under --gc-sections, so the link delta is
 // the full codec surface. black_box keeps the decoded message observable.
 #![no_std]
 
@@ -10,7 +10,7 @@ use sofab::OStream;
 
 /// Encode a (default-constructed) Example into `buf`, decode it back; returns
 /// the encoded length. The values don't matter for footprint — only the code
-/// paths reached by marshal/decode do, and those are value-independent.
+/// paths reached by serialize/decode do, and those are value-independent.
 ///
 /// # Safety
 /// `buf` must point to at least `cap` writable bytes.
@@ -21,7 +21,7 @@ pub unsafe extern "C" fn sofab_roundtrip(buf: *mut u8, cap: usize) -> usize {
     // message (and transitively the decode), shrinking the delta to ~nothing.
     let msg = core::hint::black_box(Example::default());
     let mut os = OStream::new(out);
-    msg.marshal(&mut os);
+    msg.serialize(&mut os);
     let used = os.bytes_used();
     let dec = Example::decode(core::slice::from_raw_parts(buf, used));
     core::hint::black_box(&dec);

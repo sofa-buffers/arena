@@ -60,26 +60,22 @@ void fill(Example &m)
     m.nested.str = "Hello, World!";
     m.nested.bytes_field = {0xDE, 0xAD, 0xBE, 0xEF};
 
-    const uint8_t  u8v[5]  = {0, 64, 128, 191, 255};
-    const int8_t   i8v[5]  = {-128, -64, 0, 63, 127};
-    const uint16_t u16v[5] = {0, 16384, 32768, 49151, 65535};
-    const int16_t  i16v[5] = {-32768, -16384, 0, 16383, 32767};
-    const uint32_t u32v[5] = {0, 1073741824U, 2147483648U, 3221225471U, 4294967295U};
-    const int32_t  i32v[5] = {INT32_MIN, -1073741824, 0, 1073741823, INT32_MAX};
-    const uint64_t u64v[5] = {0ULL, 4611686018427387904ULL, 9223372036854775808ULL,
-                              13835058055282163711ULL, 18446744073709551615ULL};
-    const int64_t  i64v[5] = {-9223372036854775807LL, -4611686018427387904LL, 0LL,
-                              4611686018427387903LL, 9223372036854775807LL};
-    const float    fp32v[5] = {1.0f, 2.0f, 3.0f, -FLT_MAX, FLT_MAX};
-    const double   fp64v[5] = {1.0, 2.0, 3.0, -DBL_MAX, DBL_MAX};
-    for (size_t i = 0; i < 5; ++i) {
-        m.arrays.u8[i]  = u8v[i];   m.arrays.i8[i]  = i8v[i];
-        m.arrays.u16[i] = u16v[i];  m.arrays.i16[i] = i16v[i];
-        m.arrays.u32[i] = u32v[i];  m.arrays.i32[i] = i32v[i];
-        m.arrays.u64[i] = u64v[i];  m.arrays.i64[i] = i64v[i];
-        m.arrays.nested.fp32[i] = fp32v[i];
-        m.arrays.nested.fp64[i] = fp64v[i];
-    }
+    // A fixed `count` array is a length-carrying container (sofab::InlineVector
+    // here, std::vector in the maxspeed profile), so it starts EMPTY and indexing
+    // into it would write out of bounds. Brace assignment sets the elements and
+    // the logical length together — same idiom as string_array below.
+    m.arrays.u8  = {0, 64, 128, 191, 255};
+    m.arrays.i8  = {-128, -64, 0, 63, 127};
+    m.arrays.u16 = {0, 16384, 32768, 49151, 65535};
+    m.arrays.i16 = {-32768, -16384, 0, 16383, 32767};
+    m.arrays.u32 = {0, 1073741824U, 2147483648U, 3221225471U, 4294967295U};
+    m.arrays.i32 = {INT32_MIN, -1073741824, 0, 1073741823, INT32_MAX};
+    m.arrays.u64 = {0ULL, 4611686018427387904ULL, 9223372036854775808ULL,
+                    13835058055282163711ULL, 18446744073709551615ULL};
+    m.arrays.i64 = {-9223372036854775807LL, -4611686018427387904LL, 0LL,
+                    4611686018427387903LL, 9223372036854775807LL};
+    m.arrays.nested.fp32 = {1.0f, 2.0f, 3.0f, -FLT_MAX, FLT_MAX};
+    m.arrays.nested.fp64 = {1.0, 2.0, 3.0, -DBL_MAX, DBL_MAX};
 
     // string_array is a sofab::InlineVector<FixedString<64>,5> in the fixed-capacity
     // (corelib: c-cpp) profile. Since corelib-c-cpp gained an initializer_list

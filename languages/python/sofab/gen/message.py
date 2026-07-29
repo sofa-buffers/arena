@@ -3,67 +3,59 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, field
 from enum import IntEnum
-import math
 from sofab import Encoder, Decoder, SofaDecodeError, WireType, FixlenSubtype
-
-def _trim_tail(a: list, zero) -> list:
-    """Return a[:M'], M' being one past the last non-default element (0 if all
-    default). A fixed-count array's canonical wire carries exactly those M'
-    elements; the decoder rebuilds the trailing default run from the schema
-    count (MESSAGE_SPEC S3)."""
-    n = len(a)
-    while n > 0 and a[n - 1] == zero:
-        n -= 1
-    return a[:n]
-
-def _trim_tail_float(a: list) -> list:
-    """_trim_tail for floats, comparing by BIT PATTERN rather than ==: a
-    trailing -0.0 (which == 0.0) and a trailing NaN are distinct values and
-    must survive the round-trip instead of being trimmed to +0.0."""
-    n = len(a)
-    while n > 0 and a[n - 1] == 0.0 and math.copysign(1.0, a[n - 1]) > 0.0:
-        n -= 1
-    return a[:n]
-
-def _pad_to(a: list, n: int, zero) -> list:
-    """Return a grown to exactly n elements with the element default. A
-    fixed-count array decodes to exactly its schema count regardless of the
-    wire count, so the trailing default run the encoder elided is
-    materialized here (MESSAGE_SPEC S3)."""
-    if len(a) >= n:
-        return a
-    return a + [zero] * (n - len(a))
 
 @dataclass
 class ExampleArrays:
-    u8: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    i8: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    u16: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    i16: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    u32: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    i32: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    u64: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
-    i64: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0])
+    u8: list[int] = field(default_factory=list)
+    i8: list[int] = field(default_factory=list)
+    u16: list[int] = field(default_factory=list)
+    i16: list[int] = field(default_factory=list)
+    u32: list[int] = field(default_factory=list)
+    i32: list[int] = field(default_factory=list)
+    u64: list[int] = field(default_factory=list)
+    i64: list[int] = field(default_factory=list)
     nested: ExampleArraysNested = field(default_factory=lambda: ExampleArraysNested())
 
+    def _is_default(self) -> bool:
+        if not (len(self.u8) == 0):
+            return False
+        if not (len(self.i8) == 0):
+            return False
+        if not (len(self.u16) == 0):
+            return False
+        if not (len(self.i16) == 0):
+            return False
+        if not (len(self.u32) == 0):
+            return False
+        if not (len(self.i32) == 0):
+            return False
+        if not (len(self.u64) == 0):
+            return False
+        if not (len(self.i64) == 0):
+            return False
+        if not (self.nested._is_default()):
+            return False
+        return True
+
     def _marshal(self, e: Encoder) -> None:
-        if self.u8 != [0, 0, 0, 0, 0]:
-            e.write_unsigned_array(0, _trim_tail(self.u8, 0))
-        if self.i8 != [0, 0, 0, 0, 0]:
-            e.write_signed_array(1, _trim_tail(self.i8, 0))
-        if self.u16 != [0, 0, 0, 0, 0]:
-            e.write_unsigned_array(2, _trim_tail(self.u16, 0))
-        if self.i16 != [0, 0, 0, 0, 0]:
-            e.write_signed_array(3, _trim_tail(self.i16, 0))
-        if self.u32 != [0, 0, 0, 0, 0]:
-            e.write_unsigned_array(4, _trim_tail(self.u32, 0))
-        if self.i32 != [0, 0, 0, 0, 0]:
-            e.write_signed_array(5, _trim_tail(self.i32, 0))
-        if self.u64 != [0, 0, 0, 0, 0]:
-            e.write_unsigned_array(6, _trim_tail(self.u64, 0))
-        if self.i64 != [0, 0, 0, 0, 0]:
-            e.write_signed_array(7, _trim_tail(self.i64, 0))
-        e.write_sequence_begin(10)
+        if len(self.u8) != 0:
+            e.write_unsigned_array(0, self.u8)
+        if len(self.i8) != 0:
+            e.write_signed_array(1, self.i8)
+        if len(self.u16) != 0:
+            e.write_unsigned_array(2, self.u16)
+        if len(self.i16) != 0:
+            e.write_signed_array(3, self.i16)
+        if len(self.u32) != 0:
+            e.write_unsigned_array(4, self.u32)
+        if len(self.i32) != 0:
+            e.write_signed_array(5, self.i32)
+        if len(self.u64) != 0:
+            e.write_unsigned_array(6, self.u64)
+        if len(self.i64) != 0:
+            e.write_signed_array(7, self.i64)
+        e.write_sequence_begin_lazy(10)
         self.nested._marshal(e)
         e.write_sequence_end()
 
@@ -79,7 +71,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u8: array count above schema capacity 5")
                 self.u8 = d.read_unsigned_array()
-                self.u8 = _pad_to(self.u8, 5, 0)
             elif fld.id == 1:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -87,7 +78,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i8: array count above schema capacity 5")
                 self.i8 = d.read_signed_array()
-                self.i8 = _pad_to(self.i8, 5, 0)
             elif fld.id == 2:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
@@ -95,7 +85,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u16: array count above schema capacity 5")
                 self.u16 = d.read_unsigned_array()
-                self.u16 = _pad_to(self.u16, 5, 0)
             elif fld.id == 3:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -103,7 +92,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i16: array count above schema capacity 5")
                 self.i16 = d.read_signed_array()
-                self.i16 = _pad_to(self.i16, 5, 0)
             elif fld.id == 4:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
@@ -111,7 +99,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u32: array count above schema capacity 5")
                 self.u32 = d.read_unsigned_array()
-                self.u32 = _pad_to(self.u32, 5, 0)
             elif fld.id == 5:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -119,7 +106,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i32: array count above schema capacity 5")
                 self.i32 = d.read_signed_array()
-                self.i32 = _pad_to(self.i32, 5, 0)
             elif fld.id == 6:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
@@ -127,7 +113,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u64: array count above schema capacity 5")
                 self.u64 = d.read_unsigned_array()
-                self.u64 = _pad_to(self.u64, 5, 0)
             elif fld.id == 7:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -135,7 +120,6 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i64: array count above schema capacity 5")
                 self.i64 = d.read_signed_array()
-                self.i64 = _pad_to(self.i64, 5, 0)
             elif fld.id == 10:
                 if fld.type != WireType.SEQUENCE_START:
                     d.skip()
@@ -193,14 +177,21 @@ class ExampleArrays:
 
 @dataclass
 class ExampleArraysNested:
-    fp32: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
-    fp64: list[float] = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
+    fp32: list[float] = field(default_factory=list)
+    fp64: list[float] = field(default_factory=list)
+
+    def _is_default(self) -> bool:
+        if not (len(self.fp32) == 0):
+            return False
+        if not (len(self.fp64) == 0):
+            return False
+        return True
 
     def _marshal(self, e: Encoder) -> None:
-        if self.fp32 != [0.0, 0.0, 0.0, 0.0, 0.0]:
-            e.write_float32_array(0, _trim_tail_float(self.fp32))
-        if self.fp64 != [0.0, 0.0, 0.0, 0.0, 0.0]:
-            e.write_float64_array(1, _trim_tail_float(self.fp64))
+        if len(self.fp32) != 0:
+            e.write_float32_array(0, self.fp32)
+        if len(self.fp64) != 0:
+            e.write_float64_array(1, self.fp64)
 
     def _unmarshal(self, d: Decoder) -> None:
         while True:
@@ -214,7 +205,6 @@ class ExampleArraysNested:
                 if fld.count > 5:
                     raise SofaDecodeError("fp32: array count above schema capacity 5")
                 self.fp32 = d.read_float32_array()
-                self.fp32 = _pad_to(self.fp32, 5, 0.0)
             elif fld.id == 1:
                 if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP64:
                     d.skip()
@@ -222,7 +212,6 @@ class ExampleArraysNested:
                 if fld.count > 5:
                     raise SofaDecodeError("fp64: array count above schema capacity 5")
                 self.fp64 = d.read_float64_array()
-                self.fp64 = _pad_to(self.fp64, 5, 0.0)
             else:
                 d.skip()
 
@@ -258,6 +247,17 @@ class ExampleNested:
     f64: float = 0.0
     str: str = ""
     bytes_field: bytes = b""
+
+    def _is_default(self) -> bool:
+        if not (self.f32 == 0.0):
+            return False
+        if not (self.f64 == 0.0):
+            return False
+        if not (self.str == ""):
+            return False
+        if not (bytes(self.bytes_field) == b""):
+            return False
+        return True
 
     def _marshal(self, e: Encoder) -> None:
         if self.f32 != 0.0:
@@ -348,6 +348,31 @@ class Example:
     arrays: ExampleArrays = field(default_factory=lambda: ExampleArrays())
     string_array: list[str] = field(default_factory=list)
 
+    def _is_default(self) -> bool:
+        if not (self.u8 == 0):
+            return False
+        if not (self.i8 == 0):
+            return False
+        if not (self.u16 == 0):
+            return False
+        if not (self.i16 == 0):
+            return False
+        if not (self.u32 == 0):
+            return False
+        if not (self.i32 == 0):
+            return False
+        if not (self.u64 == 0):
+            return False
+        if not (self.i64 == 0):
+            return False
+        if not (self.nested._is_default()):
+            return False
+        if not (self.arrays._is_default()):
+            return False
+        if not (len(self.string_array) == 0):
+            return False
+        return True
+
     def _marshal(self, e: Encoder) -> None:
         if self.u8 != 0:
             e.write_unsigned(0, int(self.u8))
@@ -365,15 +390,15 @@ class Example:
             e.write_unsigned(6, int(self.u64))
         if self.i64 != 0:
             e.write_signed(7, int(self.i64))
-        e.write_sequence_begin(10)
+        e.write_sequence_begin_lazy(10)
         self.nested._marshal(e)
         e.write_sequence_end()
-        e.write_sequence_begin(100)
+        e.write_sequence_begin_lazy(100)
         self.arrays._marshal(e)
         e.write_sequence_end()
-        e.write_sequence_begin(200)
+        e.write_sequence_begin_lazy(200)
         for _i0, _e0 in enumerate(self.string_array):
-            if _e0 != "":
+            if _e0 != "" or _i0 == len(self.string_array) - 1:
                 e.write_string(_i0, _e0)
         e.write_sequence_end()
 

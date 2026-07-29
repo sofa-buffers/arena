@@ -10,10 +10,25 @@ CORELIB="${SOFAB_TS_CORELIB:-$ROOT/vendor/corelib-ts}"
 # renovate.json ignores sofab/gen so Renovate never fights these.
 . "$ROOT/languages/versions.sh"
 
-# (1) Build corelib-ts if its dist/ is missing.
-if [ ! -f "$CORELIB/dist/index.js" ]; then
-    echo "typescript: building corelib-ts" >&2
+# (1) Build corelib-ts if its dist/ is missing OR stale.
+#
+# dist/ is a gitignored build artifact, so bootstrap.sh's `git reset --hard` onto
+# the new main HEAD leaves the PREVIOUS build in place: a bare "is dist missing?"
+# test then keeps serving a corelib older than the generated code calling into
+# it, and a call into a method that build predates fails at RUNTIME, long after a
+# green "setup OK" (2026-07-28: os.writeSequenceBeginLazy is not a function).
+# Rebuild whenever the checked-out commit differs from the one dist was built
+# from, or any source file is newer than dist.
+STAMP="$CORELIB/dist/.arena-built-from"
+CORELIB_REV="$(git -C "$CORELIB" rev-parse HEAD 2>/dev/null || echo unknown)"
+if [ ! -f "$CORELIB/dist/index.js" ] \
+   || [ "$CORELIB_REV" = unknown ] \
+   || [ ! -f "$STAMP" ] \
+   || [ "$(cat "$STAMP")" != "$CORELIB_REV" ] \
+   || [ -n "$(find "$CORELIB/src" "$CORELIB/package.json" -newer "$CORELIB/dist/index.js" -print -quit 2>/dev/null)" ]; then
+    echo "typescript: building corelib-ts ($CORELIB_REV)" >&2
     ( cd "$CORELIB" && npm install --no-audit --no-fund --silent && npm run build >/dev/null )
+    printf '%s\n' "$CORELIB_REV" > "$STAMP"
 fi
 [ -f "$CORELIB/dist/index.js" ] || { echo "FAIL: corelib-ts not built (no dist/)" >&2; exit 1; }
 

@@ -50,24 +50,24 @@ typedef struct {
 } fullscale_example_nested_t;
 
 typedef struct {
-    float fp32[5];
-    double fp64[5];
+    uint32_t fp32_len; float fp32[5];
+    uint64_t fp64_len; double fp64[5];
 } fullscale_example_arrays_nested_t;
 
 typedef struct {
-    uint8_t u8[5];
-    int8_t i8[5];
-    uint16_t u16[5];
-    int16_t i16[5];
-    uint32_t u32[5];
-    int32_t i32[5];
-    uint64_t u64[5];
-    int64_t i64[5];
+    uint8_t u8_len; uint8_t u8[5];
+    uint8_t i8_len; int8_t i8[5];
+    uint16_t u16_len; uint16_t u16[5];
+    uint16_t i16_len; int16_t i16[5];
+    uint32_t u32_len; uint32_t u32[5];
+    uint32_t i32_len; int32_t i32[5];
+    uint64_t u64_len; uint64_t u64[5];
+    uint64_t i64_len; int64_t i64[5];
     fullscale_example_arrays_nested_t nested;
 } fullscale_example_arrays_t;
 
 typedef struct {
-    char items[5][65];
+    uint8_t len; char items[5][65];
 } fullscale_example_string_array_elems_t;
 
 typedef struct {
@@ -85,7 +85,7 @@ typedef struct {
 } fullscale_example_t;
 
 /*! Worst-case serialized size of example (every field present, all maxlen/count). */
-#define FULLSCALE_EXAMPLE_MAX_SIZE 731
+#define FULLSCALE_EXAMPLE_MAX_SIZE 732
 
 /*! Initialize a example with its schema defaults (non-default fields zeroed). */
 void fullscale_example_init(fullscale_example_t *msg);
@@ -93,5 +93,38 @@ void fullscale_example_init(fullscale_example_t *msg);
 sofab_ret_t fullscale_example_encode(const fullscale_example_t *msg, uint8_t *buf, size_t buflen, size_t *used);
 /*! Decode buf[len] into msg (call fullscale_example_init first to apply defaults). Returns sofab_ret_t. */
 sofab_ret_t fullscale_example_decode(fullscale_example_t *msg, const uint8_t *buf, size_t len);
+
+/*! Object descriptor for example, for use with the sofab_object_* API directly. */
+extern const sofab_object_descr_t _fullscale_descr_message_example;
+
+/*!
+ * Encode msg into a stream the caller owns. With a flush callback on that
+ *  *  stream the message may exceed its buffer: the buffer is drained as it
+ *  *  fills, so what bounds memory is the buffer, not the message. The caller
+ *  *  flushes the tail with sofab_ostream_flush().
+ */
+sofab_ret_t fullscale_example_encode_to(sofab_ostream_t *os, const fullscale_example_t *msg);
+
+/*!
+ * Incremental decoder: hold one and feed the message as bytes arrive,
+ *  *  instead of buffering it whole first.
+ *  *
+ *  *  The wire format has no end marker at the top level -- a message ends
+ *  *  where its bytes end -- so a feed cannot report that the MESSAGE is
+ *  *  complete, only that the bytes handed in ended on a field boundary
+ *  *  (SOFAB_RET_OK) or mid-field (SOFAB_RET_INCOMPLETE). Neither is a failure
+ *  *  mid-stream; the caller's own framing decides when the input is over, and
+ *  *  the last verdict says whether it ended half-read.
+ */
+typedef struct {
+    sofab_istream_t is;
+    sofab_object_decoder_t dec[3];
+} fullscale_example_decoder_t;
+
+/*! Bind a decoder to msg. Call fullscale_example_init on msg first to apply defaults. */
+void fullscale_example_decoder_init(fullscale_example_decoder_t *d, fullscale_example_t *msg);
+
+/*! Feed the next chunk. See fullscale_example_decoder_t for what the return value means. */
+sofab_ret_t fullscale_example_decoder_feed(fullscale_example_decoder_t *d, const void *buf, size_t len);
 
 #endif /* FULLSCALE_EXAMPLE_H */
