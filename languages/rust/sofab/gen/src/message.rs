@@ -3,113 +3,89 @@
 use sofab::{OStream, IStream, Visitor, Id, Unsigned, Signed};
 use serde::{Serialize, Deserialize};
 
-// _trim_tail / _trim_tail_f32 / _trim_tail_f64 return &a[..M'], where M' is one
-// past the last element that differs from the element default (0 when every
-// element is the default). A `count: N` array is fixed-length: its canonical wire
-// carries exactly those M' elements and the decoder rebuilds the trailing default
-// run from the schema count (MESSAGE_SPEC S3). A dynamic (count-less) array has
-// no N to refill from, so it is never trimmed. Floats compare by BIT PATTERN, not
-// by ==, so a trailing -0.0 (which == 0.0) survives the round-trip instead of
-// being silently trimmed to +0.0, and a NaN is never taken for the default.
-fn _trim_tail<T: PartialEq + Copy>(a: &[T], zero: T) -> &[T] {
-    let mut n = a.len();
-    while n > 0 && a[n - 1] == zero { n -= 1; }
-    &a[..n]
-}
-fn _trim_tail_f32(a: &[f32]) -> &[f32] {
-    let mut n = a.len();
-    while n > 0 && f32::to_bits(a[n - 1]) == 0 { n -= 1; }
-    &a[..n]
-}
-fn _trim_tail_f64(a: &[f64]) -> &[f64] {
-    let mut n = a.len();
-    while n > 0 && f64::to_bits(a[n - 1]) == 0 { n -= 1; }
-    &a[..n]
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArrays {
-    pub u8: [u8; 5],
-    pub i8: [i8; 5],
-    pub u16: [u16; 5],
-    pub i16: [i16; 5],
-    pub u32: [u32; 5],
-    pub i32: [i32; 5],
-    pub u64: [u64; 5],
-    pub i64: [i64; 5],
+    pub u8: Vec<u8>,
+    pub i8: Vec<i8>,
+    pub u16: Vec<u16>,
+    pub i16: Vec<i16>,
+    pub u32: Vec<u32>,
+    pub i32: Vec<i32>,
+    pub u64: Vec<u64>,
+    pub i64: Vec<i64>,
     pub nested: ExampleArraysNested,
 }
 
 impl Default for ExampleArrays {
     fn default() -> Self {
         Self {
-            u8: [0; 5],
-            i8: [0; 5],
-            u16: [0; 5],
-            i16: [0; 5],
-            u32: [0; 5],
-            i32: [0; 5],
-            u64: [0; 5],
-            i64: [0; 5],
+            u8: Vec::new(),
+            i8: Vec::new(),
+            u16: Vec::new(),
+            i16: Vec::new(),
+            u32: Vec::new(),
+            i32: Vec::new(),
+            u64: Vec::new(),
+            i64: Vec::new(),
             nested: Default::default(),
         }
     }
 }
 
 impl ExampleArrays {
-    pub fn marshal(&self, os: &mut OStream) {
-        if self.u8 != [0; 5] {
-            let _ = os.write_array_unsigned(0, _trim_tail(&self.u8[..], 0));
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut OStream<'_, _F>) {
+        if !self.u8.is_empty() {
+            let _ = os.write_array_unsigned(0, &self.u8);
         }
-        if self.i8 != [0; 5] {
-            let _ = os.write_array_signed(1, _trim_tail(&self.i8[..], 0));
+        if !self.i8.is_empty() {
+            let _ = os.write_array_signed(1, &self.i8);
         }
-        if self.u16 != [0; 5] {
-            let _ = os.write_array_unsigned(2, _trim_tail(&self.u16[..], 0));
+        if !self.u16.is_empty() {
+            let _ = os.write_array_unsigned(2, &self.u16);
         }
-        if self.i16 != [0; 5] {
-            let _ = os.write_array_signed(3, _trim_tail(&self.i16[..], 0));
+        if !self.i16.is_empty() {
+            let _ = os.write_array_signed(3, &self.i16);
         }
-        if self.u32 != [0; 5] {
-            let _ = os.write_array_unsigned(4, _trim_tail(&self.u32[..], 0));
+        if !self.u32.is_empty() {
+            let _ = os.write_array_unsigned(4, &self.u32);
         }
-        if self.i32 != [0; 5] {
-            let _ = os.write_array_signed(5, _trim_tail(&self.i32[..], 0));
+        if !self.i32.is_empty() {
+            let _ = os.write_array_signed(5, &self.i32);
         }
-        if self.u64 != [0; 5] {
-            let _ = os.write_array_unsigned(6, _trim_tail(&self.u64[..], 0));
+        if !self.u64.is_empty() {
+            let _ = os.write_array_unsigned(6, &self.u64);
         }
-        if self.i64 != [0; 5] {
-            let _ = os.write_array_signed(7, _trim_tail(&self.i64[..], 0));
+        if !self.i64.is_empty() {
+            let _ = os.write_array_signed(7, &self.i64);
         }
-        let _ = os.write_sequence_begin(10); self.nested.marshal(os); let _ = os.write_sequence_end();
+        let _ = os.write_sequence_begin_lazy(10); self.nested.serialize(os); let _ = os.write_sequence_end();
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArraysNested {
-    pub fp32: [f32; 5],
-    pub fp64: [f64; 5],
+    pub fp32: Vec<f32>,
+    pub fp64: Vec<f64>,
 }
 
 impl Default for ExampleArraysNested {
     fn default() -> Self {
         Self {
-            fp32: [0.0; 5],
-            fp64: [0.0; 5],
+            fp32: Vec::new(),
+            fp64: Vec::new(),
         }
     }
 }
 
 impl ExampleArraysNested {
-    pub fn marshal(&self, os: &mut OStream) {
-        if self.fp32 != [0.0; 5] {
-            let _ = os.write_array_fp32(0, _trim_tail_f32(&self.fp32[..]));
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut OStream<'_, _F>) {
+        if !self.fp32.is_empty() {
+            let _ = os.write_array_fp32(0, &self.fp32);
         }
-        if self.fp64 != [0.0; 5] {
-            let _ = os.write_array_fp64(1, _trim_tail_f64(&self.fp64[..]));
+        if !self.fp64.is_empty() {
+            let _ = os.write_array_fp64(1, &self.fp64);
         }
     }
 }
@@ -135,7 +111,7 @@ impl Default for ExampleNested {
 }
 
 impl ExampleNested {
-    pub fn marshal(&self, os: &mut OStream) {
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut OStream<'_, _F>) {
         if self.f32 != 0.0 { let _ = os.write_fp32(0, self.f32); }
         if self.f64 != 0.0 { let _ = os.write_fp64(1, self.f64); }
         if self.str != "" { let _ = os.write_str(2, &self.str); }
@@ -179,8 +155,9 @@ impl Default for Example {
 }
 
 impl Example {
-    pub const MAX_SIZE: usize = 1011;
-    pub fn marshal(&self, os: &mut OStream) {
+    /// Worst-case encoded size of this message, derived from the schema.
+    pub const MAX_SIZE: usize = 732;
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut OStream<'_, _F>) {
         if self.u8 != 0 { let _ = os.write_unsigned(0, self.u8 as Unsigned); }
         if self.i8 != 0 { let _ = os.write_signed(1, self.i8 as Signed); }
         if self.u16 != 0 { let _ = os.write_unsigned(2, self.u16 as Unsigned); }
@@ -189,15 +166,15 @@ impl Example {
         if self.i32 != 0 { let _ = os.write_signed(5, self.i32 as Signed); }
         if self.u64 != 0 { let _ = os.write_unsigned(6, self.u64 as Unsigned); }
         if self.i64 != 0 { let _ = os.write_signed(7, self.i64 as Signed); }
-        let _ = os.write_sequence_begin(10); self.nested.marshal(os); let _ = os.write_sequence_end();
-        let _ = os.write_sequence_begin(100); self.arrays.marshal(os); let _ = os.write_sequence_end();
-        let _ = os.write_sequence_begin(200);
-        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() { let _ = os.write_str(_i0 as Id, _e0); } }
+        let _ = os.write_sequence_begin_lazy(10); self.nested.serialize(os); let _ = os.write_sequence_end();
+        let _ = os.write_sequence_begin_lazy(100); self.arrays.serialize(os); let _ = os.write_sequence_end();
+        let _ = os.write_sequence_begin_lazy(200);
+        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() || _i0 + 1 == self.string_array.len() { let _ = os.write_str(_i0 as Id, _e0); } }
         let _ = os.write_sequence_end();
     }
     pub fn encode(&self) -> Vec<u8> {
         let mut buf = vec![0u8; Self::MAX_SIZE];
-        let used = { let mut os = OStream::new(&mut buf); self.marshal(&mut os); os.bytes_used() };
+        let used = { let mut os = OStream::new(&mut buf); self.serialize(&mut os); os.bytes_used() };
         buf.truncate(used);
         buf
     }
@@ -207,8 +184,14 @@ impl Example {
     pub fn try_decode(data: &[u8]) -> Result<Self, sofab::Error> {
         example_dec::try_decode(data)
     }
+    /// An incremental decoder for this message: hold it and feed chunks as
+    /// they arrive, instead of buffering the whole message first.
+    pub fn decoder() -> ExampleDecoder {
+        ExampleDecoder::new()
+    }
 }
 
+pub use example_dec::Decoder as ExampleDecoder;
 mod example_dec {
     use super::*;
     use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind};
@@ -216,7 +199,7 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, ai: 0, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
@@ -229,7 +212,7 @@ mod example_dec {
         let invalid;
         let fed;
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, ai: 0, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             fed = is.feed(data, &mut v);
             overflow = v.err;
@@ -248,6 +231,78 @@ mod example_dec {
         Ok(m)
     }
 
+    /// Incremental decoder: hold one and feed the message as bytes arrive.
+    ///
+    /// The wire format has no end marker at the top level -- a message ends
+    /// where its bytes end -- so `feed` cannot tell you the message is
+    /// complete, and does not try to. Its verdict is about the bytes handed
+    /// in: `Ok(())` means they ended on a clean field boundary (the message
+    /// COULD end here), `Err(Incomplete)` means they ended mid-field. Neither
+    /// is a failure mid-stream. The caller's own framing -- a length prefix, a
+    /// datagram boundary, a closed socket -- decides when to stop; `finish`
+    /// then gives the verdict for the message as a whole.
+    ///
+    /// Any error other than `Incomplete` is terminal: discard the decoder.
+    pub struct Decoder {
+        m: Example,
+        is: IStream,
+        stack: Vec<_Loc>,
+        cur: _Loc,
+        acc: Vec<u8>,
+        err: bool,
+        inv: bool,
+        askip: usize,
+        afill: usize,
+    }
+
+    impl Decoder {
+        pub fn new() -> Self {
+            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 }
+        }
+
+        /// Feed the next chunk. `Ok(())` if it ended on a field boundary,
+        /// `Err(Incomplete)` if it ended mid-field -- see the type docs: neither
+        /// answers whether the MESSAGE is done, only whether these bytes were.
+        pub fn feed(&mut self, chunk: &[u8]) -> Result<(), sofab::Error> {
+            let fed = {
+                let mut v = V { m: &mut self.m, stack: core::mem::take(&mut self.stack), cur: self.cur, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill };
+                let r = self.is.feed(chunk, &mut v);
+                // `..` covers `m`, ending its borrow before the write-back.
+                let V { stack, cur, acc, err, inv, askip, afill, .. } = v;
+                self.stack = stack;
+                self.cur = cur;
+                self.acc = acc;
+                self.err = err;
+                self.inv = inv;
+                self.askip = askip;
+                self.afill = afill;
+                r
+            };
+            // INVALID dominates a truncated tail (S5.2), so it is reported
+            // ahead of feed's own Incomplete verdict.
+            if self.inv { return Err(sofab::Error::InvalidMsg); }
+            fed
+        }
+
+        /// Take the decoded message once the caller's framing says the input
+        /// is over. Applies the same checks as try_decode, including that the
+        /// stream actually ended at a clean boundary -- a truncated message
+        /// must be rejected, not returned half-filled.
+        pub fn finish(mut self) -> Result<Example, sofab::Error> {
+            if self.inv { return Err(sofab::Error::InvalidMsg); }
+            // An empty chunk probes end-of-input without supplying any: Ok only
+            // when nothing is half-read. This is what makes a truncated stream
+            // an error here rather than a silently partial value.
+            self.feed(&[])?;
+            if self.err { return Err(sofab::Error::BufferFull); }
+            Ok(self.m)
+        }
+    }
+
+    impl Default for Decoder {
+        fn default() -> Self { Self::new() }
+    }
+
 #[derive(Clone, Copy, PartialEq)]
 enum _Loc {
     Root,
@@ -264,53 +319,52 @@ struct V<'a> {
     acc: Vec<u8>,
     err: bool,
     inv: bool,
-    ai: usize, // index into the fixed native array currently being filled
-    askip: usize, // elements left to discard from a S7.3-contradictory array
+    askip: usize, // elements left to discard from a wire-type-contradictory array
     afill: usize, // elements still expected by an armed native-array fill (S7.3)
 }
 
 impl<'a> Visitor for V<'a> {
     fn unsigned(&mut self, id: Id, value: Unsigned) {
-        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
+        if self.askip > 0 { self.askip -= 1; return; } // array delivered at a scalar id
         match (self.cur, id) {
             (_Loc::Root, 0) => self.m.u8 = value as u8,
             (_Loc::Root, 2) => self.m.u16 = value as u16,
             (_Loc::Root, 4) => self.m.u32 = value as u32,
             (_Loc::Root, 6) => self.m.u64 = value as u64,
-            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u8[self.ai] = value as u8; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u16[self.ai] = value as u16; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u32[self.ai] = value as u32; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 6) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.u64[self.ai] = value as u64; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.u8.push(value as u8); },
+            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.u16.push(value as u16); },
+            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.u32.push(value as u32); },
+            (_Loc::Root_arrays, 6) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.u64.push(value as u64); },
             _ => {}
         }
     }
     fn signed(&mut self, id: Id, value: Signed) {
-        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
+        if self.askip > 0 { self.askip -= 1; return; } // array delivered at a scalar id
         match (self.cur, id) {
             (_Loc::Root, 1) => self.m.i8 = value as i8,
             (_Loc::Root, 3) => self.m.i16 = value as i16,
             (_Loc::Root, 5) => self.m.i32 = value as i32,
             (_Loc::Root, 7) => self.m.i64 = value as i64,
-            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i8[self.ai] = value as i8; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i16[self.ai] = value as i16; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i32[self.ai] = value as i32; self.ai += 1; } else { self.inv = true; } }
-            (_Loc::Root_arrays, 7) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.i64[self.ai] = value as i64; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.i8.push(value as i8); },
+            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.i16.push(value as i16); },
+            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.i32.push(value as i32); },
+            (_Loc::Root_arrays, 7) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.i64.push(value as i64); },
             _ => {}
         }
     }
     fn fp32(&mut self, id: Id, value: f32) {
-        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
+        if self.askip > 0 { self.askip -= 1; return; } // array delivered at a scalar id
         match (self.cur, id) {
             (_Loc::Root_nested, 0) => self.m.nested.f32 = value,
-            (_Loc::Root_arrays_nested, 0) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.nested.fp32[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays_nested, 0) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.nested.fp32.push(value); },
             _ => {}
         }
     }
     fn fp64(&mut self, id: Id, value: f64) {
-        if self.askip > 0 { self.askip -= 1; return; } // S7.3 array at a scalar id
+        if self.askip > 0 { self.askip -= 1; return; } // array delivered at a scalar id
         match (self.cur, id) {
             (_Loc::Root_nested, 1) => self.m.nested.f64 = value,
-            (_Loc::Root_arrays_nested, 1) => { if self.afill == 0 { return; } self.afill -= 1; if self.ai < 5 { self.m.arrays.nested.fp64[self.ai] = value; self.ai += 1; } else { self.inv = true; } }
+            (_Loc::Root_arrays_nested, 1) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.nested.fp64.push(value); },
             _ => {}
         }
     }
@@ -324,7 +378,7 @@ impl<'a> Visitor for V<'a> {
         }
         // Single-shot: whole payload in one chunk -> build straight from the
         // slice, skipping the `acc` accumulate + second copy.
-        // MESSAGE_SPEC 8 / CORELIB_PLAN 6.4: a string is UTF-8 and Rust's
+        // A string is UTF-8 and Rust's
         // String is a Unicode type, so it is always strict. Invalid UTF-8 is
         // the INVALID decode outcome (self.inv -> Error::InvalidMsg), never a
         // lossy U+FFFD and never empty; the two Rust profiles agree (subsumes #80).
@@ -365,7 +419,6 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn array_begin(&mut self, id: Id, kind: ArrayKind, count: usize) {
-        self.ai = 0;
         self.askip = match kind {
             ArrayKind::Unsigned | ArrayKind::Signed => match (self.cur, id) {
                 (_Loc::Root_arrays, 0) => 0,
@@ -403,16 +456,16 @@ impl<'a> Visitor for V<'a> {
             },
         };
         match (self.cur, id) {
-            (_Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; }  },
-            (_Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; }  },
+            (_Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.u8.clear() },
+            (_Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.i8.clear() },
+            (_Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; } self.m.arrays.u16.clear() },
+            (_Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; } self.m.arrays.i16.clear() },
+            (_Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; } self.m.arrays.u32.clear() },
+            (_Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; } self.m.arrays.i32.clear() },
+            (_Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; } self.m.arrays.u64.clear() },
+            (_Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; } self.m.arrays.i64.clear() },
+            (_Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp32.clear() },
+            (_Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp64.clear() },
             _ => {}
         }
     }

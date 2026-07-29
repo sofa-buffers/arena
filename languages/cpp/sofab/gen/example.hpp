@@ -7,10 +7,78 @@
 #include <span>
 #include <cstring>
 #include <cstddef>
+#include <type_traits>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
     "SofaBuffers: generated against C++ API v1, but the linked corelib differs.");
+
+#ifndef SOFABGEN_WRAPPER_SEQ_HELPERS
+#define SOFABGEN_WRAPPER_SEQ_HELPERS
+/// Wrapper-array element helpers shared by every sofabgen-generated header.
+namespace sofabgen {
+
+/**
+ * @brief Collects an array of strings, blobs, structs, unions or rows, placing
+ *        each element at the index its own id names.
+ *
+ * Such an array travels as a sequence whose child id IS the element's index, so
+ * an element is stored at `dest[id]` -- never appended. The ids may have gaps:
+ * an INTERIOR element equal to the element default is left off the wire, and the
+ * gap it leaves is filled with that default. Appending instead would shorten the
+ * array by the size of every gap, and would turn a repeated element id into a
+ * second element instead of continuing the first one. The array's LAST element
+ * is always on the wire, so the decoded length -- highest present id + 1 -- is
+ * exact.
+ *
+ * The schema `count` N is a CAPACITY, not a length: it bounds the array -- an
+ * index at or past N is rejected as a malformed message, before the container
+ * grows, which also bounds the gap fill against an over-index amplification --
+ * but it never adds an element the wire did not carry.
+ *
+ * @tparam Container Destination container; its `value_type` is the element type.
+ */
+template <typename Container>
+struct WrapperSeq : sofab::IStreamMessage {
+    using Elem = typename Container::value_type;
+    Container *out = nullptr;  ///< Destination, bound by the generated read.
+    long cap = -1;             ///< Schema `count`, or -1 when the array has none.
+
+    /**
+     * @brief Empty the destination before collecting into it.
+     *
+     * The sequence IS the array's value, so a field id occurring twice replaces
+     * the array rather than extending it. This runs only once the field is known
+     * to be a sequence, so an occurrence skipped for a contradicting wire type
+     * cannot wipe a valid earlier one.
+     */
+    void prepare() noexcept { if (out != nullptr) { out->clear(); } }
+
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t count) noexcept override {
+        /* The two corelibs put the wire tag enum in different scopes; decltype
+         * names neither. */
+        using Tag = decltype(is.wire());
+        if constexpr (std::is_base_of_v<sofab::IStreamMessage, Elem>) {
+            /* An element whose wire type contradicts the declared one is skipped
+             * exactly like an unknown id -- which means it must leave the
+             * container untouched, so the decision comes before the fill below. */
+            if (is.wire() != Tag::SequenceStart) { return; }
+        }
+        if (cap >= 0 && static_cast<long>(id) >= cap) { is.invalidate(); return; }
+        while (out->size() <= static_cast<std::size_t>(id)) { (void)out->emplace_back(); }
+        Elem &row = (*out)[static_cast<std::size_t>(id)];
+        /* A row that is itself a count-less array is filled only up to its
+         * current size, so size it to the row's element count first. Struct,
+         * union and fixed-length rows have no resize(). */
+        if constexpr (requires { row.resize(count); } && !std::is_base_of_v<sofab::IStreamMessage, Elem>) {
+            row.resize(count);
+        }
+        is.read(row);
+    }
+};
+
+} // namespace sofabgen
+#endif // SOFABGEN_WRAPPER_SEQ_HELPERS
 
 namespace fullscale {
 
@@ -19,6 +87,46 @@ struct ExampleNested : sofab::Message {
     std::string str = "";
     std::vector<std::uint8_t> bytes_field = {};
     float f32 = 0.0f;
+
+    /**
+     * @brief Put every field back to its declared default, in place.
+     *
+     * A field whose value equals its default is absent from the encoded
+     * bytes, so nothing runs for it on decode and a destination decoded into
+     * twice keeps the earlier message's value - the elements of an array
+     * field included, since an array is only cleared when its sequence is
+     * actually present. The clear therefore has to happen before the bytes
+     * are fed, not from a callback an absent field never fires.
+     *
+     * Drive a stream yourself (e.g. @c sofab::IStreamInline) and this is
+     * yours to call between messages, alongside the stream's own reset for
+     * the decoder state.
+     *
+     * Containers are cleared, not reallocated: the capacity a reused
+     * destination has already paid for is kept.
+     */
+    void reset() noexcept {
+        f32 = 0.0f;
+        f64 = 0.0;
+        str = "";
+        bytes_field = {};
+    }
+
+    /**
+     * @brief True when every field still holds its declared default.
+     *
+     * The exact negation of @ref serialize: an object is default when
+     * serialize would write nothing at all for it, tested per field and
+     * recursively. Used to find the last non-default element of an array
+     * declared with a `count`, whose encoding stops one past it.
+     */
+    bool _isDefault() const noexcept {
+        if (!(f32 == 0.0f)) { return false; }
+        if (!(f64 == 0.0)) { return false; }
+        if (!(str == "")) { return false; }
+        if (!(bytes_field == std::vector<std::uint8_t>{})) { return false; }
+        return true;
+    }
 
     /**
      * @brief Write this message's fields to an output stream.
@@ -67,8 +175,44 @@ struct ExampleNested : sofab::Message {
 };
 
 struct ExampleArraysNested : sofab::Message {
-    std::array<float, 5> fp32 = {};
-    std::array<double, 5> fp64 = {};
+    std::vector<float> fp32 = {};
+    std::vector<double> fp64 = {};
+
+    /**
+     * @brief Put every field back to its declared default, in place.
+     *
+     * A field whose value equals its default is absent from the encoded
+     * bytes, so nothing runs for it on decode and a destination decoded into
+     * twice keeps the earlier message's value - the elements of an array
+     * field included, since an array is only cleared when its sequence is
+     * actually present. The clear therefore has to happen before the bytes
+     * are fed, not from a callback an absent field never fires.
+     *
+     * Drive a stream yourself (e.g. @c sofab::IStreamInline) and this is
+     * yours to call between messages, alongside the stream's own reset for
+     * the decoder state.
+     *
+     * Containers are cleared, not reallocated: the capacity a reused
+     * destination has already paid for is kept.
+     */
+    void reset() noexcept {
+        fp32 = {};
+        fp64 = {};
+    }
+
+    /**
+     * @brief True when every field still holds its declared default.
+     *
+     * The exact negation of @ref serialize: an object is default when
+     * serialize would write nothing at all for it, tested per field and
+     * recursively. Used to find the last non-default element of an array
+     * declared with a `count`, whose encoding stops one past it.
+     */
+    bool _isDefault() const noexcept {
+        if (!(fp32 == std::vector<float>{})) { return false; }
+        if (!(fp64 == std::vector<double>{})) { return false; }
+        return true;
+    }
 
     /**
      * @brief Write this message's fields to an output stream.
@@ -80,11 +224,11 @@ struct ExampleArraysNested : sofab::Message {
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
-        if (fp32 != std::array<float, 5>{}) {
-            (void)os.write(0, sofab::trimTail(fp32));
+        if (fp32 != std::vector<float>{}) {
+            (void)os.write(0, fp32);
         }
-        if (fp64 != std::array<double, 5>{}) {
-            (void)os.write(1, sofab::trimTail(fp64));
+        if (fp64 != std::vector<double>{}) {
+            (void)os.write(1, fp64);
         }
         return os.writeIf(0, false, false);
     }
@@ -113,15 +257,65 @@ struct ExampleArraysNested : sofab::Message {
 };
 
 struct ExampleArrays : sofab::Message {
-    std::array<std::uint8_t, 5> u8 = {};
-    std::array<std::int8_t, 5> i8 = {};
-    std::array<std::uint16_t, 5> u16 = {};
-    std::array<std::int16_t, 5> i16 = {};
-    std::array<std::uint32_t, 5> u32 = {};
-    std::array<std::int32_t, 5> i32 = {};
-    std::array<std::uint64_t, 5> u64 = {};
-    std::array<std::int64_t, 5> i64 = {};
+    std::vector<std::uint8_t> u8 = {};
+    std::vector<std::int8_t> i8 = {};
+    std::vector<std::uint16_t> u16 = {};
+    std::vector<std::int16_t> i16 = {};
+    std::vector<std::uint32_t> u32 = {};
+    std::vector<std::int32_t> i32 = {};
+    std::vector<std::uint64_t> u64 = {};
+    std::vector<std::int64_t> i64 = {};
     ExampleArraysNested nested = {};
+
+    /**
+     * @brief Put every field back to its declared default, in place.
+     *
+     * A field whose value equals its default is absent from the encoded
+     * bytes, so nothing runs for it on decode and a destination decoded into
+     * twice keeps the earlier message's value - the elements of an array
+     * field included, since an array is only cleared when its sequence is
+     * actually present. The clear therefore has to happen before the bytes
+     * are fed, not from a callback an absent field never fires.
+     *
+     * Drive a stream yourself (e.g. @c sofab::IStreamInline) and this is
+     * yours to call between messages, alongside the stream's own reset for
+     * the decoder state.
+     *
+     * Containers are cleared, not reallocated: the capacity a reused
+     * destination has already paid for is kept.
+     */
+    void reset() noexcept {
+        u8 = {};
+        i8 = {};
+        u16 = {};
+        i16 = {};
+        u32 = {};
+        i32 = {};
+        u64 = {};
+        i64 = {};
+        nested.reset();
+    }
+
+    /**
+     * @brief True when every field still holds its declared default.
+     *
+     * The exact negation of @ref serialize: an object is default when
+     * serialize would write nothing at all for it, tested per field and
+     * recursively. Used to find the last non-default element of an array
+     * declared with a `count`, whose encoding stops one past it.
+     */
+    bool _isDefault() const noexcept {
+        if (!(u8 == std::vector<std::uint8_t>{})) { return false; }
+        if (!(i8 == std::vector<std::int8_t>{})) { return false; }
+        if (!(u16 == std::vector<std::uint16_t>{})) { return false; }
+        if (!(i16 == std::vector<std::int16_t>{})) { return false; }
+        if (!(u32 == std::vector<std::uint32_t>{})) { return false; }
+        if (!(i32 == std::vector<std::int32_t>{})) { return false; }
+        if (!(u64 == std::vector<std::uint64_t>{})) { return false; }
+        if (!(i64 == std::vector<std::int64_t>{})) { return false; }
+        if (!(nested._isDefault())) { return false; }
+        return true;
+    }
 
     /**
      * @brief Write this message's fields to an output stream.
@@ -133,31 +327,31 @@ struct ExampleArrays : sofab::Message {
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
-        if (u8 != std::array<std::uint8_t, 5>{}) {
-            (void)os.write(0, sofab::trimTail(u8));
+        if (u8 != std::vector<std::uint8_t>{}) {
+            (void)os.write(0, u8);
         }
-        if (i8 != std::array<std::int8_t, 5>{}) {
-            (void)os.write(1, sofab::trimTail(i8));
+        if (i8 != std::vector<std::int8_t>{}) {
+            (void)os.write(1, i8);
         }
-        if (u16 != std::array<std::uint16_t, 5>{}) {
-            (void)os.write(2, sofab::trimTail(u16));
+        if (u16 != std::vector<std::uint16_t>{}) {
+            (void)os.write(2, u16);
         }
-        if (i16 != std::array<std::int16_t, 5>{}) {
-            (void)os.write(3, sofab::trimTail(i16));
+        if (i16 != std::vector<std::int16_t>{}) {
+            (void)os.write(3, i16);
         }
-        if (u32 != std::array<std::uint32_t, 5>{}) {
-            (void)os.write(4, sofab::trimTail(u32));
+        if (u32 != std::vector<std::uint32_t>{}) {
+            (void)os.write(4, u32);
         }
-        if (i32 != std::array<std::int32_t, 5>{}) {
-            (void)os.write(5, sofab::trimTail(i32));
+        if (i32 != std::vector<std::int32_t>{}) {
+            (void)os.write(5, i32);
         }
-        if (u64 != std::array<std::uint64_t, 5>{}) {
-            (void)os.write(6, sofab::trimTail(u64));
+        if (u64 != std::vector<std::uint64_t>{}) {
+            (void)os.write(6, u64);
         }
-        if (i64 != std::array<std::int64_t, 5>{}) {
-            (void)os.write(7, sofab::trimTail(i64));
+        if (i64 != std::vector<std::int64_t>{}) {
+            (void)os.write(7, i64);
         }
-        (void)os.write(10, nested);
+        (void)os.writeLazy(10, nested);
         return os.writeIf(0, false, false);
     }
 
@@ -218,7 +412,38 @@ struct Example : sofab::Message {
     std::int16_t i16 = 0;
     std::uint8_t u8 = 0;
     std::int8_t i8 = 0;
-    static constexpr std::size_t _maxSize = 1011;
+    static constexpr std::size_t _maxSize = 732;
+
+    /**
+     * @brief Put every field back to its declared default, in place.
+     *
+     * A field whose value equals its default is absent from the encoded
+     * bytes, so nothing runs for it on decode and a destination decoded into
+     * twice keeps the earlier message's value - the elements of an array
+     * field included, since an array is only cleared when its sequence is
+     * actually present. The clear therefore has to happen before the bytes
+     * are fed, not from a callback an absent field never fires.
+     *
+     * @ref try_decode calls this for you. Drive a stream yourself (e.g.
+     * @c sofab::IStreamInline) and it is yours to call between messages,
+     * alongside the stream's own reset for the decoder state.
+     *
+     * Containers are cleared, not reallocated: the capacity a reused
+     * destination has already paid for is kept.
+     */
+    void reset() noexcept {
+        u8 = 0;
+        i8 = 0;
+        u16 = 0;
+        i16 = 0;
+        u32 = 0;
+        i32 = 0;
+        u64 = 0;
+        i64 = 0;
+        nested.reset();
+        arrays.reset();
+        string_array = {};
+    }
 
     /**
      * @brief Encode this message into a new byte vector.
@@ -261,17 +486,50 @@ struct Example : sofab::Message {
     }
 
     /**
-     * @brief Decode a message, reporting whether the input was acceptable.
+     * @brief Decode a message into @p out, reporting whether the input was
+     *        acceptable.
+     *
+     * @p out is put back to its declared defaults first (@ref reset) and
+     * then decoded into directly, so it may be reused across messages
+     * without carrying anything over and without giving its buffers back.
+     *
      * @param data Encoded bytes.
      * @param len  Number of bytes at @p data.
-     * @param out  Receives the message on success; untouched otherwise.
+     * @param out  Receives the message; on a rejected input it holds the
+     *             fields decoded before the error, never an older message's.
      * @return The decode result; check @c ok() before reading @p out.
      */
     static sofab::IStreamImpl::Result try_decode(const std::uint8_t *data, std::size_t len, Example &out) {
-        sofab::IStreamObject<Example> in;
-        sofab::IStreamImpl::Result r = in.feed(data, len);
-        if (r.ok()) { out = *in; }
-        return r;
+        out.reset();
+        sofab::IStreamInline *_isp = nullptr;
+        sofab::IStreamInline _is{[&out, &_isp](sofab::id _id, std::size_t _size, std::size_t _count) {
+            out.deserialize(*_isp, _id, _size, _count);
+        }};
+        _isp = &_is;
+        return _is.feed(data, len);
+    }
+
+    /**
+     * @brief True when every field still holds its declared default.
+     *
+     * The exact negation of @ref serialize: an object is default when
+     * serialize would write nothing at all for it, tested per field and
+     * recursively. Used to find the last non-default element of an array
+     * declared with a `count`, whose encoding stops one past it.
+     */
+    bool _isDefault() const noexcept {
+        if (!(u8 == 0)) { return false; }
+        if (!(i8 == 0)) { return false; }
+        if (!(u16 == 0)) { return false; }
+        if (!(i16 == 0)) { return false; }
+        if (!(u32 == 0)) { return false; }
+        if (!(i32 == 0)) { return false; }
+        if (!(u64 == 0)) { return false; }
+        if (!(i64 == 0)) { return false; }
+        if (!(nested._isDefault())) { return false; }
+        if (!(arrays._isDefault())) { return false; }
+        if (!(string_array.size() == 0)) { return false; }
+        return true;
     }
 
     /**
@@ -292,10 +550,10 @@ struct Example : sofab::Message {
         if (i32 != 0) { (void)os.write(5, i32); }
         if (u64 != 0) { (void)os.write(6, u64); }
         if (i64 != 0) { (void)os.write(7, i64); }
-        (void)os.write(10, nested);
-        (void)os.write(100, arrays);
-        (void)os.sequenceBegin(200);
-        { sofab::id _i0 = 0; for (const auto &_e0 : string_array) { if (!_e0.empty()) { (void)os.write(_i0, _e0); } ++_i0; } }
+        (void)os.writeLazy(10, nested);
+        (void)os.writeLazy(100, arrays);
+        (void)os.sequenceBeginLazy(200);
+        { const std::size_t _n0 = string_array.size(); for (std::size_t _i0 = 0; _i0 < _n0; ++_i0) { const auto &_e0 = string_array[_i0]; if (!_e0.empty() || _i0 + 1 == _n0) { (void)os.write(static_cast<sofab::id>(_i0), _e0); } } }
         (void)os.sequenceEnd();
         return os.writeIf(0, false, false);
     }

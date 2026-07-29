@@ -49,19 +49,56 @@ func (m *Example) marshal(e *sofab.Encoder) {
 	if m.I64 != 0 {
 		e.WriteSigned(7, int64(m.I64))
 	}
-	e.WriteSequenceBegin(10)
+	e.WriteSequenceBeginLazy(10)
 	m.Nested.marshal(e)
 	e.WriteSequenceEnd()
-	e.WriteSequenceBegin(100)
+	e.WriteSequenceBeginLazy(100)
 	m.Arrays.marshal(e)
 	e.WriteSequenceEnd()
-	e.WriteSequenceBegin(200)
+	e.WriteSequenceBeginLazy(200)
 	for _i0, _e0 := range m.StringArray {
-		if _e0 != "" {
+		if _e0 != "" || _i0 == len(m.StringArray)-1 {
 			e.WriteString(sofab.ID(_i0), _e0)
 		}
 	}
 	e.WriteSequenceEnd()
+}
+
+func (m *Example) isDefault() bool {
+	if !(m.U8 == 0) {
+		return false
+	}
+	if !(m.I8 == 0) {
+		return false
+	}
+	if !(m.U16 == 0) {
+		return false
+	}
+	if !(m.I16 == 0) {
+		return false
+	}
+	if !(m.U32 == 0) {
+		return false
+	}
+	if !(m.I32 == 0) {
+		return false
+	}
+	if !(m.U64 == 0) {
+		return false
+	}
+	if !(m.I64 == 0) {
+		return false
+	}
+	if !(m.Nested.isDefault()) {
+		return false
+	}
+	if !(m.Arrays.isDefault()) {
+		return false
+	}
+	if !(len(m.StringArray) == 0) {
+		return false
+	}
+	return true
 }
 
 func (m *Example) Unsigned(id sofab.ID, v uint64) error {

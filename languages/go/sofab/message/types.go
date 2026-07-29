@@ -21,33 +21,64 @@ type ExampleArrays struct {
 }
 
 func (m *ExampleArrays) marshal(e *sofab.Encoder) {
-	if len(_trimTail(m.U8, 0)) != 0 {
-		sofab.WriteUnsignedArray(e, 0, _trimTail(m.U8, 0))
+	if len(m.U8) != 0 {
+		sofab.WriteUnsignedArray(e, 0, m.U8)
 	}
-	if len(_trimTail(m.I8, 0)) != 0 {
-		sofab.WriteSignedArray(e, 1, _trimTail(m.I8, 0))
+	if len(m.I8) != 0 {
+		sofab.WriteSignedArray(e, 1, m.I8)
 	}
-	if len(_trimTail(m.U16, 0)) != 0 {
-		sofab.WriteUnsignedArray(e, 2, _trimTail(m.U16, 0))
+	if len(m.U16) != 0 {
+		sofab.WriteUnsignedArray(e, 2, m.U16)
 	}
-	if len(_trimTail(m.I16, 0)) != 0 {
-		sofab.WriteSignedArray(e, 3, _trimTail(m.I16, 0))
+	if len(m.I16) != 0 {
+		sofab.WriteSignedArray(e, 3, m.I16)
 	}
-	if len(_trimTail(m.U32, 0)) != 0 {
-		sofab.WriteUnsignedArray(e, 4, _trimTail(m.U32, 0))
+	if len(m.U32) != 0 {
+		sofab.WriteUnsignedArray(e, 4, m.U32)
 	}
-	if len(_trimTail(m.I32, 0)) != 0 {
-		sofab.WriteSignedArray(e, 5, _trimTail(m.I32, 0))
+	if len(m.I32) != 0 {
+		sofab.WriteSignedArray(e, 5, m.I32)
 	}
-	if len(_trimTail(m.U64, 0)) != 0 {
-		sofab.WriteUnsignedArray(e, 6, _trimTail(m.U64, 0))
+	if len(m.U64) != 0 {
+		sofab.WriteUnsignedArray(e, 6, m.U64)
 	}
-	if len(_trimTail(m.I64, 0)) != 0 {
-		sofab.WriteSignedArray(e, 7, _trimTail(m.I64, 0))
+	if len(m.I64) != 0 {
+		sofab.WriteSignedArray(e, 7, m.I64)
 	}
-	e.WriteSequenceBegin(10)
+	e.WriteSequenceBeginLazy(10)
 	m.Nested.marshal(e)
 	e.WriteSequenceEnd()
+}
+
+func (m *ExampleArrays) isDefault() bool {
+	if !(len(m.U8) == 0) {
+		return false
+	}
+	if !(len(m.I8) == 0) {
+		return false
+	}
+	if !(len(m.U16) == 0) {
+		return false
+	}
+	if !(len(m.I16) == 0) {
+		return false
+	}
+	if !(len(m.U32) == 0) {
+		return false
+	}
+	if !(len(m.I32) == 0) {
+		return false
+	}
+	if !(len(m.U64) == 0) {
+		return false
+	}
+	if !(len(m.I64) == 0) {
+		return false
+	}
+	if !(m.Nested.isDefault()) {
+		return false
+	}
+	return true
 }
 
 func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
@@ -56,26 +87,22 @@ func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U8 = _narrowU[uint8](v)
-		m.U8 = _padTo(m.U8, 5, 0)
+		m.U8 = sofab.NarrowUnsigned[uint8](v)
 	case 2:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U16 = _narrowU[uint16](v)
-		m.U16 = _padTo(m.U16, 5, 0)
+		m.U16 = sofab.NarrowUnsigned[uint16](v)
 	case 4:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U32 = _narrowU[uint32](v)
-		m.U32 = _padTo(m.U32, 5, 0)
+		m.U32 = sofab.NarrowUnsigned[uint32](v)
 	case 6:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
 		m.U64 = v
-		m.U64 = _padTo(m.U64, 5, 0)
 	}
 	return nil
 }
@@ -86,26 +113,22 @@ func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I8 = _narrowS[int8](v)
-		m.I8 = _padTo(m.I8, 5, 0)
+		m.I8 = sofab.NarrowSigned[int8](v)
 	case 3:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I16 = _narrowS[int16](v)
-		m.I16 = _padTo(m.I16, 5, 0)
+		m.I16 = sofab.NarrowSigned[int16](v)
 	case 5:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I32 = _narrowS[int32](v)
-		m.I32 = _padTo(m.I32, 5, 0)
+		m.I32 = sofab.NarrowSigned[int32](v)
 	case 7:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
 		m.I64 = v
-		m.I64 = _padTo(m.I64, 5, 0)
 	}
 	return nil
 }
@@ -170,12 +193,22 @@ type ExampleArraysNested struct {
 }
 
 func (m *ExampleArraysNested) marshal(e *sofab.Encoder) {
-	if len(_trimTailF32(m.Fp32)) != 0 {
-		e.WriteFloat32Array(0, _trimTailF32(m.Fp32))
+	if len(m.Fp32) != 0 {
+		e.WriteFloat32Array(0, m.Fp32)
 	}
-	if len(_trimTailF64(m.Fp64)) != 0 {
-		e.WriteFloat64Array(1, _trimTailF64(m.Fp64))
+	if len(m.Fp64) != 0 {
+		e.WriteFloat64Array(1, m.Fp64)
 	}
+}
+
+func (m *ExampleArraysNested) isDefault() bool {
+	if !(len(m.Fp32) == 0) {
+		return false
+	}
+	if !(len(m.Fp64) == 0) {
+		return false
+	}
+	return true
 }
 
 func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
@@ -185,7 +218,6 @@ func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
 			return sofab.ErrInvalidMsg
 		}
 		m.Fp32 = v
-		m.Fp32 = _padTo(m.Fp32, 5, 0)
 	}
 	return nil
 }
@@ -197,7 +229,6 @@ func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
 			return sofab.ErrInvalidMsg
 		}
 		m.Fp64 = v
-		m.Fp64 = _padTo(m.Fp64, 5, 0)
 	}
 	return nil
 }
@@ -244,6 +275,22 @@ func (m *ExampleNested) marshal(e *sofab.Encoder) {
 	if len(m.BytesField) != 0 {
 		e.WriteBytes(3, m.BytesField)
 	}
+}
+
+func (m *ExampleNested) isDefault() bool {
+	if !(m.F32 == 0) {
+		return false
+	}
+	if !(m.F64 == 0) {
+		return false
+	}
+	if !(m.Str == "") {
+		return false
+	}
+	if !(len(m.BytesField) == 0) {
+		return false
+	}
+	return true
 }
 
 func (m *ExampleNested) Float32(id sofab.ID, v float32) error {

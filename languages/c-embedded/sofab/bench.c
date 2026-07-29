@@ -56,9 +56,23 @@ static void fill(fullscale_example_t *m)
             m->arrays.nested.fp32[i] = fp32_vals[i];
             m->arrays.nested.fp64[i] = fp64_vals[i];
         }
+        /* sofabgen >= 2026-07-28: a fixed `count` array carries its own length,
+           so an element count of 0 encodes an EMPTY sequence no matter what the
+           storage holds. Every array is filled to its full count here. */
+        m->arrays.u8_len  = 5;
+        m->arrays.i8_len  = 5;
+        m->arrays.u16_len = 5;
+        m->arrays.i16_len = 5;
+        m->arrays.u32_len = 5;
+        m->arrays.i32_len = 5;
+        m->arrays.u64_len = 5;
+        m->arrays.i64_len = 5;
+        m->arrays.nested.fp32_len = 5;
+        m->arrays.nested.fp64_len = 5;
     }
 
     /* Fill string array (field id 200) */
+    m->string_array.len = 5;
     strncpy(m->string_array.items[0], "Hello, Sofab!", sizeof(m->string_array.items[0]));
     strncpy(m->string_array.items[1], "", sizeof(m->string_array.items[1]));
     strncpy(m->string_array.items[2], "1234567890", sizeof(m->string_array.items[2]));

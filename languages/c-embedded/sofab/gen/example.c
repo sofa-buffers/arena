@@ -19,20 +19,20 @@ static const sofab_object_descr_field_t _fullscale_fields_named_example_nested[]
 const sofab_object_descr_t _fullscale_descr_named_example_nested = SOFAB_OBJECT_DESCR(_fullscale_fields_named_example_nested, 4, NULL, 0);
 
 static const sofab_object_descr_field_t _fullscale_fields_named_example_arrays_nested[] = {
-    SOFAB_OBJECT_FIELD_ARRAY(0, fullscale_example_arrays_nested_t, fp32, SOFAB_OBJECT_FIELDTYPE_ARRAY_FP32),
-    SOFAB_OBJECT_FIELD_ARRAY(1, fullscale_example_arrays_nested_t, fp64, SOFAB_OBJECT_FIELDTYPE_ARRAY_FP64),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(0, fullscale_example_arrays_nested_t, fp32, fp32_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_FP32),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(1, fullscale_example_arrays_nested_t, fp64, fp64_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_FP64),
 };
 const sofab_object_descr_t _fullscale_descr_named_example_arrays_nested = SOFAB_OBJECT_DESCR(_fullscale_fields_named_example_arrays_nested, 2, NULL, 0);
 
 static const sofab_object_descr_field_t _fullscale_fields_named_example_arrays[] = {
-    SOFAB_OBJECT_FIELD_ARRAY(0, fullscale_example_arrays_t, u8, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(1, fullscale_example_arrays_t, i8, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(2, fullscale_example_arrays_t, u16, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(3, fullscale_example_arrays_t, i16, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(4, fullscale_example_arrays_t, u32, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(5, fullscale_example_arrays_t, i32, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(6, fullscale_example_arrays_t, u64, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
-    SOFAB_OBJECT_FIELD_ARRAY(7, fullscale_example_arrays_t, i64, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(0, fullscale_example_arrays_t, u8, u8_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(1, fullscale_example_arrays_t, i8, i8_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(2, fullscale_example_arrays_t, u16, u16_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(3, fullscale_example_arrays_t, i16, i16_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(4, fullscale_example_arrays_t, u32, u32_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(5, fullscale_example_arrays_t, i32, i32_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(6, fullscale_example_arrays_t, u64, u64_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_UNSIGNED),
+    SOFAB_OBJECT_FIELD_ARRAY_SIZED(7, fullscale_example_arrays_t, i64, i64_len, SOFAB_OBJECT_FIELDTYPE_ARRAY_SIGNED),
     SOFAB_OBJECT_FIELD_SEQUENCE(10, fullscale_example_arrays_t, nested, SOFAB_OBJECT_FIELDTYPE_SEQUENCE, 0),
 };
 static const sofab_object_descr_t *const _fullscale_nested_named_example_arrays[] = {
@@ -47,7 +47,7 @@ static const sofab_object_descr_field_t _fullscale_fields_message_example_string
     SOFAB_OBJECT_FIELD(3, fullscale_example_string_array_elems_t, items[3], SOFAB_OBJECT_FIELDTYPE_STRING),
     SOFAB_OBJECT_FIELD(4, fullscale_example_string_array_elems_t, items[4], SOFAB_OBJECT_FIELDTYPE_STRING),
 };
-const sofab_object_descr_t _fullscale_descr_message_example_string_array_elems = SOFAB_OBJECT_DESCR_SEQ(_fullscale_fields_message_example_string_array_elems, 5, NULL, 0);
+const sofab_object_descr_t _fullscale_descr_message_example_string_array_elems = SOFAB_OBJECT_DESCR_SEQ_SIZED(_fullscale_fields_message_example_string_array_elems, 5, NULL, 0, fullscale_example_string_array_elems_t, len);
 
 static const sofab_object_descr_field_t _fullscale_fields_message_example[] = {
     SOFAB_OBJECT_FIELD(0, fullscale_example_t, u8, SOFAB_OBJECT_FIELDTYPE_UNSIGNED),
@@ -83,13 +83,24 @@ sofab_ret_t fullscale_example_encode(const fullscale_example_t *msg, uint8_t *bu
     return ret;
 }
 
+sofab_ret_t fullscale_example_encode_to(sofab_ostream_t *os, const fullscale_example_t *msg) {
+    return sofab_object_encode(os, &_fullscale_descr_message_example, msg);
+}
+
+void fullscale_example_decoder_init(fullscale_example_decoder_t *d, fullscale_example_t *msg) {
+    memset(d->dec, 0, sizeof(d->dec));
+    d->dec[0].info = &_fullscale_descr_message_example;
+    d->dec[0].dst = (uint8_t *)msg;
+    d->dec[0].depth = (uint8_t)(sizeof(d->dec) / sizeof(d->dec[0]) - 1);
+    sofab_istream_init(&d->is, sofab_object_field_cb, (void *)&d->dec[0]);
+}
+
+sofab_ret_t fullscale_example_decoder_feed(fullscale_example_decoder_t *d, const void *buf, size_t len) {
+    return sofab_istream_feed(&d->is, buf, len);
+}
+
 sofab_ret_t fullscale_example_decode(fullscale_example_t *msg, const uint8_t *buf, size_t len) {
-    sofab_istream_t ctx;
-    sofab_object_decoder_t dec[3];
-    memset(dec, 0, sizeof(dec));
-    dec[0].info = &_fullscale_descr_message_example;
-    dec[0].dst = (uint8_t *)msg;
-    dec[0].depth = (uint8_t)(sizeof(dec) / sizeof(dec[0]) - 1);
-    sofab_istream_init(&ctx, sofab_object_field_cb, (void *)&dec[0]);
-    return sofab_istream_feed(&ctx, buf, len);
+    fullscale_example_decoder_t d;
+    fullscale_example_decoder_init(&d, msg);
+    return fullscale_example_decoder_feed(&d, buf, len);
 }

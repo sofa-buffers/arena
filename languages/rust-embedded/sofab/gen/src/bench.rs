@@ -7,7 +7,7 @@
 // one uniform BENCH line (see docs/BENCH.md).
 //
 // Built as a second binary inside the generated crate (alongside `harness`),
-// so it can `mod message;` and reuse the generated marshal/decode directly.
+// so it can `mod message;` and reuse the generated serialize/decode directly.
 mod message;
 
 use message::Example;
@@ -47,7 +47,7 @@ fn main() {
     for _ in 0..iters {
         let used = {
             let mut os = OStream::new(&mut buf);
-            src.marshal(&mut os);
+            src.serialize(&mut os);
             os.bytes_used()
         };
         let dec = Example::decode(&buf[..used]);

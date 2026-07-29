@@ -70,56 +70,56 @@ fn toJson_ExampleArrays(o: *const message.ExampleArrays, w: *std.Io.Writer) std.
     try w.writeByte('{');
     try w.writeAll("\"u8\":");
     try w.writeByte('[');
-    for (o.u8, 0..) |_e0, _i0| {
+    for (o.u8.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"i8\":");
     try w.writeByte('[');
-    for (o.i8, 0..) |_e0, _i0| {
+    for (o.i8.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"u16\":");
     try w.writeByte('[');
-    for (o.u16, 0..) |_e0, _i0| {
+    for (o.u16.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"i16\":");
     try w.writeByte('[');
-    for (o.i16, 0..) |_e0, _i0| {
+    for (o.i16.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"u32\":");
     try w.writeByte('[');
-    for (o.u32, 0..) |_e0, _i0| {
+    for (o.u32.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"i32\":");
     try w.writeByte('[');
-    for (o.i32, 0..) |_e0, _i0| {
+    for (o.i32.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"u64\":");
     try w.writeByte('[');
-    for (o.u64, 0..) |_e0, _i0| {
+    for (o.u64.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"i64\":");
     try w.writeByte('[');
-    for (o.i64, 0..) |_e0, _i0| {
+    for (o.i64.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
@@ -137,73 +137,65 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     };
     if (obj.get("u8")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.u8[k0] = @truncate(jsonU64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.u8.items[k0] = @truncate(jsonU64(it0));
+            o.u8.len = n0;
         },
         else => {},
     };
     if (obj.get("i8")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.i8[k0] = @truncate(jsonI64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.i8.items[k0] = @truncate(jsonI64(it0));
+            o.i8.len = n0;
         },
         else => {},
     };
     if (obj.get("u16")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.u16[k0] = @truncate(jsonU64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.u16.items[k0] = @truncate(jsonU64(it0));
+            o.u16.len = n0;
         },
         else => {},
     };
     if (obj.get("i16")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.i16[k0] = @truncate(jsonI64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.i16.items[k0] = @truncate(jsonI64(it0));
+            o.i16.len = n0;
         },
         else => {},
     };
     if (obj.get("u32")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.u32[k0] = @truncate(jsonU64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.u32.items[k0] = @truncate(jsonU64(it0));
+            o.u32.len = n0;
         },
         else => {},
     };
     if (obj.get("i32")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.i32[k0] = @truncate(jsonI64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.i32.items[k0] = @truncate(jsonI64(it0));
+            o.i32.len = n0;
         },
         else => {},
     };
     if (obj.get("u64")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.u64[k0] = jsonU64(it0);
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.u64.items[k0] = jsonU64(it0);
+            o.u64.len = n0;
         },
         else => {},
     };
     if (obj.get("i64")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.i64[k0] = jsonI64(it0);
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.i64.items[k0] = jsonI64(it0);
+            o.i64.len = n0;
         },
         else => {},
     };
@@ -215,14 +207,14 @@ fn toJson_ExampleArraysNested(o: *const message.ExampleArraysNested, w: *std.Io.
     try w.writeByte('{');
     try w.writeAll("\"fp32\":");
     try w.writeByte('[');
-    for (o.fp32, 0..) |_e0, _i0| {
+    for (o.fp32.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
     try w.writeByte(']');
     try w.writeAll(",\"fp64\":");
     try w.writeByte('[');
-    for (o.fp64, 0..) |_e0, _i0| {
+    for (o.fp64.slice(), 0..) |_e0, _i0| {
         if (_i0 != 0) try w.writeByte(',');
         try w.print("{d}", .{_e0});
     }
@@ -239,19 +231,17 @@ fn fromJson_ExampleArraysNested(alloc: std.mem.Allocator, v: std.json.Value) mes
     _ = alloc;
     if (obj.get("fp32")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.fp32[k0] = @floatCast(jsonF64(it0));
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.fp32.items[k0] = @floatCast(jsonF64(it0));
+            o.fp32.len = n0;
         },
         else => {},
     };
     if (obj.get("fp64")) |x| switch (x) {
         .array => |a0| {
-            for (a0.items, 0..) |it0, k0| {
-                if (k0 >= 5) break;
-                o.fp64[k0] = jsonF64(it0);
-            }
+            const n0 = @min(a0.items.len, 5);
+            for (a0.items[0..n0], 0..) |it0, k0| o.fp64.items[k0] = jsonF64(it0);
+            o.fp64.len = n0;
         },
         else => {},
     };
