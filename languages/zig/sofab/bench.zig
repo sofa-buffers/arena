@@ -25,36 +25,6 @@ fn cpuNow() f64 {
     return @as(f64, @floatFromInt(ts.sec)) + @as(f64, @floatFromInt(ts.nsec)) / 1e9;
 }
 
-fn envU64(init: std.process.Init, key: []const u8, fallback: u64) u64 {
-    const s = init.environ_map.get(key) orelse return fallback;
-    const v = std.fmt.parseInt(u64, s, 10) catch return fallback;
-    return if (v > 0) v else fallback;
-}
-
-/// Streaming encode (#108): the same serialize() the one-shot path uses, but over
-/// a buffer deliberately SMALLER than the message, drained by a flush sink every
-/// time it fills. So the encode's memory need is the buffer, not the message.
-/// The drained bytes land in `sink` so the loop keeps a live result that stays
-/// checkable against the reference wire.
-const Sink = struct {
-    var buf: [2048]u8 = undefined;
-    var n: usize = 0;
-
-    fn push(ctx: ?*anyopaque, data: []const u8) void {
-        _ = ctx;
-        @memcpy(buf[n..][0..data.len], data);
-        n += data.len;
-    }
-};
-
-fn streamEncode(m: *const Example, scratch: []u8) !usize {
-    Sink.n = 0;
-    var os = sofab.OStream.initFlush(scratch, 0, null, Sink.push);
-    try m.serialize(&os);
-    _ = os.flush();   // hand over the tail still sitting in the buffer
-    return Sink.n;
-}
-
 fn benchIters(init: std.process.Init, fallback: u64) u64 {
     const s = init.environ_map.get("BENCH_ITERS") orelse return fallback;
     const v = std.fmt.parseInt(u64, s, 10) catch return fallback;
@@ -108,12 +78,6 @@ fn fill() Example {
 pub fn main(init: std.process.Init) !void {
     const src = fill();
 
-    const impl = init.environ_map.get("BENCH_IMPL") orelse "sofab";
-    const streaming = std.mem.eql(u8, impl, "sofab-stream");
-    const stream_cap = envU64(init, "STREAM_BUF_BYTES", 64);
-    var stream_scratch: [512]u8 = undefined;
-    const scratch = stream_scratch[0..@min(stream_cap, stream_scratch.len)];
-
     // Warm-up round-trip + self-check (outside the timed region).
     var buf: [Example.MAX_SIZE]u8 = undefined;
     var os = sofab.OStream.init(&buf);
@@ -129,20 +93,12 @@ pub fn main(init: std.process.Init) !void {
     var dec_mem: [4096]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&dec_mem);
 
-    // Round-trip is correct iff the decoded message re-encodes to the same bytes,
-    // through whichever encode path this impl measures — so a dropped or
-    // duplicated drained chunk fails here instead of being reported.
+    // Round-trip is correct iff the decoded message re-encodes to the same bytes.
     const check = try Example.decode(fba.allocator(), wire);
     var check_buf: [Example.MAX_SIZE]u8 = undefined;
-    const rt_ok = if (streaming) blk: {
-        const n = try streamEncode(&check, scratch);
-        break :blk n == serialized and std.mem.eql(u8, Sink.buf[0..n], wire);
-    } else blk: {
-        var check_os = sofab.OStream.init(&check_buf);
-        try check.serialize(&check_os);
-        break :blk std.mem.eql(u8, check_buf[0..check_os.bytesUsed()], wire);
-    };
-    if (!rt_ok) {
+    var check_os = sofab.OStream.init(&check_buf);
+    try check.serialize(&check_os);
+    if (!std.mem.eql(u8, check_buf[0..check_os.bytesUsed()], wire)) {
         std.debug.print("FAIL: sofab round-trip self-check\n", .{});
         std.process.exit(1);
     }
@@ -152,47 +108,24 @@ pub fn main(init: std.process.Init) !void {
     // it denies protobuf its once-per-instance serialized-size memo so encode is
     // measured on equal terms. Buffers hoisted; the fixed decode arena is rewound
     // per iteration, which frees the whole message at once.
-    //
-    // Two loops, picked before t0: the impl must not pay a per-iteration branch
-    // the other impl does not. Only the ENCODE half differs — the decode stays the
-    // plain one-shot decode in both, so a row reflects one axis.
     const iters = benchIters(init, 2_000_000);
     var loop_buf: [Example.MAX_SIZE]u8 = undefined;
     var dec: Example = .{};
-    var cpu: f64 = 0;
-    if (streaming) {
-        const t0 = cpuNow();
-        var i: u64 = 0;
-        while (i < iters) : (i += 1) {
-            fba.reset();
-            dec = try Example.decode(fba.allocator(), wire);
-            const n = try streamEncode(&dec, scratch);
-            std.mem.doNotOptimizeAway(Sink.buf[0..n]);
-        }
-        cpu = cpuNow() - t0;
-    } else {
-        const t0 = cpuNow();
-        var i: u64 = 0;
-        while (i < iters) : (i += 1) {
-            fba.reset();
-            dec = try Example.decode(fba.allocator(), wire);
-            var eos = sofab.OStream.init(&loop_buf);
-            try dec.serialize(&eos);
-            const used = eos.bytesUsed();
-            std.mem.doNotOptimizeAway(loop_buf[0..used]);
-        }
-        cpu = cpuNow() - t0;
+    const t0 = cpuNow();
+    var i: u64 = 0;
+    while (i < iters) : (i += 1) {
+        fba.reset();
+        dec = try Example.decode(fba.allocator(), wire);
+        var eos = sofab.OStream.init(&loop_buf);
+        try dec.serialize(&eos);
+        const used = eos.bytesUsed();
+        std.mem.doNotOptimizeAway(loop_buf[0..used]);
     }
+    const cpu = cpuNow() - t0;
 
-    const loop_ok = if (streaming) blk: {
-        const n = try streamEncode(&dec, scratch);
-        break :blk n == serialized and std.mem.eql(u8, Sink.buf[0..n], wire);
-    } else blk: {
-        var loop_check_os = sofab.OStream.init(&check_buf);
-        try dec.serialize(&loop_check_os);
-        break :blk std.mem.eql(u8, check_buf[0..loop_check_os.bytesUsed()], wire);
-    };
-    if (!loop_ok) {
+    var loop_check_os = sofab.OStream.init(&check_buf);
+    try dec.serialize(&loop_check_os);
+    if (!std.mem.eql(u8, check_buf[0..loop_check_os.bytesUsed()], wire)) {
         std.debug.print("FAIL: sofab loop-path self-check\n", .{});
         std.process.exit(1);
     }
@@ -206,8 +139,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
     const out = &stdout_writer.interface;
     try out.print(
-        "BENCH lang=zig impl={s} serialized_bytes={d} iters={d} cpu_time_s={d:.6} throughput_mbs={d:.2} sha256={x}\n",
-        .{ impl, serialized, iters, cpu, mbs, digest[0..] },
+        "BENCH lang=zig impl=sofab serialized_bytes={d} iters={d} cpu_time_s={d:.6} throughput_mbs={d:.2} sha256={x}\n",
+        .{ serialized, iters, cpu, mbs, digest[0..] },
     );
     try out.flush();
 }

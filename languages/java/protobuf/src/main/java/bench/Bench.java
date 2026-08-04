@@ -3,24 +3,14 @@
 // schema/STATE.md) through protobuf-java's generated builders. Same message,
 // same state, same timed region as the SofaBuffers target. Prints one uniform
 // BENCH line (see docs/BENCH.md).
-//
-// ONE source, TWO impls, selected by the BENCH_IMPL env var (#108):
-//
-//   protobuf         toByteArray() — one buffer the size of the whole message
-//   protobuf-stream  writeTo(CodedOutputStream) over a bounded buffer flushed
-//                    into an OutputStream as it fills — protobuf's own answer to
-//                    the question sofab-stream asks. It is the opponent the
-//                    runner pairs with impl=sofab-stream.
 package bench;
 
 import com.google.protobuf.ByteString;
-import com.google.protobuf.CodedOutputStream;
 import fullscale.Message.FullScaleExample;
 import fullscale.Message.FullScaleSeqStruct;
 import fullscale.Message.FullScaleSeqStructOfArrays;
 import fullscale.Message.FullScaleSeqStructOfFpArrays;
 import fullscale.Message.FullScaleSeqArrayOfStrings;
-import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.util.Arrays;
 
@@ -30,28 +20,6 @@ public class Bench {
         StringBuilder sb = new StringBuilder(d.length * 2);
         for (byte x : d) sb.append(String.format("%02x", x & 0xFF));
         return sb.toString();
-    }
-
-    // Same sink shape as the sofab harness: the drained bytes land in a fixed
-    // array, so the row compares codecs and not the harness around them.
-    static final byte[] SINK = new byte[2048];
-    static int sinkN = 0;
-
-    static final OutputStream SINK_OUT = new OutputStream() {
-        @Override public void write(int b) { SINK[sinkN++] = (byte) b; }
-        @Override public void write(byte[] b, int off, int len) {
-            System.arraycopy(b, off, SINK, sinkN, len);
-            sinkN += len;
-        }
-    };
-
-    /** Streaming encode of `m` through a `cap`-byte buffer; returns bytes drained. */
-    static int streamEncode(FullScaleExample m, int cap) throws Exception {
-        sinkN = 0;
-        CodedOutputStream cos = CodedOutputStream.newInstance(SINK_OUT, cap);
-        m.writeTo(cos);
-        cos.flush();
-        return sinkN;
     }
 
     static FullScaleExample build() {
@@ -114,24 +82,12 @@ public class Bench {
     public static void main(String[] args) throws Exception {
         FullScaleExample src = build();
 
-        String impl = System.getenv().getOrDefault("BENCH_IMPL", "protobuf");
-        boolean streaming = impl.equals("protobuf-stream");
-        int streamCap = Integer.parseInt(
-            System.getenv().getOrDefault("STREAM_BUF_BYTES", "64"));
-
-        // Warm-up round-trip + self-check (outside the timed region), through
-        // whichever encode path this impl measures.
+        // Warm-up round-trip + self-check (outside the timed region).
         byte[] blob = src.toByteArray();
         int serialized = blob.length;
         String sha = sha256hex(blob);
-        boolean ok;
-        if (streaming) {
-            ok = streamEncode(FullScaleExample.parseFrom(blob), streamCap) == serialized
-                 && Arrays.equals(Arrays.copyOf(SINK, serialized), blob);
-        } else {
-            ok = Arrays.equals(FullScaleExample.parseFrom(blob).toByteArray(), blob);
-        }
-        if (!ok) {
+        byte[] re = FullScaleExample.parseFrom(blob).toByteArray();
+        if (!Arrays.equals(re, blob)) {
             System.err.println("FAIL: protobuf round-trip self-check");
             System.exit(1);
         }
@@ -141,8 +97,7 @@ public class Bench {
 
         // JIT warm-up (same chained shape as the timed loop).
         for (int i = 0; i < 20000; i++) {
-            if (streaming) streamEncode(FullScaleExample.parseFrom(blob), streamCap);
-            else FullScaleExample.parseFrom(blob).toByteArray();
+            FullScaleExample.parseFrom(blob).toByteArray();
         }
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
@@ -150,26 +105,14 @@ public class Bench {
         // yields a new message whose memoized serialized size is unset, so protobuf
         // pays the size pass every encode instead of hitting a once-per-instance
         // memo. sink keeps the re-encode live and doubles as a loop-path check.
-        // Two loops, picked before t0, so neither impl pays a per-iteration branch
-        // the other does not.
         long sink = 0;
-        long t0, t1;
-        if (streaming) {
-            t0 = System.nanoTime();
-            for (int i = 0; i < iters; i++) {
-                sink += streamEncode(FullScaleExample.parseFrom(blob), streamCap);
-            }
-            t1 = System.nanoTime();
-        } else {
-            t0 = System.nanoTime();
-            for (int i = 0; i < iters; i++) {
-                sink += FullScaleExample.parseFrom(blob).toByteArray().length;
-            }
-            t1 = System.nanoTime();
+        long t0 = System.nanoTime();
+        for (int i = 0; i < iters; i++) {
+            sink += FullScaleExample.parseFrom(blob).toByteArray().length;
         }
+        long t1 = System.nanoTime();
 
-        if (sink != (long) serialized * iters
-            || (streaming && !Arrays.equals(Arrays.copyOf(SINK, serialized), blob))) {
+        if (sink != (long) serialized * iters) {
             System.err.println("FAIL: protobuf loop-path self-check");
             System.exit(1);
         }
@@ -177,8 +120,8 @@ public class Bench {
         double cpu = (t1 - t0) / 1e9;
         double mbs = cpu > 0 ? (double) serialized * iters / cpu / 1e6 : 0.0;
         System.out.printf(
-            "BENCH lang=java impl=%s serialized_bytes=%d iters=%d "
+            "BENCH lang=java impl=protobuf serialized_bytes=%d iters=%d "
             + "cpu_time_s=%.6f throughput_mbs=%.2f sha256=%s%n",
-            impl, serialized, iters, cpu, mbs, sha);
+            serialized, iters, cpu, mbs, sha);
     }
 }

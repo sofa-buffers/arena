@@ -27,11 +27,9 @@
 # and `sizeof_bytes=`, reported as footnotes and never ranked on.
 #
 # `impl` is `sofab`, `protobuf`/another baseline, or `sofab-<variant>` — the same
-# corelib and driver source with one knob turned (cpp's sofab-heapfree = storage,
-# #107; cpp's sofab-stream = encode path, #108). A variant is a sofab impl to the
-# gate and gets its own maxspeed row labelled `<lang>/<variant>`, measured against
-# `protobuf-<variant>` where the target built one and the plain protobuf run
-# otherwise — see opponent().
+# corelib and driver with one codegen option flipped (cpp's sofab-heapfree, #107).
+# A variant is a sofab impl to the gate and gets its own maxspeed row labelled
+# `<lang>/<variant>`, sharing its target's protobuf column.
 #
 # Usage:
 #   ./scripts/run_benchmark.sh                 # setup + run every language
@@ -222,16 +220,6 @@ ratio() { # a/b with 2 decimals, or "-" if unusable
 row_label() { # <lang> <impl>
     [ "$2" = sofab ] && printf '%s' "$1" || printf '%s/%s' "$1" "${2#sofab-}"
 }
-# The baseline a sofab impl is measured against. A variant faces the SAME-named
-# protobuf variant when the target built one (`sofab-stream` vs `protobuf-stream`:
-# both sides must use their streaming API or the row compares two different
-# things), and otherwise falls back to the target's plain protobuf run — right
-# for a variant that changes only the sofab side, like cpp's sofab-heapfree.
-opponent() { # <lang> <sofab-impl>
-    local lang="$1" v="${2#sofab}"      # "" for sofab, "-<variant>" otherwise
-    [ -n "$v" ] && [ -n "${SER[$lang,protobuf$v]:-}" ] && printf 'protobuf%s' "$v" \
-        || printf 'protobuf'
-}
 langs_in() { # <category> — langs of that category, in LANGS order, that produced data
     local want="$1" lang
     for lang in $LANGS; do [ "${CATEGORY[$lang]:-maxspeed}" = "$want" ] && [ -n "${IMPLS[$lang]:-}" ] && printf '%s ' "$lang"; done
@@ -253,11 +241,10 @@ printf "  %-14s | %14s | %20s | %20s | %23s\n" "language" "wire size (B)" "throu
 printf "  %-14s | %6s %7s | %9s %10s | %9s %10s | %7s %7s %7s\n" "" "sofab" "proto" "sofab" "proto" "sofab" "proto" "size" "MB/s" "msg/s"
 printf '  '; printf -- '-%.0s' $(seq 1 103); printf '\n'
 for lang in $maxspeed_langs; do
-    # One row per sofab configuration, each against the baseline opponent() picks.
+    ps="${SER[$lang,protobuf]:-}"; pm="$(mbps "$lang,protobuf")"; pM="$(msgs_s "$lang,protobuf")"
+    # One row per sofab configuration; all of them face the same protobuf column.
     for impl in $(ordered_impls "$lang"); do
         is_sofab "$impl" || continue
-        opp="$(opponent "$lang" "$impl")"
-        ps="${SER[$lang,$opp]:-}"; pm="$(mbps "$lang,$opp")"; pM="$(msgs_s "$lang,$opp")"
         ss="${SER[$lang,$impl]:-}"; sm="$(mbps "$lang,$impl")"; sM="$(msgs_s "$lang,$impl")"
         [ -z "$ss$ps$sm$pm" ] && continue
         printf "  %-14s | %6s %7s | %9s %10s | %9s %10s | %6sx %6sx %6sx\n" \
@@ -270,10 +257,8 @@ echo
 echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)"
 echo "  MB/s advantage  = sofab_MBps  / protobuf_MBps    (bytes/s;    embeds the wire-size gap — see #85)"
 echo "  msg/s advantage = sofab_msgs  / protobuf_msgs    (messages/s; size-neutral per-message codec speed)"
-echo "  <lang>/<variant> = a second sofab configuration of the same target (same driver"
-echo "                     and flags, one knob apart) — rows comparable to each other."
-echo "                     It faces protobuf-<variant> where the target built one, else"
-echo "                     the same plain protobuf run as the base row."
+echo "  <lang>/<variant> = a second sofab codegen configuration of the same target"
+echo "                     (same driver, flags and protobuf run) — rows comparable to each other."
 for lang in $maxspeed_langs; do
     c="${CODEC[$lang,sofab]:-}"; [ -n "$c" ] && echo "  sofab codec ($lang): $c"
 done
