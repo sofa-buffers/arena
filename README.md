@@ -46,6 +46,7 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 |---|---|---|---|
 | **Maxspeed** — cpp, rust | `corelib-cpp` (C++20), `corelib-rs` (std) | Google protobuf (`libprotobuf`, prost) | throughput |
 | **Maxspeed** — cpp/heapfree | `corelib-cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString`/`FixedBytes`/`InlineVector`, so a decode allocates nothing | the same `libprotobuf` run as the `cpp` row | throughput |
+| **Maxspeed** — cpp/stream | `corelib-cpp`, streaming encode: `serialize()` into a 64-byte `OStreamView` drained by a flush sink, so the encode needs the buffer and not the message | `libprotobuf`'s `SerializeToZeroCopyStream` over a block of the same size | throughput |
 | **Maxspeed** — zig | `corelib-zig` | [zig-protobuf](https://github.com/Arwalk/zig-protobuf) (Arwalk) | throughput |
 | **Maxspeed** — go, csharp, java, typescript, python, dart | each language's corelib | Google protobuf runtime (Dart: [`protoc_plugin`](https://pub.dev/packages/protoc_plugin)) | throughput |
 | **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
@@ -76,12 +77,15 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   protobuf-family baseline (`protobuf`, `protobuf-c`, `nanopb`, `micropb`,
   `embeddedproto`) emits the identical **494-byte** protobuf wire. A drifted fill in
   any language is caught automatically.
-- **One knob per extra row.** A `sofab-<variant>` impl (today only
-  `cpp`/`sofab-heapfree`) is the **same corelib and the same driver source**, built
-  with the same flags, one `cfg.yaml` key apart — and it faces the very same
-  protobuf run as its base row. So the `<lang>/<variant>` rows isolate that one
-  codegen option, and unlike rows of different languages they *are* comparable to
-  each other.
+- **One knob per extra row.** A `sofab-<variant>` impl is the **same corelib and
+  the same driver source**, built with the same flags, with exactly one knob
+  turned — `cpp`/`heapfree` changes the field storage (`allow_dynamic: false`),
+  `cpp`/`stream` changes the encode path (bounded buffer + flush sink instead of
+  one message-sized buffer). Each faces the baseline that keeps the comparison
+  honest: the plain protobuf run when only the sofab side changed, or a matching
+  `protobuf-<variant>` when the API path itself is the variable. So a
+  `<lang>/<variant>` row isolates that one knob, and unlike rows of different
+  languages these rows *are* comparable to each other.
 - **Optimized per category, portably, identically per row.** Maxspeed targets build
   for speed — `-O3 -march=native -flto` (C/C++), `target-cpu=native` + LTO (Rust),
   and portable runtime tuning for the VMs (workstation/server GC, `GOGC`, ParallelGC,

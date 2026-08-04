@@ -33,22 +33,36 @@ are never part of the ranking and every other target may omit them.
 | `codec` | which SofaBuffers codec backed the run where a corelib has more than one (Python: `native` vs the pure-Python fallback) |
 | `sizeof_bytes` | in-memory size of the message struct. The cost side of fixed-capacity storage, which sizes with the schema's declared `count`/`maxlen` rather than with the payload — the wire is unaffected. Emitted by the C++ target for both storage profiles (#107) |
 
-### `sofab-<variant>`: a second codegen configuration
+### `sofab-<variant>`: a second configuration of the same target
 
-`impl` may also be `sofab-<variant>` — the **same corelib and the same driver**
-generated with one codegen option flipped, so the pair isolates that option and
-nothing else. It is a SofaBuffers impl for every purpose: the gate holds it to the
-sofab reference wire, and it gets its own maxspeed row labelled `<lang>/<variant>`
-sharing its target's single protobuf measurement (so both configurations face the
-identical baseline run, and — unlike rows of different languages — the two rows
-**are** comparable to each other).
+`impl` may also be `sofab-<variant>` — the **same corelib and the same driver
+source**, built with the same flags, with exactly one knob turned. The pair
+isolates that knob and nothing else. It is a SofaBuffers impl for every purpose:
+the gate holds it to the sofab reference wire, and it gets its own maxspeed row
+labelled `<lang>/<variant>`. Unlike rows of different languages, these rows **are**
+comparable to each other.
 
-Today the only one is **`cpp` / `sofab-heapfree`** (#107): `corelib: cpp` with
-`allow_dynamic: false`, which stores every schema-bounded field in
-`sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of
-`std::string` / `std::vector`, so a decode allocates nothing. Both builds compile
-`languages/cpp/sofab/bench.cpp` verbatim with identical flags; only the generated
-header and `-DBENCH_IMPL` differ.
+**Which baseline a variant faces** depends on whether the target also built a
+`protobuf-<variant>`:
+
+- **it did** → the variant is paired with it. Required when the variant changes
+  the *API path* rather than the sofab side alone: a streaming encode must be
+  measured against protobuf's streaming encode, or the row compares two different
+  things.
+- **it did not** → the variant falls back to the target's plain `protobuf` run.
+  Right when only the sofab side changes and the opponent is unaffected.
+
+Existing variants:
+
+| impl | knob | opponent |
+|---|---|---|
+| `cpp` / `sofab-heapfree` (#107) | `corelib: cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of `std::string` / `std::vector`, so a decode allocates nothing | plain `protobuf` (the storage change is sofab-side only) |
+| `cpp` / `sofab-stream` (#108) | the **encode path**: the same `serialize()` the one-shot path uses, but over a buffer *smaller than the message* with a flush sink draining it as it fills — so the encode's memory need is the buffer, not the message | `protobuf-stream` (`SerializeToZeroCopyStream` over a block of the identical size, drained the same way) |
+
+The streaming rows vary the **encode** half only; the decode stays the plain
+one-shot parse on both sides, so the number reflects one axis. Buffer size is one
+value per target (`STREAM_BUF_BYTES` in its `setup.sh`, 64 B for `cpp`) shared by
+both sides of the row — the row compares codecs, not harness granularity.
 
 ## Rules every target follows
 
