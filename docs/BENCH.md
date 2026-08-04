@@ -57,7 +57,7 @@ Existing variants:
 | impl | knob | opponent |
 |---|---|---|
 | `sofab-heapfree` (#107) — `cpp` | `corelib: cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of `std::string` / `std::vector`, so a decode allocates nothing | plain `protobuf` (the storage change is sofab-side only) |
-| `sofab-stream` (#108) — `cpp`, `java`, `csharp` | the **encode path**: the same `serialize()` the one-shot path uses, but over a buffer *smaller than the message* with a flush sink draining it as it fills — so the encode's memory need is the buffer, not the message | `protobuf-stream`, protobuf's own bounded-buffer encode |
+| `sofab-stream` (#108) — `cpp`, `java`, `csharp`, `zig` | the **encode path**: the same `serialize()` the one-shot path uses, but over a buffer *smaller than the message* with a flush sink draining it as it fills — so the encode's memory need is the buffer, not the message | `protobuf-stream`, protobuf's own bounded-buffer encode |
 
 Per-language spelling of the streaming pair:
 
@@ -66,6 +66,24 @@ Per-language spelling of the streaming pair:
 | `cpp` | `serialize()` into a `sofab::OStreamView` with a flush callback | `SerializeToZeroCopyStream` over a `ZeroCopyOutputStream` handing out an equally sized block |
 | `java` | `encodeTo(OStream)` with a `FlushSink` | `writeTo(CodedOutputStream.newInstance(OutputStream, bufferSize))` |
 | `csharp` | `EncodeTo(OStream)` with a `FlushSink` | `WriteTo(new CodedOutputStream(Stream, bufferSize, leaveOpen))` |
+| `zig` | `serialize()` into a `sofab.OStream.initFlush(...)` | `encode(*std.Io.Writer, allocator)` into a `Writer` whose buffer is the same size and whose `drain` hands the bytes on |
+
+**Where there is no streaming row, and why.** The remaining maxspeed languages all
+have the sofab half — but their protobuf binding has no bounded-buffer encode, so a
+row would compare streaming against a full-buffer marshal and measure the harness,
+not the codecs:
+
+| target | protobuf binding's encode surface |
+|---|---|
+| `go` | `proto.Marshal` / `MarshalAppend` — returns a complete `[]byte` |
+| `rust` | prost `encode(&mut impl BufMut)` — a `BufMut` is a buffer, not a sink; a draining one would be our invention, not prost's path |
+| `dart` | `writeToBuffer()`; `CodedBufferWriter` only offers `toBuffer()` and is not exported |
+| `typescript` | protobufjs `Writer` accumulates internally, `finish()` returns the whole buffer |
+| `python` | `SerializeToString()` only |
+
+Note that `typescript`'s **sofab** side already encodes through an `OStream` — it
+has no one-shot encode at all — so its existing row is the streaming API with an
+unbounded buffer.
 
 The streaming rows vary the **encode** half only; the decode stays the plain
 one-shot parse on both sides, so the number reflects one axis. Buffer size is one
@@ -75,8 +93,8 @@ the same sink shape (drain into a fixed array), for the same reason.
 
 How the two impls of a pair are built differs by toolchain and does not matter to
 the contract, as long as they share their source, flags and runtime knobs: `cpp`
-compiles one driver twice (`-DBENCH_STREAM`), `java` and `csharp` run one build
-twice with `BENCH_IMPL` selecting the path. In every case the path is chosen
+compiles one driver twice (`-DBENCH_STREAM`), `java`, `csharp` and `zig` run one
+build twice with `BENCH_IMPL` selecting the path. In every case the path is chosen
 **before** timing starts — never as a branch inside the timed loop.
 
 ## Rules every target follows
