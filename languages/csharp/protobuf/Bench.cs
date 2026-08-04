@@ -2,8 +2,17 @@
 // Encodes + decodes the canonical FullScaleExample message, hand-filled from
 // schema/STATE.md, through protobuf's generated Fullscale types. Same message,
 // same state, same timed region as the SofaBuffers target.
+//
+// ONE source, TWO impls, selected by the BENCH_IMPL env var (#108):
+//
+//   protobuf         ToByteArray() -- one buffer the size of the whole message
+//   protobuf-stream  WriteTo(CodedOutputStream) over a bounded buffer flushed
+//                    into a Stream as it fills -- protobuf's own answer to the
+//                    question sofab-stream asks. It is the opponent the runner
+//                    pairs with impl=sofab-stream.
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Security.Cryptography;
 using Google.Protobuf;
 using Fullscale;
@@ -50,16 +59,56 @@ static class Program {
         return m;
     }
 
+    // Same sink shape as the sofab harness: the drained bytes land in a fixed
+    // array, so the row compares codecs and not the harness around them.
+    static readonly byte[] Sink = new byte[2048];
+    static int sinkN;
+
+    sealed class SinkStream : Stream {
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => sinkN;
+        public override long Position { get => sinkN; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] b, int o, int c) => throw new NotSupportedException();
+        public override long Seek(long o, SeekOrigin r) => throw new NotSupportedException();
+        public override void SetLength(long v) => throw new NotSupportedException();
+        public override void Write(byte[] b, int o, int c) {
+            Buffer.BlockCopy(b, o, Sink, sinkN, c);
+            sinkN += c;
+        }
+    }
+
+    static readonly SinkStream SinkOut = new SinkStream();
+
+    /// <summary>Streaming encode through a <paramref name="cap"/>-byte buffer; returns bytes drained.</summary>
+    static int StreamEncode(FullScaleExample m, int cap) {
+        sinkN = 0;
+        var cos = new CodedOutputStream(SinkOut, cap, leaveOpen: true);
+        m.WriteTo(cos);
+        cos.Flush();
+        return sinkN;
+    }
+
     static int Main() {
         var src = Build();
         var parser = FullScaleExample.Parser;
+
+        string impl = Environment.GetEnvironmentVariable("BENCH_IMPL") ?? "protobuf";
+        bool streaming = impl == "protobuf-stream";
+        int streamCap = int.Parse(Environment.GetEnvironmentVariable("STREAM_BUF_BYTES") ?? "64");
 
         // Warm-up round-trip + self-check (outside the timed region).
         byte[] blob = src.ToByteArray();
         int serialized = blob.Length;
         string sha = Convert.ToHexString(SHA256.HashData(blob)).ToLowerInvariant();
-        byte[] reenc = parser.ParseFrom(blob).ToByteArray();
-        if (!((ReadOnlySpan<byte>)reenc).SequenceEqual(blob)) {
+        // The check runs through whichever encode path this impl measures.
+        bool ok = streaming
+            ? StreamEncode(parser.ParseFrom(blob), streamCap) == serialized
+              && ((ReadOnlySpan<byte>)Sink).Slice(0, serialized).SequenceEqual(blob)
+            : ((ReadOnlySpan<byte>)parser.ParseFrom(blob).ToByteArray()).SequenceEqual(blob);
+        if (!ok) {
             Console.Error.WriteLine("FAIL: protobuf round-trip self-check");
             Environment.Exit(1);
         }
@@ -67,21 +116,36 @@ static class Program {
         long iters = long.Parse(Environment.GetEnvironmentVariable("BENCH_ITERS") ?? "2000000");
 
         // JIT warm-up (same chained shape as the timed loop).
-        for (int i = 0; i < 5000; i++) { parser.ParseFrom(blob).ToByteArray(); }
+        for (int i = 0; i < 5000; i++) {
+            if (streaming) StreamEncode(parser.ParseFrom(blob), streamCap);
+            else parser.ParseFrom(blob).ToByteArray();
+        }
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
         // parsed message (issue #86) — the proxy/transcode shape. Each ParseFrom
         // yields a new message whose cached serialized size is unset, so protobuf
         // pays the size pass every encode instead of hitting a once-per-instance
         // memo. sink keeps the re-encode live and doubles as a loop-path check.
+        //
+        // Two loops, picked before the stopwatch starts, so neither impl pays a
+        // per-iteration branch the other does not.
         long sink = 0;
-        var sw = Stopwatch.StartNew();
-        for (long i = 0; i < iters; i++) {
-            sink += parser.ParseFrom(blob).ToByteArray().Length;
+        Stopwatch sw;
+        if (streaming) {
+            sw = Stopwatch.StartNew();
+            for (long i = 0; i < iters; i++) {
+                sink += StreamEncode(parser.ParseFrom(blob), streamCap);
+            }
+        } else {
+            sw = Stopwatch.StartNew();
+            for (long i = 0; i < iters; i++) {
+                sink += parser.ParseFrom(blob).ToByteArray().Length;
+            }
         }
         sw.Stop();
 
-        if (sink != (long)serialized * iters) {
+        if (sink != (long)serialized * iters
+            || (streaming && !((ReadOnlySpan<byte>)Sink).Slice(0, serialized).SequenceEqual(blob))) {
             Console.Error.WriteLine("FAIL: protobuf loop-path self-check");
             Environment.Exit(1);
         }
@@ -89,7 +153,7 @@ static class Program {
         double cpu = sw.Elapsed.TotalSeconds;
         double mbs = cpu > 0 ? (double)serialized * iters / cpu / 1e6 : 0.0;
         Console.WriteLine(
-            $"BENCH lang=csharp impl=protobuf serialized_bytes={serialized} iters={iters} " +
+            $"BENCH lang=csharp impl={impl} serialized_bytes={serialized} iters={iters} " +
             $"cpu_time_s={cpu:F6} throughput_mbs={mbs:F2} sha256={sha}");
         return 0;
     }

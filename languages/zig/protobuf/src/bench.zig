@@ -14,10 +14,14 @@ fn cpuNow() f64 {
     return @as(f64, @floatFromInt(ts.sec)) + @as(f64, @floatFromInt(ts.nsec)) / 1e9;
 }
 
-fn benchIters(init: std.process.Init, fallback: u64) u64 {
-    const s = init.environ_map.get("BENCH_ITERS") orelse return fallback;
+fn benchEnvU64(init: std.process.Init, key: []const u8, fallback: u64) u64 {
+    const s = init.environ_map.get(key) orelse return fallback;
     const v = std.fmt.parseInt(u64, s, 10) catch return fallback;
     return if (v > 0) v else fallback;
+}
+
+fn benchIters(init: std.process.Init, fallback: u64) u64 {
+    return benchEnvU64(init, "BENCH_ITERS", fallback);
 }
 
 /// The canonical field values from schema/STATE.md (machine: state.json).
@@ -67,6 +71,51 @@ fn fill(alloc: std.mem.Allocator) !pb.FullScaleExample {
     };
 }
 
+/// Streaming encode (#108), the opponent of sofab-stream: zig-protobuf encodes
+/// into a `std.Io.Writer`, so a Writer whose buffer is SMALLER than the message
+/// and whose drain hands the bytes on is protobuf's own bounded-buffer encode —
+/// the same question sofab-stream asks, answered with this library's own
+/// abstraction rather than a harness invention.
+const Sink = struct {
+    var buf: [2048]u8 = undefined;
+    var n: usize = 0;
+
+    fn push(data: []const u8) void {
+        @memcpy(buf[n..][0..data.len], data);
+        n += data.len;
+    }
+
+    /// Flush the Writer's own buffer, then consume every incoming vector.
+    /// `splat` repeats the last vector, per the std.Io.Writer contract.
+    fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
+        push(w.buffer[0..w.end]);
+        w.end = 0;
+        var consumed: usize = 0;
+        if (data.len == 0) return 0;
+        for (data[0 .. data.len - 1]) |d| {
+            push(d);
+            consumed += d.len;
+        }
+        const last = data[data.len - 1];
+        var k: usize = 0;
+        while (k < splat) : (k += 1) {
+            push(last);
+            consumed += last.len;
+        }
+        return consumed;
+    }
+
+    const vtable: std.Io.Writer.VTable = .{ .drain = drain };
+};
+
+fn streamEncode(m: pb.FullScaleExample, scratch: []u8, alloc: std.mem.Allocator) !usize {
+    Sink.n = 0;
+    var w: std.Io.Writer = .{ .vtable = &Sink.vtable, .buffer = scratch, .end = 0 };
+    try m.encode(&w, alloc);
+    try w.flush();   // hand over the tail still sitting in the buffer
+    return Sink.n;
+}
+
 pub fn main(init: std.process.Init) !void {
     // The source message lives in its own arena, never reset; the encode
     // scratch + decode output use a second arena rewound per iteration (the
@@ -77,6 +126,12 @@ pub fn main(init: std.process.Init) !void {
     defer arena.deinit();
 
     const src = try fill(fill_arena.allocator());
+
+    const impl = init.environ_map.get("BENCH_IMPL") orelse "protobuf";
+    const streaming = std.mem.eql(u8, impl, "protobuf-stream");
+    const stream_cap = benchEnvU64(init, "STREAM_BUF_BYTES", 64);
+    var stream_scratch: [512]u8 = undefined;
+    const scratch = stream_scratch[0..@min(stream_cap, stream_scratch.len)];
 
     // Warm-up round-trip + self-check (outside the timed region).
     var buf: [2048]u8 = undefined;
@@ -93,9 +148,15 @@ pub fn main(init: std.process.Init) !void {
     {
         var r = std.Io.Reader.fixed(wire);
         const check = try pb.FullScaleExample.decode(&r, arena.allocator());
-        var cw = std.Io.Writer.fixed(&check_buf);
-        try check.encode(&cw, arena.allocator());
-        if (!std.mem.eql(u8, cw.buffered(), wire)) {
+        const ok = if (streaming) blk: {
+            const n = try streamEncode(check, scratch, arena.allocator());
+            break :blk n == serialized and std.mem.eql(u8, Sink.buf[0..n], wire);
+        } else blk: {
+            var cw = std.Io.Writer.fixed(&check_buf);
+            try check.encode(&cw, arena.allocator());
+            break :blk std.mem.eql(u8, cw.buffered(), wire);
+        };
+        if (!ok) {
             std.debug.print("FAIL: protobuf round-trip self-check\n", .{});
             std.process.exit(1);
         }
@@ -105,26 +166,50 @@ pub fn main(init: std.process.Init) !void {
     // the freshly decoded message (issue #86) — the proxy/transcode shape, so
     // encode runs on a just-parsed message rather than a pre-built, reused one.
     // Output buffer hoisted; the arena is rewound per iteration, keeping its pages.
+    //
+    // Two loops, picked before t0, so neither impl pays a per-iteration branch the
+    // other does not. Only the ENCODE half differs — the decode stays the plain
+    // one-shot parse in both.
     const iters = benchIters(init, 2_000_000);
     var loop_buf: [2048]u8 = undefined;
     var loop_wire: []const u8 = &.{};
     var dec: pb.FullScaleExample = .{};
-    const t0 = cpuNow();
-    var i: u64 = 0;
-    while (i < iters) : (i += 1) {
-        _ = arena.reset(.retain_capacity);
-        var r = std.Io.Reader.fixed(wire);
-        dec = try pb.FullScaleExample.decode(&r, arena.allocator());
-        var ew = std.Io.Writer.fixed(&loop_buf);
-        try dec.encode(&ew, arena.allocator());
-        loop_wire = ew.buffered();
-        std.mem.doNotOptimizeAway(loop_wire);
+    var cpu: f64 = 0;
+    if (streaming) {
+        const t0 = cpuNow();
+        var i: u64 = 0;
+        while (i < iters) : (i += 1) {
+            _ = arena.reset(.retain_capacity);
+            var r = std.Io.Reader.fixed(wire);
+            dec = try pb.FullScaleExample.decode(&r, arena.allocator());
+            const n = try streamEncode(dec, scratch, arena.allocator());
+            std.mem.doNotOptimizeAway(Sink.buf[0..n]);
+        }
+        cpu = cpuNow() - t0;
+    } else {
+        const t0 = cpuNow();
+        var i: u64 = 0;
+        while (i < iters) : (i += 1) {
+            _ = arena.reset(.retain_capacity);
+            var r = std.Io.Reader.fixed(wire);
+            dec = try pb.FullScaleExample.decode(&r, arena.allocator());
+            var ew = std.Io.Writer.fixed(&loop_buf);
+            try dec.encode(&ew, arena.allocator());
+            loop_wire = ew.buffered();
+            std.mem.doNotOptimizeAway(loop_wire);
+        }
+        cpu = cpuNow() - t0;
     }
-    const cpu = cpuNow() - t0;
 
-    var cw = std.Io.Writer.fixed(&check_buf);
-    try dec.encode(&cw, arena.allocator());
-    if (!std.mem.eql(u8, cw.buffered(), wire)) {
+    const loop_ok = if (streaming) blk: {
+        const n = try streamEncode(dec, scratch, arena.allocator());
+        break :blk n == serialized and std.mem.eql(u8, Sink.buf[0..n], wire);
+    } else blk: {
+        var cw = std.Io.Writer.fixed(&check_buf);
+        try dec.encode(&cw, arena.allocator());
+        break :blk std.mem.eql(u8, cw.buffered(), wire);
+    };
+    if (!loop_ok) {
         std.debug.print("FAIL: protobuf loop-path self-check\n", .{});
         std.process.exit(1);
     }
@@ -138,8 +223,8 @@ pub fn main(init: std.process.Init) !void {
     var stdout_writer = std.Io.File.stdout().writer(init.io, &stdout_buffer);
     const out = &stdout_writer.interface;
     try out.print(
-        "BENCH lang=zig impl=protobuf serialized_bytes={d} iters={d} cpu_time_s={d:.6} throughput_mbs={d:.2} sha256={x}\n",
-        .{ serialized, iters, cpu, mbs, digest[0..] },
+        "BENCH lang=zig impl={s} serialized_bytes={d} iters={d} cpu_time_s={d:.6} throughput_mbs={d:.2} sha256={x}\n",
+        .{ impl, serialized, iters, cpu, mbs, digest[0..] },
     );
     try out.flush();
 }
