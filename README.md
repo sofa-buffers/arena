@@ -46,7 +46,7 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 |---|---|---|---|
 | **Maxspeed** — cpp, rust | `corelib-cpp` (C++20), `corelib-rs` (std) | Google protobuf (`libprotobuf`, prost) | throughput |
 | **Maxspeed** — cpp/heapfree | `corelib-cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString`/`FixedBytes`/`InlineVector`, so a decode allocates nothing | the same `libprotobuf` run as the `cpp` row | throughput |
-| **Maxspeed** — cpp/stream | `corelib-cpp`, streaming encode: `serialize()` into a 64-byte `OStreamView` drained by a flush sink, so the encode needs the buffer and not the message | `libprotobuf`'s `SerializeToZeroCopyStream` over a block of the same size | throughput |
+| **Maxspeed** — cpp/stream, java/stream, csharp/stream | the same corelib, **streaming encode**: rendered into a 64-byte buffer drained by a flush sink, so the encode needs the buffer and not the message | protobuf's own bounded-buffer encode (`SerializeToZeroCopyStream`, `CodedOutputStream`) | throughput |
 | **Maxspeed** — zig | `corelib-zig` | [zig-protobuf](https://github.com/Arwalk/zig-protobuf) (Arwalk) | throughput |
 | **Maxspeed** — go, csharp, java, typescript, python, dart | each language's corelib | Google protobuf runtime (Dart: [`protoc_plugin`](https://pub.dev/packages/protoc_plugin)) | throughput |
 | **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |

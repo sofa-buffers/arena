@@ -56,13 +56,28 @@ Existing variants:
 
 | impl | knob | opponent |
 |---|---|---|
-| `cpp` / `sofab-heapfree` (#107) | `corelib: cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of `std::string` / `std::vector`, so a decode allocates nothing | plain `protobuf` (the storage change is sofab-side only) |
-| `cpp` / `sofab-stream` (#108) | the **encode path**: the same `serialize()` the one-shot path uses, but over a buffer *smaller than the message* with a flush sink draining it as it fills — so the encode's memory need is the buffer, not the message | `protobuf-stream` (`SerializeToZeroCopyStream` over a block of the identical size, drained the same way) |
+| `sofab-heapfree` (#107) — `cpp` | `corelib: cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of `std::string` / `std::vector`, so a decode allocates nothing | plain `protobuf` (the storage change is sofab-side only) |
+| `sofab-stream` (#108) — `cpp`, `java`, `csharp` | the **encode path**: the same `serialize()` the one-shot path uses, but over a buffer *smaller than the message* with a flush sink draining it as it fills — so the encode's memory need is the buffer, not the message | `protobuf-stream`, protobuf's own bounded-buffer encode |
+
+Per-language spelling of the streaming pair:
+
+| target | `sofab-stream` | `protobuf-stream` |
+|---|---|---|
+| `cpp` | `serialize()` into a `sofab::OStreamView` with a flush callback | `SerializeToZeroCopyStream` over a `ZeroCopyOutputStream` handing out an equally sized block |
+| `java` | `encodeTo(OStream)` with a `FlushSink` | `writeTo(CodedOutputStream.newInstance(OutputStream, bufferSize))` |
+| `csharp` | `EncodeTo(OStream)` with a `FlushSink` | `WriteTo(new CodedOutputStream(Stream, bufferSize, leaveOpen))` |
 
 The streaming rows vary the **encode** half only; the decode stays the plain
 one-shot parse on both sides, so the number reflects one axis. Buffer size is one
-value per target (`STREAM_BUF_BYTES` in its `setup.sh`, 64 B for `cpp`) shared by
-both sides of the row — the row compares codecs, not harness granularity.
+value per target (`STREAM_BUF_BYTES`, 64 B everywhere so far) shared by both sides
+of the row — the row compares codecs, not harness granularity. Both sides also use
+the same sink shape (drain into a fixed array), for the same reason.
+
+How the two impls of a pair are built differs by toolchain and does not matter to
+the contract, as long as they share their source, flags and runtime knobs: `cpp`
+compiles one driver twice (`-DBENCH_STREAM`), `java` and `csharp` run one build
+twice with `BENCH_IMPL` selecting the path. In every case the path is chosen
+**before** timing starts — never as a branch inside the timed loop.
 
 ## Rules every target follows
 
