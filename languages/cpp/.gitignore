@@ -1,3 +1,5 @@
-# compiled bench executables (one per impl dir: sofab/, sofab-heapfree/, protobuf/)
+# compiled bench executables (sofab/, sofab-heapfree/, protobuf/ — plus the
+# -stream builds, which live next to the one-shot build they share a source with)
 /*/bench
+/*/bench-stream
 *.o
