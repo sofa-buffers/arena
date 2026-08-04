@@ -6,8 +6,21 @@
 //
 // The message fill mirrors every other target in the arena — identical fields,
 // ids and values as the .proto / .sofab definitions and the canonical state.
+//
+// ONE source, TWO builds (issue #107): setup.sh compiles this file twice with
+// identical flags, against the two corelib-cpp storage profiles that sofabgen's
+// `allow_dynamic` selects — growable (std::string/std::vector) as impl=sofab and
+// heap-free (sofab::FixedString/FixedBytes/InlineVector) as impl=sofab-heapfree.
+// Both profiles share one API and one wire, so the ONLY differences between the
+// two runs are the generated header on the include path and BENCH_IMPL below;
+// sharing the source is what makes the pair a like-for-like measurement.
 #ifndef _POSIX_C_SOURCE
 #  define _POSIX_C_SOURCE 199309L
+#endif
+
+// Which storage profile this build measures; set by setup.sh (-DBENCH_IMPL).
+#ifndef BENCH_IMPL
+#  define BENCH_IMPL "sofab"
 #endif
 
 #include <cfloat>
@@ -130,8 +143,12 @@ int main()
     const double mbs = (cpu > 0.0)
         ? static_cast<double>(serialized) * static_cast<double>(iters) / cpu / 1.0e6
         : 0.0;
-    printf("BENCH lang=cpp impl=sofab serialized_bytes=%zu iters=%ld "
-           "cpu_time_s=%.6f throughput_mbs=%.2f sha256=%s\n",
-           serialized, iters, cpu, mbs, sha);
+    // sizeof_bytes is the in-memory size of the message struct — the cost side of
+    // the heap-free trade (#107): fixed-capacity storage sizes with the schema's
+    // declared count/maxlen instead of with the payload, so it buys the decode
+    // speed with RAM. Optional BENCH key; the runner reports it as a footnote.
+    printf("BENCH lang=cpp impl=%s serialized_bytes=%zu iters=%ld "
+           "cpu_time_s=%.6f throughput_mbs=%.2f sizeof_bytes=%zu sha256=%s\n",
+           BENCH_IMPL, serialized, iters, cpu, mbs, sizeof(Example), sha);
     return 0;
 }

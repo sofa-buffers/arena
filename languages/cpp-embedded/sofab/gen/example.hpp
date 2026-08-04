@@ -123,8 +123,8 @@ struct ExampleNested : sofab::Message {
     bool _isDefault() const noexcept {
         if (!(f32 == 0.0f)) { return false; }
         if (!(f64 == 0.0)) { return false; }
-        if (!(str == "")) { return false; }
-        if (!(bytes_field == sofab::FixedBytes<4>{})) { return false; }
+        if (!(str.empty())) { return false; }
+        if (!(bytes_field.empty())) { return false; }
         return true;
     }
 
@@ -140,8 +140,8 @@ struct ExampleNested : sofab::Message {
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
         if (f32 != 0.0f) { (void)os.write(0, f32); }
         if (f64 != 0.0) { (void)os.write(1, f64); }
-        if (str != "") { (void)os.write(2, str); }
-        if (bytes_field != sofab::FixedBytes<4>{}) { (void)os.write(3, bytes_field.data(), static_cast<std::int32_t>(bytes_field.size())); }
+        if (!str.empty()) { (void)os.write(2, str); }
+        if (!bytes_field.empty()) { (void)os.write(3, bytes_field.data(), static_cast<std::int32_t>(bytes_field.size())); }
         return os.writeIf(0, false, false);
     }
 
@@ -209,8 +209,8 @@ struct ExampleArraysNested : sofab::Message {
      * declared with a `count`, whose encoding stops one past it.
      */
     bool _isDefault() const noexcept {
-        if (!(fp32 == sofab::InlineVector<float, 5>{})) { return false; }
-        if (!(fp64 == sofab::InlineVector<double, 5>{})) { return false; }
+        if (!(fp32.empty())) { return false; }
+        if (!(fp64.empty())) { return false; }
         return true;
     }
 
@@ -224,10 +224,10 @@ struct ExampleArraysNested : sofab::Message {
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
-        if (fp32 != sofab::InlineVector<float, 5>{}) {
+        if (!fp32.empty()) {
             (void)os.write(0, fp32);
         }
-        if (fp64 != sofab::InlineVector<double, 5>{}) {
+        if (!fp64.empty()) {
             (void)os.write(1, fp64);
         }
         return os.writeIf(0, false, false);
@@ -305,14 +305,14 @@ struct ExampleArrays : sofab::Message {
      * declared with a `count`, whose encoding stops one past it.
      */
     bool _isDefault() const noexcept {
-        if (!(u8 == sofab::InlineVector<std::uint8_t, 5>{})) { return false; }
-        if (!(i8 == sofab::InlineVector<std::int8_t, 5>{})) { return false; }
-        if (!(u16 == sofab::InlineVector<std::uint16_t, 5>{})) { return false; }
-        if (!(i16 == sofab::InlineVector<std::int16_t, 5>{})) { return false; }
-        if (!(u32 == sofab::InlineVector<std::uint32_t, 5>{})) { return false; }
-        if (!(i32 == sofab::InlineVector<std::int32_t, 5>{})) { return false; }
-        if (!(u64 == sofab::InlineVector<std::uint64_t, 5>{})) { return false; }
-        if (!(i64 == sofab::InlineVector<std::int64_t, 5>{})) { return false; }
+        if (!(u8.empty())) { return false; }
+        if (!(i8.empty())) { return false; }
+        if (!(u16.empty())) { return false; }
+        if (!(i16.empty())) { return false; }
+        if (!(u32.empty())) { return false; }
+        if (!(i32.empty())) { return false; }
+        if (!(u64.empty())) { return false; }
+        if (!(i64.empty())) { return false; }
         if (!(nested._isDefault())) { return false; }
         return true;
     }
@@ -327,28 +327,28 @@ struct ExampleArrays : sofab::Message {
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &os) const noexcept override {
-        if (u8 != sofab::InlineVector<std::uint8_t, 5>{}) {
+        if (!u8.empty()) {
             (void)os.write(0, u8);
         }
-        if (i8 != sofab::InlineVector<std::int8_t, 5>{}) {
+        if (!i8.empty()) {
             (void)os.write(1, i8);
         }
-        if (u16 != sofab::InlineVector<std::uint16_t, 5>{}) {
+        if (!u16.empty()) {
             (void)os.write(2, u16);
         }
-        if (i16 != sofab::InlineVector<std::int16_t, 5>{}) {
+        if (!i16.empty()) {
             (void)os.write(3, i16);
         }
-        if (u32 != sofab::InlineVector<std::uint32_t, 5>{}) {
+        if (!u32.empty()) {
             (void)os.write(4, u32);
         }
-        if (i32 != sofab::InlineVector<std::int32_t, 5>{}) {
+        if (!i32.empty()) {
             (void)os.write(5, i32);
         }
-        if (u64 != sofab::InlineVector<std::uint64_t, 5>{}) {
+        if (!u64.empty()) {
             (void)os.write(6, u64);
         }
-        if (i64 != sofab::InlineVector<std::int64_t, 5>{}) {
+        if (!i64.empty()) {
             (void)os.write(7, i64);
         }
         (void)os.writeLazy(10, nested);

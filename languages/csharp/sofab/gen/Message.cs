@@ -17,7 +17,7 @@ public sealed class ExampleArrays {
     public long[] i64 = Array.Empty<long>();
     public ExampleArraysNested nested = new();
 
-    public void Marshal(OStream os) {
+    public void Serialize(OStream os) {
         if (this.u8 != null && this.u8.Length != 0) {
             os.WriteArrayUnsigned(0, this.u8);
         }
@@ -42,7 +42,7 @@ public sealed class ExampleArrays {
         if (this.i64 != null && this.i64.Length != 0) {
             os.WriteArraySigned(7, this.i64);
         }
-        os.WriteSequenceBeginLazy(10); (this.nested ?? new ExampleArraysNested()).Marshal(os); os.WriteSequenceEnd();
+        os.WriteSequenceBeginLazy(10); (this.nested ?? new ExampleArraysNested()).Serialize(os); os.WriteSequenceEnd();
     }
     public bool IsDefault() {
         if (!(this.u8 == null || this.u8.Length == 0)) return false;
@@ -62,7 +62,7 @@ public sealed class ExampleArraysNested {
     public float[] fp32 = Array.Empty<float>();
     public double[] fp64 = Array.Empty<double>();
 
-    public void Marshal(OStream os) {
+    public void Serialize(OStream os) {
         if (this.fp32 != null && this.fp32.Length != 0) {
             os.WriteArrayFp32(0, this.fp32);
         }
@@ -83,7 +83,7 @@ public sealed class ExampleNested {
     public string str = "";
     public byte[] bytes_field = Array.Empty<byte>();
 
-    public void Marshal(OStream os) {
+    public void Serialize(OStream os) {
         if (this.f32 != 0) { os.WriteFp32(0, this.f32); }
         if (this.f64 != 0) { os.WriteFp64(1, this.f64); }
         if (this.str != "") { os.WriteString(2, this.str ?? ""); }
@@ -114,7 +114,7 @@ public sealed class Example {
     public ExampleArrays arrays = new();
     public List<string> string_array = new();
 
-    public void Marshal(OStream os) {
+    public void Serialize(OStream os) {
         if (this.u8 != 0) { os.WriteUnsigned(0, (ulong)this.u8); }
         if (this.i8 != 0) { os.WriteSigned(1, (long)this.i8); }
         if (this.u16 != 0) { os.WriteUnsigned(2, (ulong)this.u16); }
@@ -123,8 +123,8 @@ public sealed class Example {
         if (this.i32 != 0) { os.WriteSigned(5, (long)this.i32); }
         if (this.u64 != 0) { os.WriteUnsigned(6, (ulong)this.u64); }
         if (this.i64 != 0) { os.WriteSigned(7, (long)this.i64); }
-        os.WriteSequenceBeginLazy(10); (this.nested ?? new ExampleNested()).Marshal(os); os.WriteSequenceEnd();
-        os.WriteSequenceBeginLazy(100); (this.arrays ?? new ExampleArrays()).Marshal(os); os.WriteSequenceEnd();
+        os.WriteSequenceBeginLazy(10); (this.nested ?? new ExampleNested()).Serialize(os); os.WriteSequenceEnd();
+        os.WriteSequenceBeginLazy(100); (this.arrays ?? new ExampleArrays()).Serialize(os); os.WriteSequenceEnd();
         os.WriteSequenceBeginLazy(200);
         for (int _i0 = 0, _n0 = this.string_array.Count; _i0 < _n0; _i0++) { if ((this.string_array[_i0] ?? "") != "" || _i0 == _n0 - 1) os.WriteString(_i0, this.string_array[_i0] ?? ""); }
         os.WriteSequenceEnd();
@@ -144,18 +144,28 @@ public sealed class Example {
         return true;
     }
     public const int MaxSize = 732;
-    // Per-thread scratch buffer: Encode() marshals into it and returns an
+    // Per-thread scratch buffer: Encode() serialises into it and returns an
     // exact-size copy, so the worst-case buffer is not re-allocated (and
     // zeroed) on every call. Do not call Encode() reentrantly from a
-    // Marshal() override on the same thread.
+    // Serialize() override on the same thread.
     [ThreadStatic] private static byte[] _encScratch;
     public byte[] Encode() {
         var buf = _encScratch ??= new byte[MaxSize];
         var os = new OStream(buf);
-        Marshal(os);
+        Serialize(os);
         var outp = new byte[os.BytesUsed];
         Array.Copy(buf, outp, os.BytesUsed);
         return outp;
+    }
+    /// <summary>
+    /// Encode into a stream the caller owns, then flush the tail.
+    /// With a <c>FlushSink</c> on <paramref name="os"/> the buffer may be
+    /// smaller than the message: it is drained as it fills, so what bounds
+    /// memory is the buffer, not the message.
+    /// </summary>
+    public void EncodeTo(OStream os) {
+        Serialize(os);
+        os.Flush();
     }
     public static Example Decode(byte[] data) {
         var m = new Example();
@@ -167,11 +177,68 @@ public sealed class Example {
         msg = new Example();
         return new IStream().Feed(data, 0, data.Length, new ExampleVisitor(msg));
     }
+    /// <summary>
+    /// Incremental decoder for <see cref="Example"/>: hold one and feed the
+    /// message as bytes arrive, instead of buffering it whole first.
+    /// </summary>
+    /// <remarks>
+    /// The wire format has no end marker at the top level -- a message ends
+    /// where its bytes end -- so a feed cannot report that the MESSAGE is
+    /// complete, only that the bytes handed in ended on a field boundary
+    /// (<c>Complete</c>) or mid-field (<c>Incomplete</c>). Neither is a
+    /// failure mid-stream; the caller's own framing decides when the input
+    /// is over, and <c>Finish</c> then gives the verdict for the message as
+    /// a whole.
+    /// </remarks>
+    public sealed class Decoder {
+        private readonly Example _m = new Example();
+        private readonly IStream _is = new IStream();
+        private readonly ExampleVisitor _v;
+
+        public Decoder() { _v = new ExampleVisitor(_m); }
+
+        /// <summary>
+        /// Feed the next chunk, of any size. Returns <c>Complete</c> if it
+        /// ended on a field boundary, <c>Incomplete</c> if it ended mid-field
+        /// -- neither answers whether the MESSAGE is done.
+        /// </summary>
+        public DecodeStatus Feed(byte[] chunk) => _is.Feed(chunk, 0, chunk.Length, _v);
+
+        /// <summary>As <c>Feed</c>, over a slice of <paramref name="chunk"/>.</summary>
+        public DecodeStatus Feed(byte[] chunk, int off, int len) => _is.Feed(chunk, off, len, _v);
+
+        /// <summary>The outcome for everything fed so far.</summary>
+        public DecodeStatus Status => _is.Status;
+
+        /// <summary>The destination, holding whatever has been decoded so far.</summary>
+        public Example Message => _m;
+
+        /// <summary>
+        /// Take the decoded message once the caller's framing says the input
+        /// is over. Rejects a stream that ended mid-field rather than
+        /// returning a half-filled value; read <c>Message</c> to get it
+        /// anyway.
+        /// </summary>
+        /// <remarks>
+        /// This is an <c>InvalidOperationException</c> and not a
+        /// <c>SofabException</c> on purpose: an incomplete message is not a
+        /// malformed one. Nothing is wrong with the bytes -- the caller
+        /// declared end-of-input at a point they did not agree with.
+        /// </remarks>
+        public Example Finish() {
+            if (_is.Status != DecodeStatus.Complete) {
+                throw new InvalidOperationException(
+                    $"Example: stream ended mid-field ({_is.Status})");
+            }
+            return _m;
+        }
+    }
 }
 
 internal sealed class ExampleVisitor : IVisitor {
     private readonly Example m;
     private int cur = 0;
+    private const int _DEAD = -1;
     private int ai = 0;                // index into the primitive array currently being filled
     private int askip = 0;             // elements left to discard from a wire-type-contradictory array
     private int afill = 0;             // elements still expected by an armed native-array fill (S7.3)
@@ -188,26 +255,26 @@ internal sealed class ExampleVisitor : IVisitor {
     public void Unsigned(int id, ulong value) {
         if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
         switch ((cur, id)) {
-            case (Root, 0): m.u8 = (byte)value; break;
-            case (Root, 2): m.u16 = (ushort)value; break;
-            case (Root, 4): m.u32 = (uint)value; break;
+            case (Root, 0): if (value > 255) throw new SofabException(SofabError.InvalidMessage, "u8: value outside declared width u8"); m.u8 = (byte)value; break;
+            case (Root, 2): if (value > 65535) throw new SofabException(SofabError.InvalidMessage, "u16: value outside declared width u16"); m.u16 = (ushort)value; break;
+            case (Root, 4): if (value > 4294967295) throw new SofabException(SofabError.InvalidMessage, "u32: value outside declared width u32"); m.u32 = (uint)value; break;
             case (Root, 6): m.u64 = (ulong)value; break;
-            case (Root_arrays, 0): if (afill == 0) break; afill--; m.arrays.u8[ai++] = (byte)value; break;
-            case (Root_arrays, 2): if (afill == 0) break; afill--; m.arrays.u16[ai++] = (ushort)value; break;
-            case (Root_arrays, 4): if (afill == 0) break; afill--; m.arrays.u32[ai++] = (uint)value; break;
+            case (Root_arrays, 0): if (afill == 0) break; afill--; if (value > 255) throw new SofabException(SofabError.InvalidMessage, "u8 element: value outside declared width u8"); m.arrays.u8[ai++] = (byte)value; break;
+            case (Root_arrays, 2): if (afill == 0) break; afill--; if (value > 65535) throw new SofabException(SofabError.InvalidMessage, "u16 element: value outside declared width u16"); m.arrays.u16[ai++] = (ushort)value; break;
+            case (Root_arrays, 4): if (afill == 0) break; afill--; if (value > 4294967295) throw new SofabException(SofabError.InvalidMessage, "u32 element: value outside declared width u32"); m.arrays.u32[ai++] = (uint)value; break;
             case (Root_arrays, 6): if (afill == 0) break; afill--; m.arrays.u64[ai++] = (ulong)value; break;
         }
     }
     public void Signed(int id, long value) {
         if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
         switch ((cur, id)) {
-            case (Root, 1): m.i8 = (sbyte)value; break;
-            case (Root, 3): m.i16 = (short)value; break;
-            case (Root, 5): m.i32 = (int)value; break;
+            case (Root, 1): if (value < -128 || value > 127) throw new SofabException(SofabError.InvalidMessage, "i8: value outside declared width i8"); m.i8 = (sbyte)value; break;
+            case (Root, 3): if (value < -32768 || value > 32767) throw new SofabException(SofabError.InvalidMessage, "i16: value outside declared width i16"); m.i16 = (short)value; break;
+            case (Root, 5): if (value < -2147483648 || value > 2147483647) throw new SofabException(SofabError.InvalidMessage, "i32: value outside declared width i32"); m.i32 = (int)value; break;
             case (Root, 7): m.i64 = (long)value; break;
-            case (Root_arrays, 1): if (afill == 0) break; afill--; m.arrays.i8[ai++] = (sbyte)value; break;
-            case (Root_arrays, 3): if (afill == 0) break; afill--; m.arrays.i16[ai++] = (short)value; break;
-            case (Root_arrays, 5): if (afill == 0) break; afill--; m.arrays.i32[ai++] = (int)value; break;
+            case (Root_arrays, 1): if (afill == 0) break; afill--; if (value < -128 || value > 127) throw new SofabException(SofabError.InvalidMessage, "i8 element: value outside declared width i8"); m.arrays.i8[ai++] = (sbyte)value; break;
+            case (Root_arrays, 3): if (afill == 0) break; afill--; if (value < -32768 || value > 32767) throw new SofabException(SofabError.InvalidMessage, "i16 element: value outside declared width i16"); m.arrays.i16[ai++] = (short)value; break;
+            case (Root_arrays, 5): if (afill == 0) break; afill--; if (value < -2147483648 || value > 2147483647) throw new SofabException(SofabError.InvalidMessage, "i32 element: value outside declared width i32"); m.arrays.i32[ai++] = (int)value; break;
             case (Root_arrays, 7): if (afill == 0) break; afill--; m.arrays.i64[ai++] = (long)value; break;
         }
     }
@@ -231,6 +298,15 @@ internal sealed class ExampleVisitor : IVisitor {
         catch (System.Text.DecoderFallbackException) { throw new SofabException(SofabError.InvalidMessage, "string: invalid UTF-8"); }
     }
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        // A payload this scope does not declare is skipped: its bytes are jumped
+        // over, never inspected. Resolve the destination first and leave before a
+        // byte is buffered, decoded or checked.
+        switch ((cur, id)) {
+            case (Root_nested, 2):
+            case (Root_string_array, _):
+                break;
+            default: return;
+        }
         switch ((cur, id)) {
             case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
             case (Root_string_array, _): if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
@@ -275,54 +351,66 @@ internal sealed class ExampleVisitor : IVisitor {
         // matching element kind is a wire-type contradiction: discard its
         // `count` elements, exactly as an unknown id would be skipped.
         askip = kind switch {
-            ArrayKind.Unsigned or ArrayKind.Signed => (cur, id) switch {
+            ArrayKind.Unsigned => (cur, id) switch {
                 (Root_arrays, 0) => 0,
-                (Root_arrays, 1) => 0,
                 (Root_arrays, 2) => 0,
-                (Root_arrays, 3) => 0,
                 (Root_arrays, 4) => 0,
-                (Root_arrays, 5) => 0,
                 (Root_arrays, 6) => 0,
+                _ => count,
+            },
+            ArrayKind.Signed => (cur, id) switch {
+                (Root_arrays, 1) => 0,
+                (Root_arrays, 3) => 0,
+                (Root_arrays, 5) => 0,
                 (Root_arrays, 7) => 0,
                 _ => count,
             },
-            ArrayKind.Fixlen => (cur, id) switch {
+            ArrayKind.Fp32 => (cur, id) switch {
                 (Root_arrays_nested, 0) => 0,
+                _ => count,
+            },
+            ArrayKind.Fp64 => (cur, id) switch {
                 (Root_arrays_nested, 1) => 0,
                 _ => count,
             },
             _ => 0,
         };
         afill = kind switch {
-            ArrayKind.Unsigned or ArrayKind.Signed => (cur, id) switch {
+            ArrayKind.Unsigned => (cur, id) switch {
                 (Root_arrays, 0) => count,
-                (Root_arrays, 1) => count,
                 (Root_arrays, 2) => count,
-                (Root_arrays, 3) => count,
                 (Root_arrays, 4) => count,
-                (Root_arrays, 5) => count,
                 (Root_arrays, 6) => count,
+                _ => 0,
+            },
+            ArrayKind.Signed => (cur, id) switch {
+                (Root_arrays, 1) => count,
+                (Root_arrays, 3) => count,
+                (Root_arrays, 5) => count,
                 (Root_arrays, 7) => count,
                 _ => 0,
             },
-            ArrayKind.Fixlen => (cur, id) switch {
+            ArrayKind.Fp32 => (cur, id) switch {
                 (Root_arrays_nested, 0) => count,
+                _ => 0,
+            },
+            ArrayKind.Fp64 => (cur, id) switch {
                 (Root_arrays_nested, 1) => count,
                 _ => 0,
             },
             _ => 0,
         };
         switch ((cur, id)) {
-            case (Root_arrays, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[count]; break;
-            case (Root_arrays, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[count]; break;
-            case (Root_arrays, 2): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u16: array count above schema capacity 5"); m.arrays.u16 = new ushort[count]; break;
-            case (Root_arrays, 3): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i16: array count above schema capacity 5"); m.arrays.i16 = new short[count]; break;
-            case (Root_arrays, 4): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u32: array count above schema capacity 5"); m.arrays.u32 = new uint[count]; break;
-            case (Root_arrays, 5): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i32: array count above schema capacity 5"); m.arrays.i32 = new int[count]; break;
-            case (Root_arrays, 6): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u64: array count above schema capacity 5"); m.arrays.u64 = new ulong[count]; break;
-            case (Root_arrays, 7): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i64: array count above schema capacity 5"); m.arrays.i64 = new long[count]; break;
-            case (Root_arrays_nested, 0): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp32: array count above schema capacity 5"); m.arrays.nested.fp32 = new float[count]; break;
-            case (Root_arrays_nested, 1): if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp64: array count above schema capacity 5"); m.arrays.nested.fp64 = new double[count]; break;
+            case (Root_arrays, 0): if (kind != ArrayKind.Unsigned) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u8: array count above schema capacity 5"); m.arrays.u8 = new byte[count]; break;
+            case (Root_arrays, 1): if (kind != ArrayKind.Signed) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i8: array count above schema capacity 5"); m.arrays.i8 = new sbyte[count]; break;
+            case (Root_arrays, 2): if (kind != ArrayKind.Unsigned) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u16: array count above schema capacity 5"); m.arrays.u16 = new ushort[count]; break;
+            case (Root_arrays, 3): if (kind != ArrayKind.Signed) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i16: array count above schema capacity 5"); m.arrays.i16 = new short[count]; break;
+            case (Root_arrays, 4): if (kind != ArrayKind.Unsigned) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u32: array count above schema capacity 5"); m.arrays.u32 = new uint[count]; break;
+            case (Root_arrays, 5): if (kind != ArrayKind.Signed) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i32: array count above schema capacity 5"); m.arrays.i32 = new int[count]; break;
+            case (Root_arrays, 6): if (kind != ArrayKind.Unsigned) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "u64: array count above schema capacity 5"); m.arrays.u64 = new ulong[count]; break;
+            case (Root_arrays, 7): if (kind != ArrayKind.Signed) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "i64: array count above schema capacity 5"); m.arrays.i64 = new long[count]; break;
+            case (Root_arrays_nested, 0): if (kind != ArrayKind.Fp32) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp32: array count above schema capacity 5"); m.arrays.nested.fp32 = new float[count]; break;
+            case (Root_arrays_nested, 1): if (kind != ArrayKind.Fp64) break; if (count > 5) throw new SofabException(SofabError.InvalidMessage, "fp64: array count above schema capacity 5"); m.arrays.nested.fp64 = new double[count]; break;
         }
     }
     public void SequenceBegin(int id) {
@@ -333,6 +421,7 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root, 100): cur = Root_arrays; break;
             case (Root, 200): m.string_array.Clear(); cur = Root_string_array; break;
             case (Root_arrays, 10): cur = Root_arrays_nested; break;
+            default: cur = _DEAD; break;
         }
     }
     public void SequenceEnd() { cur = sp > 0 ? stk[--sp] : 0; }

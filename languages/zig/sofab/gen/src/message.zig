@@ -27,7 +27,7 @@ pub const ExampleArrays = struct {
     nested: ExampleArraysNested = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn marshal(self: *const ExampleArrays, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const ExampleArrays, os: *sofab.OStream) sofab.Error!void {
         if (self.u8.len != 0) {
             try os.writeArrayUnsigned(0, self.u8.slice());
         }
@@ -53,12 +53,12 @@ pub const ExampleArrays = struct {
             try os.writeArraySigned(7, self.i64.slice());
         }
         try os.writeSequenceBeginLazy(10);
-        try self.nested.marshal(os);
+        try self.nested.serialize(os);
         try os.writeSequenceEnd();
     }
 
     /// True when every field equals its declared default, compared per field
-    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const ExampleArrays) bool {
         if (self.u8.len != 0) return false;
         if (self.i8.len != 0) return false;
@@ -78,7 +78,7 @@ pub const ExampleArraysNested = struct {
     fp64: FixedArray(f64, 5) = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn marshal(self: *const ExampleArraysNested, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const ExampleArraysNested, os: *sofab.OStream) sofab.Error!void {
         if (self.fp32.len != 0) {
             try os.writeArrayFp32(0, self.fp32.slice());
         }
@@ -88,7 +88,7 @@ pub const ExampleArraysNested = struct {
     }
 
     /// True when every field equals its declared default, compared per field
-    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const ExampleArraysNested) bool {
         if (self.fp32.len != 0) return false;
         if (self.fp64.len != 0) return false;
@@ -103,7 +103,7 @@ pub const ExampleNested = struct {
     bytes_field: []const u8 = "",
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn marshal(self: *const ExampleNested, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const ExampleNested, os: *sofab.OStream) sofab.Error!void {
         if (self.f32 != 0.0) try os.writeFp32(0, self.f32);
         if (self.f64 != 0.0) try os.writeFp64(1, self.f64);
         if (self.str.len != 0) try os.writeString(2, self.str);
@@ -111,7 +111,7 @@ pub const ExampleNested = struct {
     }
 
     /// True when every field equals its declared default, compared per field
-    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const ExampleNested) bool {
         if (self.f32 != 0.0) return false;
         if (self.f64 != 0.0) return false;
@@ -139,7 +139,7 @@ pub const Example = struct {
     pub const MAX_SIZE: usize = 732;
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn marshal(self: *const Example, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const Example, os: *sofab.OStream) sofab.Error!void {
         if (self.u8 != 0) try os.writeUnsigned(0, self.u8);
         if (self.i8 != 0) try os.writeSigned(1, self.i8);
         if (self.u16 != 0) try os.writeUnsigned(2, self.u16);
@@ -149,10 +149,10 @@ pub const Example = struct {
         if (self.u64 != 0) try os.writeUnsigned(6, self.u64);
         if (self.i64 != 0) try os.writeSigned(7, self.i64);
         try os.writeSequenceBeginLazy(10);
-        try self.nested.marshal(os);
+        try self.nested.serialize(os);
         try os.writeSequenceEnd();
         try os.writeSequenceBeginLazy(100);
-        try self.arrays.marshal(os);
+        try self.arrays.serialize(os);
         try os.writeSequenceEnd();
         try os.writeSequenceBeginLazy(200);
         for (self.string_array, 0..) |_e0, _i0| {
@@ -162,7 +162,7 @@ pub const Example = struct {
     }
 
     /// True when every field equals its declared default, compared per field
-    /// and recursively -- i.e. when marshal would write no child at all (S2).
+    /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const Example) bool {
         if (self.u8 != 0) return false;
         if (self.i8 != 0) return false;
@@ -183,7 +183,7 @@ pub const Example = struct {
         var sink: _EncodeSink = .{ .alloc = alloc };
         var scratch: [512]u8 = undefined;
         var os = sofab.OStream.initFlush(&scratch, 0, &sink, _EncodeSink.push);
-        try self.marshal(&os);
+        try self.serialize(&os);
         _ = os.flush();
         if (sink.failed) return error.OutOfMemory;
         return sink.list.toOwnedSlice(alloc);
@@ -208,6 +208,52 @@ pub const Example = struct {
         if (st == .incomplete) return error.IncompleteMessage;
         return m;
     }
+
+    /// Incremental decoder: hold one and feed the message as bytes arrive,
+    /// instead of buffering it whole first.
+    ///
+    /// The wire format has no end marker at the top level -- a message ends
+    /// where its bytes end -- so a feed cannot report that the MESSAGE is
+    /// complete, only that the bytes handed in ended on a field boundary
+    /// (.complete) or mid-field (.incomplete). Neither is a failure
+    /// mid-stream; the caller's own framing decides when the input is over,
+    /// and `finish` then gives the verdict for the message as a whole.
+    ///
+    /// BORROWING: a string or blob that arrives whole inside one chunk is
+    /// borrowed from that chunk, exactly as decode() borrows from its buffer
+    /// -- so a fed chunk must outlive the message. A payload SPLIT across
+    /// chunks has no such slice to borrow and is copied into `alloc`.
+    pub const Decoder = struct {
+        is: sofab.IStream = sofab.IStream.init(),
+        v: _dec_Example,
+
+        /// Feed the next chunk, of any size. `.complete` means the bytes
+        /// ended on a field boundary, `.incomplete` mid-field -- neither
+        /// answers whether the MESSAGE is done.
+        pub fn feed(self: *Decoder, chunk: []const u8) DecodeError!sofab.Status {
+            const st = try self.is.feed(chunk, &self.v);
+            if (self.v.inv) return error.InvalidMessage;
+            return st;
+        }
+
+        /// The outcome for everything fed so far, without feeding more.
+        pub fn status(self: *const Decoder) sofab.Status {
+            return self.is.status();
+        }
+
+        /// Declare end-of-input. Fails a stream that ended mid-field rather
+        /// than leaving the destination half-filled; the destination is the
+        /// caller's either way.
+        pub fn finish(self: *const Decoder) DecodeError!void {
+            if (self.is.status() == .incomplete) return error.IncompleteMessage;
+        }
+    };
+
+    /// An incremental decoder filling `out`: hold it and feed chunks as they
+    /// arrive, instead of buffering the whole message first.
+    pub fn decoder(out: *Example, alloc: std.mem.Allocator) Decoder {
+        return .{ .v = .{ .m = out, .alloc = alloc } };
+    }
 };
 
 /// Flat-visitor decoder for Example: a (location, id) state machine over the
@@ -218,6 +264,7 @@ const _dec_Example = struct {
     stack: [256]_Loc = undefined,
     sp: usize = 0,
     cur: _Loc = .root,
+    acc: std.ArrayList(u8) = .empty, // only a payload split across feed chunks lands here
     inv: bool = false, // a scalar array over its schema count, or a wrapper element id >= count -> INVALID
     ai: usize = 0, // index into the native array currently being filled
     askip: usize = 0, // elements left to discard from a wire-type-contradictory array
@@ -229,23 +276,23 @@ const _dec_Example = struct {
         root_arrays,
         root_arrays_nested,
         root_string_array,
-        dead, // a per-element allocation failed; ignore the subtree
+        dead, // skipped subtree: an undeclared sequence id, a S7.3 wire-type mismatch, or a failed per-element allocation
     };
 
     pub fn unsigned(self: *_dec_Example, id: sofab.Id, value: sofab.Unsigned) void {
         if (self.askip > 0) { self.askip -= 1; return; }
         switch (self.cur) {
             .root => switch (id) {
-                0 => self.m.u8 = @truncate(value),
-                2 => self.m.u16 = @truncate(value),
-                4 => self.m.u32 = @truncate(value),
+                0 => { if (value > 255) { self.inv = true; return; } self.m.u8 = @intCast(value); },
+                2 => { if (value > 65535) { self.inv = true; return; } self.m.u16 = @intCast(value); },
+                4 => { if (value > 4294967295) { self.inv = true; return; } self.m.u32 = @intCast(value); },
                 6 => self.m.u64 = value,
                 else => {},
             },
             .root_arrays => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u8.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.u8.len = self.ai; } },
-                2 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u16.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.u16.len = self.ai; } },
-                4 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u32.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.u32.len = self.ai; } },
+                0 => { if (self.afill != 0) { self.afill -= 1; if (value > 255) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.u8.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.u8.len = self.ai; } },
+                2 => { if (self.afill != 0) { self.afill -= 1; if (value > 65535) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.u16.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.u16.len = self.ai; } },
+                4 => { if (self.afill != 0) { self.afill -= 1; if (value > 4294967295) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.u32.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.u32.len = self.ai; } },
                 6 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u64.items, &self.ai, value, &self.inv); self.m.arrays.u64.len = self.ai; } },
                 else => {},
             },
@@ -257,16 +304,16 @@ const _dec_Example = struct {
         if (self.askip > 0) { self.askip -= 1; return; }
         switch (self.cur) {
             .root => switch (id) {
-                1 => self.m.i8 = @truncate(value),
-                3 => self.m.i16 = @truncate(value),
-                5 => self.m.i32 = @truncate(value),
+                1 => { if (value < -128 or value > 127) { self.inv = true; return; } self.m.i8 = @intCast(value); },
+                3 => { if (value < -32768 or value > 32767) { self.inv = true; return; } self.m.i16 = @intCast(value); },
+                5 => { if (value < -2147483648 or value > 2147483647) { self.inv = true; return; } self.m.i32 = @intCast(value); },
                 7 => self.m.i64 = value,
                 else => {},
             },
             .root_arrays => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i8.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.i8.len = self.ai; } },
-                3 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i16.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.i16.len = self.ai; } },
-                5 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i32.items, &self.ai, @truncate(value), &self.inv); self.m.arrays.i32.len = self.ai; } },
+                1 => { if (self.afill != 0) { self.afill -= 1; if (value < -128 or value > 127) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.i8.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.i8.len = self.ai; } },
+                3 => { if (self.afill != 0) { self.afill -= 1; if (value < -32768 or value > 32767) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.i16.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.i16.len = self.ai; } },
+                5 => { if (self.afill != 0) { self.afill -= 1; if (value < -2147483648 or value > 2147483647) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.i32.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.i32.len = self.ai; } },
                 7 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i64.items, &self.ai, value, &self.inv); self.m.arrays.i64.len = self.ai; } },
                 else => {},
             },
@@ -304,8 +351,8 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn string(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, chunk: []const u8) void {
-        if (offset != 0) return; // decode() is single-shot; a split payload means truncated input
+    pub fn string(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
+        const chunk = self._reassemble(total, offset, _chunk) orelse return;
         switch (self.cur) {
             .root_nested => switch (id) {
                 2 => if (total > 32) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
@@ -316,8 +363,8 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn blob(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, chunk: []const u8) void {
-        if (offset != 0) return; // decode() is single-shot; a split payload means truncated input
+    pub fn blob(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
+        const chunk = self._reassemble(total, offset, _chunk) orelse return;
         switch (self.cur) {
             .root_nested => switch (id) {
                 3 => if (total > 4) { self.inv = true; } else { self.m.nested.bytes_field = chunk; },
@@ -330,23 +377,35 @@ const _dec_Example = struct {
     pub fn arrayBegin(self: *_dec_Example, id: sofab.Id, kind: sofab.ArrayKind, count: usize) void {
         self.ai = 0;
         self.askip = switch (kind) {
-            .unsigned, .signed => switch (self.cur) {
+            .unsigned => switch (self.cur) {
                 .root_arrays => switch (id) {
                     0 => 0,
-                    1 => 0,
                     2 => 0,
-                    3 => 0,
                     4 => 0,
-                    5 => 0,
                     6 => 0,
+                    else => count,
+                },
+                else => count,
+            },
+            .signed => switch (self.cur) {
+                .root_arrays => switch (id) {
+                    1 => 0,
+                    3 => 0,
+                    5 => 0,
                     7 => 0,
                     else => count,
                 },
                 else => count,
             },
-            .fixlen => switch (self.cur) {
+            .fp32 => switch (self.cur) {
                 .root_arrays_nested => switch (id) {
                     0 => 0,
+                    else => count,
+                },
+                else => count,
+            },
+            .fp64 => switch (self.cur) {
+                .root_arrays_nested => switch (id) {
                     1 => 0,
                     else => count,
                 },
@@ -354,23 +413,35 @@ const _dec_Example = struct {
             },
         };
         self.afill = switch (kind) {
-            .unsigned, .signed => switch (self.cur) {
+            .unsigned => switch (self.cur) {
                 .root_arrays => switch (id) {
                     0 => count,
-                    1 => count,
                     2 => count,
-                    3 => count,
                     4 => count,
-                    5 => count,
                     6 => count,
+                    else => 0,
+                },
+                else => 0,
+            },
+            .signed => switch (self.cur) {
+                .root_arrays => switch (id) {
+                    1 => count,
+                    3 => count,
+                    5 => count,
                     7 => count,
                     else => 0,
                 },
                 else => 0,
             },
-            .fixlen => switch (self.cur) {
+            .fp32 => switch (self.cur) {
                 .root_arrays_nested => switch (id) {
                     0 => count,
+                    else => 0,
+                },
+                else => 0,
+            },
+            .fp64 => switch (self.cur) {
+                .root_arrays_nested => switch (id) {
                     1 => count,
                     else => 0,
                 },
@@ -390,12 +461,29 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => if (kind == .fixlen) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp32.len = 0; },
-                1 => if (kind == .fixlen) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp64.len = 0; },
+                0 => if (kind == .fp32) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp32.len = 0; },
+                1 => if (kind == .fp64) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp64.len = 0; },
                 else => {},
             },
             else => {},
         }
+    }
+
+    /// Give the string/blob callbacks ONE contiguous payload, whatever the
+    /// feed chunking was. Returns null while the payload is still incomplete.
+    ///
+    /// A payload that arrives whole in one chunk -- always so on the
+    /// contiguous decode() path, and the common case when streaming -- is
+    /// returned as-is: the destination borrows the caller's bytes and nothing
+    /// is copied. Only a payload genuinely SPLIT across chunks is assembled
+    /// here, because there is no contiguous slice to borrow once the first
+    /// chunk is gone. That copy lives in `alloc`, like array storage.
+    fn _reassemble(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
+        if (offset == 0 and chunk.len >= total) return chunk; // whole payload, borrow it
+        if (offset == 0) self.acc.clearRetainingCapacity();
+        self.acc.appendSlice(self.alloc, chunk) catch { self.inv = true; return null; };
+        if (self.acc.items.len < total) return null; // more chunks to come
+        return self.acc.items;
     }
 
     pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {
@@ -408,13 +496,13 @@ const _dec_Example = struct {
                 10 => .root_nested,
                 100 => .root_arrays,
                 200 => blk: { self.m.string_array = &.{}; break :blk .root_string_array; },
-                else => self.cur,
+                else => .dead,
             },
             .root_arrays => switch (id) {
                 10 => .root_arrays_nested,
-                else => self.cur,
+                else => .dead,
             },
-            else => self.cur,
+            else => .dead,
         };
     }
 

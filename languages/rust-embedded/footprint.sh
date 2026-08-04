@@ -22,7 +22,7 @@
 #                (std) and cannot be compiled no_std as-is, so the sofab number
 #                is the corelib-rs-no-std codec exercised through a synthetic
 #                no_std harness covering every wire type the schema uses (the
-#                generated marshal/decode are thin wrappers over exactly these
+#                generated serialize/decode are thin wrappers over exactly these
 #                OStream/IStream calls). Representative, not the generated glue.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

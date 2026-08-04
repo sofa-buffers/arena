@@ -84,8 +84,8 @@ namespace fullscale {
 
 struct ExampleNested : sofab::Message {
     double f64 = 0.0;
-    std::string str = "";
-    std::vector<std::uint8_t> bytes_field = {};
+    sofab::FixedString<32> str = "";
+    sofab::FixedBytes<4> bytes_field = {};
     float f32 = 0.0f;
 
     /**
@@ -175,8 +175,8 @@ struct ExampleNested : sofab::Message {
 };
 
 struct ExampleArraysNested : sofab::Message {
-    std::vector<float> fp32 = {};
-    std::vector<double> fp64 = {};
+    sofab::InlineVector<float, 5> fp32 = {};
+    sofab::InlineVector<double, 5> fp64 = {};
 
     /**
      * @brief Put every field back to its declared default, in place.
@@ -257,14 +257,14 @@ struct ExampleArraysNested : sofab::Message {
 };
 
 struct ExampleArrays : sofab::Message {
-    std::vector<std::uint8_t> u8 = {};
-    std::vector<std::int8_t> i8 = {};
-    std::vector<std::uint16_t> u16 = {};
-    std::vector<std::int16_t> i16 = {};
-    std::vector<std::uint32_t> u32 = {};
-    std::vector<std::int32_t> i32 = {};
-    std::vector<std::uint64_t> u64 = {};
-    std::vector<std::int64_t> i64 = {};
+    sofab::InlineVector<std::uint8_t, 5> u8 = {};
+    sofab::InlineVector<std::int8_t, 5> i8 = {};
+    sofab::InlineVector<std::uint16_t, 5> u16 = {};
+    sofab::InlineVector<std::int16_t, 5> i16 = {};
+    sofab::InlineVector<std::uint32_t, 5> u32 = {};
+    sofab::InlineVector<std::int32_t, 5> i32 = {};
+    sofab::InlineVector<std::uint64_t, 5> u64 = {};
+    sofab::InlineVector<std::int64_t, 5> i64 = {};
     ExampleArraysNested nested = {};
 
     /**
@@ -405,7 +405,7 @@ struct Example : sofab::Message {
     std::int64_t i64 = 0;
     ExampleNested nested = {};
     ExampleArrays arrays = {};
-    std::vector<std::string> string_array = {};
+    sofab::InlineVector<sofab::FixedString<64>, 5> string_array = {};
     std::uint32_t u32 = 0;
     std::int32_t i32 = 0;
     std::uint16_t u16 = 0;

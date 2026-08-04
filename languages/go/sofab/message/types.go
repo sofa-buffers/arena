@@ -20,7 +20,7 @@ type ExampleArrays struct {
 	Nested ExampleArraysNested `json:"nested"`
 }
 
-func (m *ExampleArrays) marshal(e *sofab.Encoder) {
+func (m *ExampleArrays) Serialize(e *sofab.Encoder) {
 	if len(m.U8) != 0 {
 		sofab.WriteUnsignedArray(e, 0, m.U8)
 	}
@@ -46,7 +46,7 @@ func (m *ExampleArrays) marshal(e *sofab.Encoder) {
 		sofab.WriteSignedArray(e, 7, m.I64)
 	}
 	e.WriteSequenceBeginLazy(10)
-	m.Nested.marshal(e)
+	m.Nested.Serialize(e)
 	e.WriteSequenceEnd()
 }
 
@@ -87,15 +87,30 @@ func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		for _, _x := range v {
+			if _x > 255 {
+				return sofab.ErrInvalidMsg
+			}
+		}
 		m.U8 = sofab.NarrowUnsigned[uint8](v)
 	case 2:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		for _, _x := range v {
+			if _x > 65535 {
+				return sofab.ErrInvalidMsg
+			}
+		}
 		m.U16 = sofab.NarrowUnsigned[uint16](v)
 	case 4:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
+		}
+		for _, _x := range v {
+			if _x > 4294967295 {
+				return sofab.ErrInvalidMsg
+			}
 		}
 		m.U32 = sofab.NarrowUnsigned[uint32](v)
 	case 6:
@@ -113,15 +128,30 @@ func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		for _, _x := range v {
+			if _x < -128 || _x > 127 {
+				return sofab.ErrInvalidMsg
+			}
+		}
 		m.I8 = sofab.NarrowSigned[int8](v)
 	case 3:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		for _, _x := range v {
+			if _x < -32768 || _x > 32767 {
+				return sofab.ErrInvalidMsg
+			}
+		}
 		m.I16 = sofab.NarrowSigned[int16](v)
 	case 5:
 		if len(v) > 5 {
 			return sofab.ErrInvalidMsg
+		}
+		for _, _x := range v {
+			if _x < -2147483648 || _x > 2147483647 {
+				return sofab.ErrInvalidMsg
+			}
 		}
 		m.I32 = sofab.NarrowSigned[int32](v)
 	case 7:
@@ -133,38 +163,38 @@ func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
 	return nil
 }
 
-func (m *ExampleArrays) ArrayBegin(id sofab.ID, count int) error {
+func (m *ExampleArrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	case 0:
-		if count > 5 {
+		if kind == sofab.ArrayUnsigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 1:
-		if count > 5 {
+		if kind == sofab.ArraySigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 2:
-		if count > 5 {
+		if kind == sofab.ArrayUnsigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 3:
-		if count > 5 {
+		if kind == sofab.ArraySigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 4:
-		if count > 5 {
+		if kind == sofab.ArrayUnsigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 5:
-		if count > 5 {
+		if kind == sofab.ArraySigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 6:
-		if count > 5 {
+		if kind == sofab.ArrayUnsigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 7:
-		if count > 5 {
+		if kind == sofab.ArraySigned && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	}
@@ -192,7 +222,7 @@ type ExampleArraysNested struct {
 	Fp64 []float64 `json:"fp64"`
 }
 
-func (m *ExampleArraysNested) marshal(e *sofab.Encoder) {
+func (m *ExampleArraysNested) Serialize(e *sofab.Encoder) {
 	if len(m.Fp32) != 0 {
 		e.WriteFloat32Array(0, m.Fp32)
 	}
@@ -233,14 +263,14 @@ func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
 	return nil
 }
 
-func (m *ExampleArraysNested) ArrayBegin(id sofab.ID, count int) error {
+func (m *ExampleArraysNested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	case 0:
-		if count > 5 {
+		if kind == sofab.ArrayFp32 && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	case 1:
-		if count > 5 {
+		if kind == sofab.ArrayFp64 && count > 5 {
 			return sofab.ErrInvalidMsg
 		}
 	}
@@ -262,7 +292,7 @@ type ExampleNested struct {
 	F32        float32 `json:"f32"`
 }
 
-func (m *ExampleNested) marshal(e *sofab.Encoder) {
+func (m *ExampleNested) Serialize(e *sofab.Encoder) {
 	if m.F32 != 0 {
 		e.WriteFloat32(0, m.F32)
 	}
@@ -315,6 +345,9 @@ func (m *ExampleNested) String(id sofab.ID, v string) error {
 		if len(v) > 32 {
 			return sofab.ErrInvalidMsg
 		}
+		if !sofab.Utf8Valid([]byte(v)) {
+			return sofab.ErrInvalidMsg
+		}
 		m.Str = v
 	}
 	return nil
@@ -331,7 +364,7 @@ func (m *ExampleNested) Bytes(id sofab.ID, v []byte) error {
 	return nil
 }
 
-func (m *ExampleNested) ArrayBegin(id sofab.ID, count int) error {
+func (m *ExampleNested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	}
 	return nil

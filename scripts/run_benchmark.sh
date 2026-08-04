@@ -23,7 +23,13 @@
 #   FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
 # (maxspeed targets emit BENCH only; host embedded targets emit both — their
 # throughput gets its own maxspeed-style table; bare-metal embedded targets are
-# build-only and emit FOOTPRINT only.)
+# build-only and emit FOOTPRINT only.) BENCH may carry the optional keys `codec=`
+# and `sizeof_bytes=`, reported as footnotes and never ranked on.
+#
+# `impl` is `sofab`, `protobuf`/another baseline, or `sofab-<variant>` — the same
+# corelib and driver with one codegen option flipped (cpp's sofab-heapfree, #107).
+# A variant is a sofab impl to the gate and gets its own maxspeed row labelled
+# `<lang>/<variant>`, sharing its target's protobuf column.
 #
 # Usage:
 #   ./scripts/run_benchmark.sh                 # setup + run every language
@@ -64,7 +70,7 @@ RAW="$ROOT/results/raw"; mkdir -p "$RAW"
 export PATH="$HOME/.cargo/bin:/usr/local/cargo/bin:/usr/local/dotnet:$PATH"
 export DOTNET_ROOT="${DOTNET_ROOT:-/usr/local/dotnet}"
 
-declare -A SER MBS ITERS SHA CPU STATUS CODEC
+declare -A SER MBS ITERS SHA CPU STATUS CODEC SIZEOF
 declare -A TEXT RODATA DATA BSS         # footprint sections (embedded targets)
 declare -A CATEGORY METRIC              # per-language, from languages/<lang>/meta
 declare -A IMPLS                        # lang -> space-separated impls seen
@@ -77,8 +83,11 @@ declare -A IMPLS                        # lang -> space-separated impls seen
 REF_SOFAB_SHA="e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d"
 REF_PROTO_SHA="e8d391d98bc54c0ec24fff19ec96bb52114d9d34aed7d0f0023a0317bcfa5b3d"
 expected_sofab_sha() { echo "$REF_SOFAB_SHA"; }
-# Every non-sofab impl (protobuf, protobuf-c, nanopb, ...) must match the proto wire.
-expected_sha() { [ "$2" = sofab ] && expected_sofab_sha "$1" || echo "$REF_PROTO_SHA"; }
+# `sofab` and every `sofab-<variant>` (a second codegen configuration of the same
+# corelib, e.g. cpp's sofab-heapfree) speak the one SofaBuffers wire; every
+# non-sofab impl (protobuf, protobuf-c, nanopb, ...) must match the proto wire.
+is_sofab() { case "$1" in sofab|sofab-*) return 0;; *) return 1;; esac; }
+expected_sha() { is_sofab "$2" && expected_sofab_sha "$1" || echo "$REF_PROTO_SHA"; }
 
 field() { sed -n "s/.*\b$2=\([^ ]*\).*/\1/p" <<<"$1"; }   # <line> <key>
 
@@ -105,6 +114,7 @@ parse_line() {   # <line>
             SER[$key]="$(field "$line" serialized_bytes)"
             SHA[$key]="$(field "$line" sha256)"
             local cd; cd="$(field "$line" codec)"; [ -n "$cd" ] && CODEC[$key]="$cd"
+            local sz; sz="$(field "$line" sizeof_bytes)"; [ -n "$sz" ] && SIZEOF[$key]="$sz"
             local m; m="$(field "$line" throughput_mbs)"
             # best-of-N: keep the max throughput seen across repeated runs
             if [ -z "${MBS[$key]:-}" ] || awk -v a="$m" -v b="${MBS[$key]}" 'BEGIN{exit !(a+0>b+0)}'; then
@@ -166,7 +176,7 @@ for lang in $LANGS; do
         s="${SHA[$lang,$impl]:-}"; [ -n "$s" ] || continue
         ref="$(expected_sha "$lang" "$impl")"
         if [ "$s" = "$ref" ]; then mark="ok"; else mark="MISMATCH"; gate_ok=0; fi
-        printf "  %-14s %-13s %s  %s\n" "$lang" "$impl" "${SER[$lang,$impl]:-?}B" "$mark"
+        printf "  %-14s %-15s %s  %s\n" "$lang" "$impl" "${SER[$lang,$impl]:-?}B" "$mark"
     done
 done
 if [ "$gate_ok" = 1 ]; then
@@ -202,6 +212,14 @@ msgs_s() { # <key> -> integer msgs/s, or "" if unusable
 ratio() { # a/b with 2 decimals, or "-" if unusable
     awk -v a="$1" -v b="$2" 'BEGIN{ if(a=="" || b=="" || b+0==0){print "-"} else {printf "%.2f", a/b} }'
 }
+# A `sofab-<variant>` impl is a SECOND codegen configuration of the same corelib
+# in the same target (cpp's sofab-heapfree, #107) — same driver, same flags, same
+# wire, one key changed in cfg.yaml. It gets its own maxspeed row labelled
+# "<lang>/<variant>" and shares the target's single protobuf measurement, so the
+# pair differs in exactly the configured axis and nothing else.
+row_label() { # <lang> <impl>
+    [ "$2" = sofab ] && printf '%s' "$1" || printf '%s/%s' "$1" "${2#sofab-}"
+}
 langs_in() { # <category> — langs of that category, in LANGS order, that produced data
     local want="$1" lang
     for lang in $LANGS; do [ "${CATEGORY[$lang]:-maxspeed}" = "$want" ] && [ -n "${IMPLS[$lang]:-}" ] && printf '%s ' "$lang"; done
@@ -219,24 +237,40 @@ echo "   (both higher is better). MB/s counts bytes moved, so it credits SofaBuf
 echo "   smaller wire; msgs/s counts messages, the size-neutral per-message codec speed."
 echo "   Both are within-language only (different runtimes) — never compare rows."
 echo "================================================================================"
-printf "  %-11s | %14s | %20s | %20s | %23s\n" "language" "wire size (B)" "throughput MB/s" "throughput msgs/s" "sofab advantage"
-printf "  %-11s | %6s %7s | %9s %10s | %9s %10s | %7s %7s %7s\n" "" "sofab" "proto" "sofab" "proto" "sofab" "proto" "size" "MB/s" "msg/s"
-printf '  '; printf -- '-%.0s' $(seq 1 100); printf '\n'
+printf "  %-14s | %14s | %20s | %20s | %23s\n" "language" "wire size (B)" "throughput MB/s" "throughput msgs/s" "sofab advantage"
+printf "  %-14s | %6s %7s | %9s %10s | %9s %10s | %7s %7s %7s\n" "" "sofab" "proto" "sofab" "proto" "sofab" "proto" "size" "MB/s" "msg/s"
+printf '  '; printf -- '-%.0s' $(seq 1 103); printf '\n'
 for lang in $maxspeed_langs; do
-    ss="${SER[$lang,sofab]:-}"; ps="${SER[$lang,protobuf]:-}"
-    sm="$(mbps "$lang,sofab")"; pm="$(mbps "$lang,protobuf")"
-    sM="$(msgs_s "$lang,sofab")"; pM="$(msgs_s "$lang,protobuf")"
-    [ -z "$ss$ps$sm$pm" ] && continue
-    printf "  %-11s | %6s %7s | %9s %10s | %9s %10s | %6sx %6sx %6sx\n" \
-        "$lang" "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" "${sM:-–}" "${pM:-–}" \
-        "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")" "$(ratio "$sM" "$pM")"
+    ps="${SER[$lang,protobuf]:-}"; pm="$(mbps "$lang,protobuf")"; pM="$(msgs_s "$lang,protobuf")"
+    # One row per sofab configuration; all of them face the same protobuf column.
+    for impl in $(ordered_impls "$lang"); do
+        is_sofab "$impl" || continue
+        ss="${SER[$lang,$impl]:-}"; sm="$(mbps "$lang,$impl")"; sM="$(msgs_s "$lang,$impl")"
+        [ -z "$ss$ps$sm$pm" ] && continue
+        printf "  %-14s | %6s %7s | %9s %10s | %9s %10s | %6sx %6sx %6sx\n" \
+            "$(row_label "$lang" "$impl")" \
+            "${ss:-–}" "${ps:-–}" "${sm:-–}" "${pm:-–}" "${sM:-–}" "${pM:-–}" \
+            "$(ratio "$ps" "$ss")" "$(ratio "$sm" "$pm")" "$(ratio "$sM" "$pM")"
+    done
 done
 echo
 echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)"
 echo "  MB/s advantage  = sofab_MBps  / protobuf_MBps    (bytes/s;    embeds the wire-size gap — see #85)"
 echo "  msg/s advantage = sofab_msgs  / protobuf_msgs    (messages/s; size-neutral per-message codec speed)"
+echo "  <lang>/<variant> = a second sofab codegen configuration of the same target"
+echo "                     (same driver, flags and protobuf run) — rows comparable to each other."
 for lang in $maxspeed_langs; do
     c="${CODEC[$lang,sofab]:-}"; [ -n "$c" ] && echo "  sofab codec ($lang): $c"
+done
+# In-memory struct size, where a target reports it: the cost side of fixed-capacity
+# storage, which sizes with the schema's declared count/maxlen rather than with the
+# payload. Wire size is unaffected — that is the size column above.
+for lang in $maxspeed_langs; do
+    for impl in $(ordered_impls "$lang"); do
+        is_sofab "$impl" || continue
+        z="${SIZEOF[$lang,$impl]:-}"; [ -n "$z" ] || continue
+        echo "  sofab in-memory sizeof ($(row_label "$lang" "$impl")): ${z} B"
+    done
 done
 fi
 

@@ -24,7 +24,7 @@ function parseStatePreserveBigInts(text: string): Record<string, unknown> {
 
 function encode(src: Example): Uint8Array {
   const os = new OStream();
-  src.marshal(os);
+  src.serialize(os);
   return os.bytes();
 }
 
@@ -57,7 +57,7 @@ function main(): number {
   // Warm the JIT (same chained shape as the timed loop).
   for (let i = 0; i < 10000; i++) {
     os.reset();
-    Example.decode(blob).marshal(os);
+    Example.decode(blob).serialize(os);
   }
 
   // Chained round trip: decode the reference wire, then re-encode the freshly
@@ -69,7 +69,7 @@ function main(): number {
   const t0 = process.hrtime.bigint();
   for (let i = 0; i < iters; i++) {
     os.reset();
-    Example.decode(blob).marshal(os);
+    Example.decode(blob).serialize(os);
     sink += os.bytes().length;
   }
   const t1 = process.hrtime.bigint();

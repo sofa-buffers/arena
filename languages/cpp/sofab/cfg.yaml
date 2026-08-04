@@ -1,1 +1,4 @@
-targets: { cpp: { namespace: fullscale } }
+# The growable half of the C++ maxspeed pair — see ../sofab-heapfree/cfg.yaml.
+# allow_dynamic is spelled out rather than left to its default so the two configs
+# read as a matched pair differing in exactly one key.
+targets: { cpp: { namespace: fullscale, allow_dynamic: true } }

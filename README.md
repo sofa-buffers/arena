@@ -45,6 +45,7 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 | | SofaBuffers corelib | baseline(s) | ranked by |
 |---|---|---|---|
 | **Maxspeed** — cpp, rust | `corelib-cpp` (C++20), `corelib-rs` (std) | Google protobuf (`libprotobuf`, prost) | throughput |
+| **Maxspeed** — cpp/heapfree | `corelib-cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString`/`FixedBytes`/`InlineVector`, so a decode allocates nothing | the same `libprotobuf` run as the `cpp` row | throughput |
 | **Maxspeed** — zig | `corelib-zig` | [zig-protobuf](https://github.com/Arwalk/zig-protobuf) (Arwalk) | throughput |
 | **Maxspeed** — go, csharp, java, typescript, python, dart | each language's corelib | Google protobuf runtime (Dart: [`protoc_plugin`](https://pub.dev/packages/protoc_plugin)) | throughput |
 | **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
@@ -75,6 +76,12 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   protobuf-family baseline (`protobuf`, `protobuf-c`, `nanopb`, `micropb`,
   `embeddedproto`) emits the identical **494-byte** protobuf wire. A drifted fill in
   any language is caught automatically.
+- **One knob per extra row.** A `sofab-<variant>` impl (today only
+  `cpp`/`sofab-heapfree`) is the **same corelib and the same driver source**, built
+  with the same flags, one `cfg.yaml` key apart — and it faces the very same
+  protobuf run as its base row. So the `<lang>/<variant>` rows isolate that one
+  codegen option, and unlike rows of different languages they *are* comparable to
+  each other.
 - **Optimized per category, portably, identically per row.** Maxspeed targets build
   for speed — `-O3 -march=native -flto` (C/C++), `target-cpu=native` + LTO (Rust),
   and portable runtime tuning for the VMs (workstation/server GC, `GOGC`, ParallelGC,
@@ -283,6 +290,9 @@ languages/
     setup.sh       generate + build every impl for this target (idempotent)
     bench.sh       run the impls; print BENCH (+ FOOTPRINT for embedded) lines
     sofab/         SofaBuffers driver + generated code
+    sofab-<v>/     (optional) a second codegen configuration of the SAME corelib
+                   and driver, one cfg.yaml key apart — cpp/sofab-heapfree is
+                   `allow_dynamic: false`. Gets its own `<lang>/<v>` row.
     protobuf/ | nanopb/ | micropb/ | embeddedproto/   the baseline driver(s)
     footprint.sh   (embedded) object-sum — or bare-metal --gc-sections link
                    delta on the cross targets (c-/cpp-/rust-cortex-m and -riscv)

@@ -207,7 +207,7 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, dead: 0, acc: heapless::Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
@@ -220,7 +220,7 @@ mod example_dec {
         let invalid;
         let fed;
         {
-            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: heapless::Vec::new(), cur: _Loc::Root, dead: 0, acc: heapless::Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             fed = is.feed(data, &mut v);
             overflow = v.err;
@@ -256,6 +256,7 @@ mod example_dec {
         is: IStream,
         stack: heapless::Vec<_Loc, 5>,
         cur: _Loc,
+        dead: u16,
         acc: heapless::Vec<u8, 732>,
         err: bool,
         inv: bool,
@@ -265,7 +266,7 @@ mod example_dec {
 
     impl Decoder {
         pub fn new() -> Self {
-            Self { m: Example::default(), is: IStream::new(), stack: heapless::Vec::new(), cur: _Loc::Root, acc: heapless::Vec::new(), err: false, inv: false, askip: 0, afill: 0 }
+            Self { m: Example::default(), is: IStream::new(), stack: heapless::Vec::new(), cur: _Loc::Root, dead: 0, acc: heapless::Vec::new(), err: false, inv: false, askip: 0, afill: 0 }
         }
 
         /// Feed the next chunk. `Ok(())` if it ended on a field boundary,
@@ -273,12 +274,13 @@ mod example_dec {
         /// answers whether the MESSAGE is done, only whether these bytes were.
         pub fn feed(&mut self, chunk: &[u8]) -> Result<(), sofab::Error> {
             let fed = {
-                let mut v = V { m: &mut self.m, stack: core::mem::take(&mut self.stack), cur: self.cur, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill };
+                let mut v = V { m: &mut self.m, stack: core::mem::take(&mut self.stack), cur: self.cur, dead: self.dead, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill };
                 let r = self.is.feed(chunk, &mut v);
                 // `..` covers `m`, ending its borrow before the write-back.
-                let V { stack, cur, acc, err, inv, askip, afill, .. } = v;
+                let V { stack, cur, dead, acc, err, inv, askip, afill, .. } = v;
                 self.stack = stack;
                 self.cur = cur;
+                self.dead = dead;
                 self.acc = acc;
                 self.err = err;
                 self.inv = inv;
@@ -318,12 +320,14 @@ enum _Loc {
     Root_arrays,
     Root_arrays_nested,
     Root_string_array,
+    Dead,
 }
 
 struct V<'a> {
     m: &'a mut Example,
     stack: heapless::Vec<_Loc, 5>,
     cur: _Loc,
+    dead: u16, // depth of the skipped subtree cur sits in (see sequence_begin)
     acc: heapless::Vec<u8, 732>,
     err: bool,
     inv: bool,
@@ -335,13 +339,13 @@ impl<'a> Visitor for V<'a> {
     fn unsigned(&mut self, id: Id, value: Unsigned) {
         if self.askip > 0 { self.askip -= 1; return; } // array delivered at a scalar id
         match (self.cur, id) {
-            (_Loc::Root, 0) => self.m.u8 = value as u8,
-            (_Loc::Root, 2) => self.m.u16 = value as u16,
-            (_Loc::Root, 4) => self.m.u32 = value as u32,
-            (_Loc::Root, 6) => self.m.u64 = value as u64,
-            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.u8.push(value as u8); }; },
-            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.u16.push(value as u16); }; },
-            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.u32.push(value as u32); }; },
+            (_Loc::Root, 0) => { if value > 255 { self.inv = true; return; } self.m.u8 = value as u8 },
+            (_Loc::Root, 2) => { if value > 65535 { self.inv = true; return; } self.m.u16 = value as u16 },
+            (_Loc::Root, 4) => { if value > 4294967295 { self.inv = true; return; } self.m.u32 = value as u32 },
+            (_Loc::Root, 6) => { self.m.u64 = value as u64 },
+            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if value > 255 { self.inv = true; return; } { let _ = self.m.arrays.u8.push(value as u8); }; },
+            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if value > 65535 { self.inv = true; return; } { let _ = self.m.arrays.u16.push(value as u16); }; },
+            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if value > 4294967295 { self.inv = true; return; } { let _ = self.m.arrays.u32.push(value as u32); }; },
             (_Loc::Root_arrays, 6) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.u64.push(value as u64); }; },
             _ => {}
         }
@@ -349,13 +353,13 @@ impl<'a> Visitor for V<'a> {
     fn signed(&mut self, id: Id, value: Signed) {
         if self.askip > 0 { self.askip -= 1; return; } // array delivered at a scalar id
         match (self.cur, id) {
-            (_Loc::Root, 1) => self.m.i8 = value as i8,
-            (_Loc::Root, 3) => self.m.i16 = value as i16,
-            (_Loc::Root, 5) => self.m.i32 = value as i32,
-            (_Loc::Root, 7) => self.m.i64 = value as i64,
-            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.i8.push(value as i8); }; },
-            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.i16.push(value as i16); }; },
-            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.i32.push(value as i32); }; },
+            (_Loc::Root, 1) => { if value < -128 || value > 127 { self.inv = true; return; } self.m.i8 = value as i8 },
+            (_Loc::Root, 3) => { if value < -32768 || value > 32767 { self.inv = true; return; } self.m.i16 = value as i16 },
+            (_Loc::Root, 5) => { if value < -2147483648 || value > 2147483647 { self.inv = true; return; } self.m.i32 = value as i32 },
+            (_Loc::Root, 7) => { self.m.i64 = value as i64 },
+            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if value < -128 || value > 127 { self.inv = true; return; } { let _ = self.m.arrays.i8.push(value as i8); }; },
+            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if value < -32768 || value > 32767 { self.inv = true; return; } { let _ = self.m.arrays.i16.push(value as i16); }; },
+            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if value < -2147483648 || value > 2147483647 { self.inv = true; return; } { let _ = self.m.arrays.i32.push(value as i32); }; },
             (_Loc::Root_arrays, 7) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.i64.push(value as i64); }; },
             _ => {}
         }
@@ -377,6 +381,14 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn string(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // A payload this scope does not declare is skipped: its bytes are jumped
+        // over, never inspected. Resolve the destination first and leave before a
+        // byte is buffered, decoded or checked.
+        match (self.cur, id) {
+            (_Loc::Root_nested, 2) => {},
+            (_Loc::Root_string_array, _) => {},
+            _ => return,
+        }
         // Bounded fields: a wire byte length above the schema maxlen is
         // malformed input, INVALID before any bytes accumulate (never truncated).
         match (self.cur, id) {
@@ -394,7 +406,7 @@ impl<'a> Visitor for V<'a> {
         };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }
-            (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
+            (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { _e.clear(); let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
             _ => {}
         }
     }
@@ -420,66 +432,82 @@ impl<'a> Visitor for V<'a> {
     }
     fn array_begin(&mut self, id: Id, kind: ArrayKind, count: usize) {
         self.askip = match kind {
-            ArrayKind::Unsigned | ArrayKind::Signed => match (self.cur, id) {
+            ArrayKind::Unsigned => match (self.cur, id) {
                 (_Loc::Root_arrays, 0) => 0,
-                (_Loc::Root_arrays, 1) => 0,
                 (_Loc::Root_arrays, 2) => 0,
-                (_Loc::Root_arrays, 3) => 0,
                 (_Loc::Root_arrays, 4) => 0,
-                (_Loc::Root_arrays, 5) => 0,
                 (_Loc::Root_arrays, 6) => 0,
+                _ => count,
+            },
+            ArrayKind::Signed => match (self.cur, id) {
+                (_Loc::Root_arrays, 1) => 0,
+                (_Loc::Root_arrays, 3) => 0,
+                (_Loc::Root_arrays, 5) => 0,
                 (_Loc::Root_arrays, 7) => 0,
                 _ => count,
             },
-            _ => match (self.cur, id) {
+            ArrayKind::Fp32 => match (self.cur, id) {
                 (_Loc::Root_arrays_nested, 0) => 0,
+                _ => count,
+            },
+            ArrayKind::Fp64 => match (self.cur, id) {
                 (_Loc::Root_arrays_nested, 1) => 0,
                 _ => count,
             },
         };
         self.afill = match kind {
-            ArrayKind::Unsigned | ArrayKind::Signed => match (self.cur, id) {
+            ArrayKind::Unsigned => match (self.cur, id) {
                 (_Loc::Root_arrays, 0) => count,
-                (_Loc::Root_arrays, 1) => count,
                 (_Loc::Root_arrays, 2) => count,
-                (_Loc::Root_arrays, 3) => count,
                 (_Loc::Root_arrays, 4) => count,
-                (_Loc::Root_arrays, 5) => count,
                 (_Loc::Root_arrays, 6) => count,
+                _ => 0,
+            },
+            ArrayKind::Signed => match (self.cur, id) {
+                (_Loc::Root_arrays, 1) => count,
+                (_Loc::Root_arrays, 3) => count,
+                (_Loc::Root_arrays, 5) => count,
                 (_Loc::Root_arrays, 7) => count,
                 _ => 0,
             },
-            _ => match (self.cur, id) {
+            ArrayKind::Fp32 => match (self.cur, id) {
                 (_Loc::Root_arrays_nested, 0) => count,
+                _ => 0,
+            },
+            ArrayKind::Fp64 => match (self.cur, id) {
                 (_Loc::Root_arrays_nested, 1) => count,
                 _ => 0,
             },
         };
-        match (self.cur, id) {
-            (_Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.u8.clear() },
-            (_Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.i8.clear() },
-            (_Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; } self.m.arrays.u16.clear() },
-            (_Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; } self.m.arrays.i16.clear() },
-            (_Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; } self.m.arrays.u32.clear() },
-            (_Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; } self.m.arrays.i32.clear() },
-            (_Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; } self.m.arrays.u64.clear() },
-            (_Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; } self.m.arrays.i64.clear() },
-            (_Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp32.clear() },
-            (_Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp64.clear() },
+        match (kind, self.cur, id) {
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.u8.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.i8.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; } self.m.arrays.u16.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; } self.m.arrays.i16.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; } self.m.arrays.u32.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; } self.m.arrays.i32.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; } self.m.arrays.u64.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; } self.m.arrays.i64.clear() },
+            (ArrayKind::Fp32, _Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp32.clear() },
+            (ArrayKind::Fp64, _Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp64.clear() },
             _ => {}
         }
     }
     fn sequence_begin(&mut self, id: Id) {
-        let _ = self.stack.push(self.cur);
+        // Inside a skipped subtree: count the level and stay Dead.
+        if self.cur == _Loc::Dead { self.dead = self.dead.saturating_add(1); return; }
+        if self.stack.push(self.cur).is_err() { self.err = true; self.dead = self.dead.saturating_add(1); self.cur = _Loc::Dead; return; }
         self.cur = match (self.cur, id) {
             (_Loc::Root, 10) => _Loc::Root_nested,
             (_Loc::Root, 100) => _Loc::Root_arrays,
             (_Loc::Root, 200) => { self.m.string_array.clear(); _Loc::Root_string_array },
             (_Loc::Root_arrays, 10) => _Loc::Root_arrays_nested,
-            _ => self.cur,
+            _ => _Loc::Dead,
         };
     }
     fn sequence_end(&mut self) {
+        // Closing a level of a skipped subtree: nothing was stacked for it.
+        if self.dead > 0 { self.dead -= 1; return; }
         self.cur = self.stack.pop().unwrap_or(_Loc::Root);
     }
 }

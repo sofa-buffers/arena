@@ -138,7 +138,7 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     if (obj.get("u8")) |x| switch (x) {
         .array => |a0| {
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u8.items[k0] = @truncate(jsonU64(it0));
+            for (a0.items[0..n0], 0..) |it0, k0| o.u8.items[k0] = @intCast(jsonU64(it0));
             o.u8.len = n0;
         },
         else => {},
@@ -146,7 +146,7 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     if (obj.get("i8")) |x| switch (x) {
         .array => |a0| {
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i8.items[k0] = @truncate(jsonI64(it0));
+            for (a0.items[0..n0], 0..) |it0, k0| o.i8.items[k0] = @intCast(jsonI64(it0));
             o.i8.len = n0;
         },
         else => {},
@@ -154,7 +154,7 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     if (obj.get("u16")) |x| switch (x) {
         .array => |a0| {
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u16.items[k0] = @truncate(jsonU64(it0));
+            for (a0.items[0..n0], 0..) |it0, k0| o.u16.items[k0] = @intCast(jsonU64(it0));
             o.u16.len = n0;
         },
         else => {},
@@ -162,7 +162,7 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     if (obj.get("i16")) |x| switch (x) {
         .array => |a0| {
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i16.items[k0] = @truncate(jsonI64(it0));
+            for (a0.items[0..n0], 0..) |it0, k0| o.i16.items[k0] = @intCast(jsonI64(it0));
             o.i16.len = n0;
         },
         else => {},
@@ -170,7 +170,7 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     if (obj.get("u32")) |x| switch (x) {
         .array => |a0| {
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u32.items[k0] = @truncate(jsonU64(it0));
+            for (a0.items[0..n0], 0..) |it0, k0| o.u32.items[k0] = @intCast(jsonU64(it0));
             o.u32.len = n0;
         },
         else => {},
@@ -178,7 +178,7 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     if (obj.get("i32")) |x| switch (x) {
         .array => |a0| {
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i32.items[k0] = @truncate(jsonI64(it0));
+            for (a0.items[0..n0], 0..) |it0, k0| o.i32.items[k0] = @intCast(jsonI64(it0));
             o.i32.len = n0;
         },
         else => {},
@@ -312,12 +312,12 @@ fn fromJson_Example(alloc: std.mem.Allocator, v: std.json.Value) message.Example
         .object => |ob| ob,
         else => return o,
     };
-    if (obj.get("u8")) |x| o.u8 = @truncate(jsonU64(x));
-    if (obj.get("i8")) |x| o.i8 = @truncate(jsonI64(x));
-    if (obj.get("u16")) |x| o.u16 = @truncate(jsonU64(x));
-    if (obj.get("i16")) |x| o.i16 = @truncate(jsonI64(x));
-    if (obj.get("u32")) |x| o.u32 = @truncate(jsonU64(x));
-    if (obj.get("i32")) |x| o.i32 = @truncate(jsonI64(x));
+    if (obj.get("u8")) |x| o.u8 = @intCast(jsonU64(x));
+    if (obj.get("i8")) |x| o.i8 = @intCast(jsonI64(x));
+    if (obj.get("u16")) |x| o.u16 = @intCast(jsonU64(x));
+    if (obj.get("i16")) |x| o.i16 = @intCast(jsonI64(x));
+    if (obj.get("u32")) |x| o.u32 = @intCast(jsonU64(x));
+    if (obj.get("i32")) |x| o.i32 = @intCast(jsonI64(x));
     if (obj.get("u64")) |x| o.u64 = jsonU64(x);
     if (obj.get("i64")) |x| o.i64 = jsonI64(x);
     if (obj.get("nested")) |x| o.nested = fromJson_ExampleNested(alloc, x);
