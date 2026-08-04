@@ -1,0 +1,9 @@
+# The heap-free half of the C++ maxspeed pair (issue #107).
+#
+# `allow_dynamic: false` makes sofabgen emit sofab::FixedString<N> /
+# sofab::FixedBytes<N> / sofab::InlineVector<T, N> for every schema-bounded field
+# instead of std::string / std::vector, so a decode allocates nothing. Same
+# corelib (corelib-cpp), same API and same wire as ../sofab/cfg.yaml — the only
+# difference is where the field storage lives, which is exactly the axis the
+# paired rows isolate. The driver (../sofab/bench.cpp) is shared verbatim.
+targets: { cpp: { namespace: fullscale, allow_dynamic: false } }

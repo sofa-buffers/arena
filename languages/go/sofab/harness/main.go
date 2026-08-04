@@ -36,7 +36,31 @@ func run_decode_example() {
 	benchExampleOut = obj
 }
 
-// benchMain runs one op of <workload>. Everything here is setup and
+// warmup_* pay the runtime's one-time costs (lazy itabs, type/name
+// offsets, first-touch allocator spans) so the collected op does not.
+// The body is DUPLICATED rather than delegating to run_*: toggling is
+// keyed on entering the symbol, whoever the caller is, so a warmup that
+// called run_* would be collected right along with the real op.
+//
+//go:noinline
+func warmup_encode_example() {
+	b, err := benchExampleIn.Encode()
+	if err != nil {
+		fail(err)
+	}
+	benchExampleWire = b
+}
+
+//go:noinline
+func warmup_decode_example() {
+	obj, err := message.DecodeExample(benchExampleWire)
+	if err != nil {
+		fail(err)
+	}
+	benchExampleOut = obj
+}
+
+// benchMain runs one op of <workload>. Everything here is setup, warmup and
 // observation; only the run_* call is collected.
 func benchMain(w string, in []byte) int {
 	if w == "encode_example" || w == "decode_example" {
@@ -45,9 +69,11 @@ func benchMain(w string, in []byte) int {
 			fail(err)
 		}
 		if w == "encode_example" {
+			warmup_encode_example() // one-time runtime costs (not collected)
 			run_encode_example()
 		} else {
-			run_encode_example() // setup: the decode input (not collected)
+			warmup_encode_example() // setup: the decode input (not collected)
+			warmup_decode_example() // one-time runtime costs (not collected)
 			run_decode_example()
 		}
 		var sink uint64

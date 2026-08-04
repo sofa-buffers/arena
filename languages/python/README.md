@@ -20,7 +20,7 @@ cost actually lands:
 | native `sofab._speedups` codec (the real serialization work) | **~14%** |
 | libc / other | ~3% |
 
-Inside that 83%: the bytecode eval loop (per-field `_marshal`/`_unmarshal`
+Inside that 83%: the bytecode eval loop (per-field `serialize`/`deserialize`
 `while/if-elif` dispatch), object churn (a fresh dataclass per nested message, a
 boxed `Field` object returned per field by `Decoder.next()`, boxed `int`s for every
 scalar), and attribute get/set on those objects — alloc/free/GC alone is ~16% of the

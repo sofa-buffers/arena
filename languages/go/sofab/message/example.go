@@ -5,6 +5,7 @@ package message
 import (
 	"bytes"
 	"github.com/sofa-buffers/corelib-go"
+	"io"
 )
 
 // Example - This example demonstrates the use of SofaBuffers to encode and decode a message.
@@ -24,7 +25,7 @@ type Example struct {
 	I8          int8          `json:"i8"`
 }
 
-func (m *Example) marshal(e *sofab.Encoder) {
+func (m *Example) Serialize(e *sofab.Encoder) {
 	if m.U8 != 0 {
 		e.WriteUnsigned(0, uint64(m.U8))
 	}
@@ -50,10 +51,10 @@ func (m *Example) marshal(e *sofab.Encoder) {
 		e.WriteSigned(7, int64(m.I64))
 	}
 	e.WriteSequenceBeginLazy(10)
-	m.Nested.marshal(e)
+	m.Nested.Serialize(e)
 	e.WriteSequenceEnd()
 	e.WriteSequenceBeginLazy(100)
-	m.Arrays.marshal(e)
+	m.Arrays.Serialize(e)
 	e.WriteSequenceEnd()
 	e.WriteSequenceBeginLazy(200)
 	for _i0, _e0 := range m.StringArray {
@@ -104,10 +105,19 @@ func (m *Example) isDefault() bool {
 func (m *Example) Unsigned(id sofab.ID, v uint64) error {
 	switch id {
 	case 0:
+		if v > 255 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U8 = uint8(v)
 	case 2:
+		if v > 65535 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U16 = uint16(v)
 	case 4:
+		if v > 4294967295 {
+			return sofab.ErrInvalidMsg
+		}
 		m.U32 = uint32(v)
 	case 6:
 		m.U64 = uint64(v)
@@ -118,10 +128,19 @@ func (m *Example) Unsigned(id sofab.ID, v uint64) error {
 func (m *Example) Signed(id sofab.ID, v int64) error {
 	switch id {
 	case 1:
+		if v < -128 || v > 127 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I8 = int8(v)
 	case 3:
+		if v < -32768 || v > 32767 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I16 = int16(v)
 	case 5:
+		if v < -2147483648 || v > 2147483647 {
+			return sofab.ErrInvalidMsg
+		}
 		m.I32 = int32(v)
 	case 7:
 		m.I64 = int64(v)
@@ -152,11 +171,22 @@ func NewExample() *Example {
 func (m *Example) Encode() ([]byte, error) {
 	var buf bytes.Buffer
 	e := sofab.NewEncoder(&buf)
-	m.marshal(e)
+	m.Serialize(e)
 	if err := e.Flush(); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// EncodeTo serializes the message straight into w.
+//
+// The encoder drains into w as its internal buffer fills, so the message is
+// never held whole in memory: what bounds memory is w, not the message.
+// Encode is this with a bytes.Buffer.
+func (m *Example) EncodeTo(w io.Writer) error {
+	e := sofab.NewEncoder(w)
+	m.Serialize(e)
+	return e.Flush()
 }
 
 // DecodeExample parses bytes into a new message (with defaults pre-applied).

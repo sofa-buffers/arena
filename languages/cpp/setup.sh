@@ -10,16 +10,25 @@ CXX="${CXX:-g++}"
 CXXFLAGS="-O3 -march=native -flto -std=c++20"
 
 # --- sofab: generate the typed C++ header against corelib-cpp ---------------
-mkdir -p "$HERE/sofab/gen"
-"$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang cpp \
-    --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >/dev/null
+# Two storage profiles, one corelib and one driver (#107): sofab/cfg.yaml keeps
+# allow_dynamic on (std::string/std::vector), sofab-heapfree/cfg.yaml turns it
+# off (sofab::FixedString/FixedBytes/InlineVector — nothing on the heap). Both
+# compile the SAME sofab/bench.cpp with the SAME $CXXFLAGS; only the generated
+# header on the include path and -DBENCH_IMPL differ, so the pair isolates the
+# storage axis and nothing else.
+for variant in sofab sofab-heapfree; do
+    mkdir -p "$HERE/$variant/gen"
+    "$SOFABGEN" --config "$HERE/$variant/cfg.yaml" --lang cpp \
+        --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/$variant/gen" >/dev/null
 
-$CXX $CXXFLAGS \
-    -I "$HERE/sofab/gen" \
-    -I "$ROOT/vendor/corelib-cpp/include" \
-    -I "$COMMON" \
-    "$HERE/sofab/bench.cpp" "$COMMON/sha256.c" \
-    -o "$HERE/sofab/bench"
+    $CXX $CXXFLAGS \
+        -DBENCH_IMPL="\"$variant\"" \
+        -I "$HERE/$variant/gen" \
+        -I "$ROOT/vendor/corelib-cpp/include" \
+        -I "$COMMON" \
+        "$HERE/sofab/bench.cpp" "$COMMON/sha256.c" \
+        -o "$HERE/$variant/bench"
+done
 
 # --- protobuf: generate message.pb.{h,cc} and compile -----------------------
 mkdir -p "$HERE/protobuf/gen"

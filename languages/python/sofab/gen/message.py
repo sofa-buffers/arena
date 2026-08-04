@@ -38,7 +38,7 @@ class ExampleArrays:
             return False
         return True
 
-    def _marshal(self, e: Encoder) -> None:
+    def serialize(self, e: Encoder) -> None:
         if len(self.u8) != 0:
             e.write_unsigned_array(0, self.u8)
         if len(self.i8) != 0:
@@ -56,10 +56,10 @@ class ExampleArrays:
         if len(self.i64) != 0:
             e.write_signed_array(7, self.i64)
         e.write_sequence_begin_lazy(10)
-        self.nested._marshal(e)
+        self.nested.serialize(e)
         e.write_sequence_end()
 
-    def _unmarshal(self, d: Decoder) -> None:
+    def deserialize(self, d: Decoder) -> None:
         while True:
             fld = d.next()
             if fld is None or fld.type == WireType.SEQUENCE_END:
@@ -71,6 +71,8 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u8: array count above schema capacity 5")
                 self.u8 = d.read_unsigned_array()
+                if any(_v > 255 for _v in self.u8):
+                    raise SofaDecodeError("u8 element: value outside declared width u8")
             elif fld.id == 1:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -78,6 +80,8 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i8: array count above schema capacity 5")
                 self.i8 = d.read_signed_array()
+                if any(_v < -128 or _v > 127 for _v in self.i8):
+                    raise SofaDecodeError("i8 element: value outside declared width i8")
             elif fld.id == 2:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
@@ -85,6 +89,8 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u16: array count above schema capacity 5")
                 self.u16 = d.read_unsigned_array()
+                if any(_v > 65535 for _v in self.u16):
+                    raise SofaDecodeError("u16 element: value outside declared width u16")
             elif fld.id == 3:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -92,6 +98,8 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i16: array count above schema capacity 5")
                 self.i16 = d.read_signed_array()
+                if any(_v < -32768 or _v > 32767 for _v in self.i16):
+                    raise SofaDecodeError("i16 element: value outside declared width i16")
             elif fld.id == 4:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
@@ -99,6 +107,8 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("u32: array count above schema capacity 5")
                 self.u32 = d.read_unsigned_array()
+                if any(_v > 4294967295 for _v in self.u32):
+                    raise SofaDecodeError("u32 element: value outside declared width u32")
             elif fld.id == 5:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
@@ -106,6 +116,8 @@ class ExampleArrays:
                 if fld.count > 5:
                     raise SofaDecodeError("i32: array count above schema capacity 5")
                 self.i32 = d.read_signed_array()
+                if any(_v < -2147483648 or _v > 2147483647 for _v in self.i32):
+                    raise SofaDecodeError("i32 element: value outside declared width i32")
             elif fld.id == 6:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
@@ -124,7 +136,7 @@ class ExampleArrays:
                 if fld.type != WireType.SEQUENCE_START:
                     d.skip()
                     continue
-                self.nested._unmarshal(d)
+                self.nested.deserialize(d)
             else:
                 d.skip()
 
@@ -166,13 +178,13 @@ class ExampleArrays:
 
     def encode(self) -> bytes:
         e = Encoder()
-        self._marshal(e)
+        self.serialize(e)
         return e.getvalue()
 
     @classmethod
     def decode(cls, data: bytes) -> "ExampleArrays":
         o = cls()
-        o._unmarshal(Decoder(io.BytesIO(data)))
+        o.deserialize(Decoder(io.BytesIO(data)))
         return o
 
 @dataclass
@@ -187,13 +199,13 @@ class ExampleArraysNested:
             return False
         return True
 
-    def _marshal(self, e: Encoder) -> None:
+    def serialize(self, e: Encoder) -> None:
         if len(self.fp32) != 0:
             e.write_float32_array(0, self.fp32)
         if len(self.fp64) != 0:
             e.write_float64_array(1, self.fp64)
 
-    def _unmarshal(self, d: Decoder) -> None:
+    def deserialize(self, d: Decoder) -> None:
         while True:
             fld = d.next()
             if fld is None or fld.type == WireType.SEQUENCE_END:
@@ -232,13 +244,13 @@ class ExampleArraysNested:
 
     def encode(self) -> bytes:
         e = Encoder()
-        self._marshal(e)
+        self.serialize(e)
         return e.getvalue()
 
     @classmethod
     def decode(cls, data: bytes) -> "ExampleArraysNested":
         o = cls()
-        o._unmarshal(Decoder(io.BytesIO(data)))
+        o.deserialize(Decoder(io.BytesIO(data)))
         return o
 
 @dataclass
@@ -259,7 +271,7 @@ class ExampleNested:
             return False
         return True
 
-    def _marshal(self, e: Encoder) -> None:
+    def serialize(self, e: Encoder) -> None:
         if self.f32 != 0.0:
             e.write_float32(0, self.f32)
         if self.f64 != 0.0:
@@ -269,7 +281,7 @@ class ExampleNested:
         if bytes(self.bytes_field) != b"":
             e.write_bytes(3, bytes(self.bytes_field))
 
-    def _unmarshal(self, d: Decoder) -> None:
+    def deserialize(self, d: Decoder) -> None:
         while True:
             fld = d.next()
             if fld is None or fld.type == WireType.SEQUENCE_END:
@@ -324,13 +336,13 @@ class ExampleNested:
 
     def encode(self) -> bytes:
         e = Encoder()
-        self._marshal(e)
+        self.serialize(e)
         return e.getvalue()
 
     @classmethod
     def decode(cls, data: bytes) -> "ExampleNested":
         o = cls()
-        o._unmarshal(Decoder(io.BytesIO(data)))
+        o.deserialize(Decoder(io.BytesIO(data)))
         return o
 
 @dataclass
@@ -373,7 +385,7 @@ class Example:
             return False
         return True
 
-    def _marshal(self, e: Encoder) -> None:
+    def serialize(self, e: Encoder) -> None:
         if self.u8 != 0:
             e.write_unsigned(0, int(self.u8))
         if self.i8 != 0:
@@ -391,10 +403,10 @@ class Example:
         if self.i64 != 0:
             e.write_signed(7, int(self.i64))
         e.write_sequence_begin_lazy(10)
-        self.nested._marshal(e)
+        self.nested.serialize(e)
         e.write_sequence_end()
         e.write_sequence_begin_lazy(100)
-        self.arrays._marshal(e)
+        self.arrays.serialize(e)
         e.write_sequence_end()
         e.write_sequence_begin_lazy(200)
         for _i0, _e0 in enumerate(self.string_array):
@@ -402,7 +414,7 @@ class Example:
                 e.write_string(_i0, _e0)
         e.write_sequence_end()
 
-    def _unmarshal(self, d: Decoder) -> None:
+    def deserialize(self, d: Decoder) -> None:
         while True:
             fld = d.next()
             if fld is None or fld.type == WireType.SEQUENCE_END:
@@ -412,31 +424,43 @@ class Example:
                     d.skip()
                     continue
                 self.u8 = d.unsigned()
+                if self.u8 > 255:
+                    raise SofaDecodeError("u8: value outside declared width u8")
             elif fld.id == 1:
                 if fld.type != WireType.SIGNED:
                     d.skip()
                     continue
                 self.i8 = d.signed()
+                if self.i8 < -128 or self.i8 > 127:
+                    raise SofaDecodeError("i8: value outside declared width i8")
             elif fld.id == 2:
                 if fld.type != WireType.UNSIGNED:
                     d.skip()
                     continue
                 self.u16 = d.unsigned()
+                if self.u16 > 65535:
+                    raise SofaDecodeError("u16: value outside declared width u16")
             elif fld.id == 3:
                 if fld.type != WireType.SIGNED:
                     d.skip()
                     continue
                 self.i16 = d.signed()
+                if self.i16 < -32768 or self.i16 > 32767:
+                    raise SofaDecodeError("i16: value outside declared width i16")
             elif fld.id == 4:
                 if fld.type != WireType.UNSIGNED:
                     d.skip()
                     continue
                 self.u32 = d.unsigned()
+                if self.u32 > 4294967295:
+                    raise SofaDecodeError("u32: value outside declared width u32")
             elif fld.id == 5:
                 if fld.type != WireType.SIGNED:
                     d.skip()
                     continue
                 self.i32 = d.signed()
+                if self.i32 < -2147483648 or self.i32 > 2147483647:
+                    raise SofaDecodeError("i32: value outside declared width i32")
             elif fld.id == 6:
                 if fld.type != WireType.UNSIGNED:
                     d.skip()
@@ -451,12 +475,12 @@ class Example:
                 if fld.type != WireType.SEQUENCE_START:
                     d.skip()
                     continue
-                self.nested._unmarshal(d)
+                self.nested.deserialize(d)
             elif fld.id == 100:
                 if fld.type != WireType.SEQUENCE_START:
                     d.skip()
                     continue
-                self.arrays._unmarshal(d)
+                self.arrays.deserialize(d)
             elif fld.id == 200:
                 if fld.type != WireType.SEQUENCE_START:
                     d.skip()
@@ -523,12 +547,12 @@ class Example:
 
     def encode(self) -> bytes:
         e = Encoder()
-        self._marshal(e)
+        self.serialize(e)
         return e.getvalue()
 
     @classmethod
     def decode(cls, data: bytes) -> "Example":
         o = cls()
-        o._unmarshal(Decoder(io.BytesIO(data)))
+        o.deserialize(Decoder(io.BytesIO(data)))
         return o
 

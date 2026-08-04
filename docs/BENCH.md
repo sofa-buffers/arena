@@ -23,6 +23,33 @@ It is **derived from the fields above**, not emitted — no target changes. MB/s
 by `serialized_bytes`, so it credits SofaBuffers' smaller wire; `msgs/s` is the
 size-neutral per-message codec speed. See #85.
 
+### Optional keys
+
+A target may append keys the runner reports as a footnote under the table; they
+are never part of the ranking and every other target may omit them.
+
+| field | meaning |
+|---|---|
+| `codec` | which SofaBuffers codec backed the run where a corelib has more than one (Python: `native` vs the pure-Python fallback) |
+| `sizeof_bytes` | in-memory size of the message struct. The cost side of fixed-capacity storage, which sizes with the schema's declared `count`/`maxlen` rather than with the payload — the wire is unaffected. Emitted by the C++ target for both storage profiles (#107) |
+
+### `sofab-<variant>`: a second codegen configuration
+
+`impl` may also be `sofab-<variant>` — the **same corelib and the same driver**
+generated with one codegen option flipped, so the pair isolates that option and
+nothing else. It is a SofaBuffers impl for every purpose: the gate holds it to the
+sofab reference wire, and it gets its own maxspeed row labelled `<lang>/<variant>`
+sharing its target's single protobuf measurement (so both configurations face the
+identical baseline run, and — unlike rows of different languages — the two rows
+**are** comparable to each other).
+
+Today the only one is **`cpp` / `sofab-heapfree`** (#107): `corelib: cpp` with
+`allow_dynamic: false`, which stores every schema-bounded field in
+`sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of
+`std::string` / `std::vector`, so a decode allocates nothing. Both builds compile
+`languages/cpp/sofab/bench.cpp` verbatim with identical flags; only the generated
+header and `-DBENCH_IMPL` differ.
+
 ## Rules every target follows
 
 1. **Identical message, identical state.** Every target encodes the exact same
@@ -54,7 +81,8 @@ size-neutral per-message codec speed. See #85.
 Because every SofaBuffers corelib speaks the **same wire format**, and protobuf
 is deterministic for this message, the aggregator asserts that:
 
-- all `impl=sofab` targets emit the **same `serialized_bytes` and `sha256`**, and
+- all `impl=sofab` **and `impl=sofab-<variant>`** targets emit the **same
+  `serialized_bytes` and `sha256`**, and
 - all `impl=protobuf` targets emit the **same `serialized_bytes` and `sha256`**.
 
 A divergent `sha256` means that language's message-fill drifted from the

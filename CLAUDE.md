@@ -87,6 +87,18 @@ Everything below is only what is **not** written in those files.
   `rust-embedded/{sofab-ffi,micropb-ffi}` crates, linked into the **same** C
   driver as the C targets.
 
+### Add a sofab codegen variant to an existing target
+
+A second configuration of the *same* corelib (e.g. `cpp`'s `sofab-heapfree` =
+`allow_dynamic: false`) is an impl named `sofab-<variant>`, not a new target: add
+`languages/<t>/sofab-<variant>/cfg.yaml`, generate + build it in that target's
+`setup.sh` from the **same driver source and the same flags** as `sofab/` (the cpp
+target passes `-DBENCH_IMPL` so one `bench.cpp` serves both), and run it in
+`bench.sh`. The runner needs nothing registered: `is_sofab` holds it to the sofab
+reference wire and it gets a `<lang>/<variant>` maxspeed row sharing the target's
+protobuf column. Keep the two cfg.yaml files one key apart so the row isolates
+that key — that is the whole point of the pair.
+
 ### Add a new baseline library (new opponent)
 
 1. New subdir `languages/<target>/<impl>/` + generation in that target's

@@ -5,7 +5,7 @@
 // corelib-zig (max-speed) runtime. Prints one uniform BENCH line (docs/BENCH.md).
 //
 // Copied into the generated project (src/bench.zig) by languages/zig/setup.sh,
-// so it can @import("message.zig") and reuse the generated marshal/decode
+// so it can @import("message.zig") and reuse the generated serialize/decode
 // directly — the same pattern as the Rust target's second crate binary.
 //
 // The message fill mirrors every other target in the arena — identical fields,
@@ -81,7 +81,7 @@ pub fn main(init: std.process.Init) !void {
     // Warm-up round-trip + self-check (outside the timed region).
     var buf: [Example.MAX_SIZE]u8 = undefined;
     var os = sofab.OStream.init(&buf);
-    try src.marshal(&os);
+    try src.serialize(&os);
     const serialized = os.bytesUsed();
     const wire = buf[0..serialized];
 
@@ -97,7 +97,7 @@ pub fn main(init: std.process.Init) !void {
     const check = try Example.decode(fba.allocator(), wire);
     var check_buf: [Example.MAX_SIZE]u8 = undefined;
     var check_os = sofab.OStream.init(&check_buf);
-    try check.marshal(&check_os);
+    try check.serialize(&check_os);
     if (!std.mem.eql(u8, check_buf[0..check_os.bytesUsed()], wire)) {
         std.debug.print("FAIL: sofab round-trip self-check\n", .{});
         std.process.exit(1);
@@ -117,14 +117,14 @@ pub fn main(init: std.process.Init) !void {
         fba.reset();
         dec = try Example.decode(fba.allocator(), wire);
         var eos = sofab.OStream.init(&loop_buf);
-        try dec.marshal(&eos);
+        try dec.serialize(&eos);
         const used = eos.bytesUsed();
         std.mem.doNotOptimizeAway(loop_buf[0..used]);
     }
     const cpu = cpuNow() - t0;
 
     var loop_check_os = sofab.OStream.init(&check_buf);
-    try dec.marshal(&loop_check_os);
+    try dec.serialize(&loop_check_os);
     if (!std.mem.eql(u8, check_buf[0..loop_check_os.bytesUsed()], wire)) {
         std.debug.print("FAIL: sofab loop-path self-check\n", .{});
         std.process.exit(1);

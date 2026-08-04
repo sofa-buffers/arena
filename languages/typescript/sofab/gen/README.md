@@ -6,4 +6,5 @@
 npm install
 echo '{...}' | npx tsx harness.ts encode <Message>   # JSON -> bytes
 npx tsx harness.ts decode <Message> < bytes.bin       # bytes -> JSON
+npx tsx harness.ts recode <Message> < bytes.bin       # bytes -> bytes (no JSON)
 ```

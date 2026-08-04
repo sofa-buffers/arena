@@ -6,7 +6,7 @@
 //
 // Built as a second entrypoint inside the generated project (alongside the
 // generated `harness`), so it can `import 'package:harness/message.dart'` and
-// reuse the generated marshal/decode directly. Run AOT-native (`dart compile
+// reuse the generated serialize/decode directly. Run AOT-native (`dart compile
 // exe`), never `dart run`/JIT — the fair comparison to the compiled ports
 // (C/C++/Rust/Go), which also run native.
 //
