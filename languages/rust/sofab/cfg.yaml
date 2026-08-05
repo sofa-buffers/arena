@@ -1,2 +1,5 @@
+# The growable half of the Rust maxspeed pair — see ../sofab-heapless/cfg.yaml.
+# allow_dynamic is spelled out rather than left to its default so the two configs
+# read as a matched pair differing in exactly one key.
 generic: { emit: project }
-targets: { rust: { corelib: rs } }
+targets: { rust: { corelib: rs, allow_dynamic: true } }

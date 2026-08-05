@@ -1,0 +1,15 @@
+# The heap-free half of the Rust maxspeed pair — the corelib-rs analogue of the
+# C++ pair (issue #107).
+#
+# `allow_dynamic: false` makes sofabgen emit heapless::String<N> /
+# heapless::Vec<T, N> for every schema-bounded field instead of String / Vec, so
+# a decode allocates nothing. Same corelib (corelib-rs, std), same API and same
+# wire as ../sofab/cfg.yaml — the only difference is where the field storage
+# lives, which is exactly the axis the paired rows isolate. The driver
+# (../sofab/bench.rs) is shared verbatim.
+#
+# Not to be confused with the rust-embedded target: that one is a different
+# corelib (corelib-rs-no-std) in the footprint league; this row stays on the std
+# corelib and on maxspeed flags, so the pair isolates storage, not the runtime.
+generic: { emit: project }
+targets: { rust: { corelib: rs, allow_dynamic: false } }

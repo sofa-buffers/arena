@@ -31,7 +31,7 @@ are never part of the ranking and every other target may omit them.
 | field | meaning |
 |---|---|
 | `codec` | which SofaBuffers codec backed the run where a corelib has more than one (Python: `native` vs the pure-Python fallback) |
-| `sizeof_bytes` | in-memory size of the message struct. The cost side of fixed-capacity storage, which sizes with the schema's declared `count`/`maxlen` rather than with the payload — the wire is unaffected. Emitted by the C++ target for both storage profiles (#107) |
+| `sizeof_bytes` | in-memory size of the message struct. The cost side of fixed-capacity storage, which sizes with the schema's declared `count`/`maxlen` rather than with the payload — the wire is unaffected. Emitted by the C++ and Rust targets for both of their storage profiles (#107) |
 
 ### `sofab-<variant>`: a second codegen configuration
 
@@ -43,12 +43,22 @@ sharing its target's single protobuf measurement (so both configurations face th
 identical baseline run, and — unlike rows of different languages — the two rows
 **are** comparable to each other).
 
-Today the only one is **`cpp` / `sofab-heapfree`** (#107): `corelib: cpp` with
-`allow_dynamic: false`, which stores every schema-bounded field in
-`sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of
-`std::string` / `std::vector`, so a decode allocates nothing. Both builds compile
-`languages/cpp/sofab/bench.cpp` verbatim with identical flags; only the generated
-header and `-DBENCH_IMPL` differ.
+Today there are two, both flipping `allow_dynamic` to `false` so a decode
+allocates nothing (#107):
+
+- **`cpp` / `sofab-heapfree`** — `corelib: cpp` storing every schema-bounded field
+  in `sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of
+  `std::string` / `std::vector`. Both builds compile
+  `languages/cpp/sofab/bench.cpp` verbatim with identical flags; only the
+  generated header and `-DBENCH_IMPL` differ.
+- **`rust` / `sofab-heapless`** — `corelib: rs` (the same std corelib as the
+  `rust` row, *not* the no_std one of the embedded league) storing those fields in
+  `heapless::String<N>` / `heapless::Vec<T, N>` instead of `String` / `Vec`. Both
+  crates build `languages/rust/sofab/bench.rs` verbatim with identical `RUSTFLAGS`
+  and `[profile.release]`; only the generated `message` module and the `BENCH_IMPL`
+  env var (read via `option_env!`) differ.
+
+Both pairs emit `sizeof_bytes`, the cost side of the trade.
 
 ## Rules every target follows
 
