@@ -496,6 +496,23 @@ const _DEAD: Visitor = { sequenceBegin(): Visitor { return _DEAD; } };
 const _dec = new TextDecoder("utf-8", { fatal: true });
 
 /**
+ * Transcode a payload, reporting malformed UTF-8 the way the rest of the
+ * API reports malformed input.
+ *
+ * The fatal TextDecoder signals invalid bytes with a TypeError. Malformed
+ * bytes are an invalid message, so this leaves as SofabError like every
+ * other verdict -- never as a platform exception that escapes a
+ * `catch (e) { if (e instanceof SofabError) ... }`.
+ */
+function _str(bytes: Uint8Array): string {
+  try {
+    return _dec.decode(bytes);
+  } catch {
+    throw new SofabError(SofabErrorCode.InvalidMsg, "invalid UTF-8 in string");
+  }
+}
+
+/**
  * Reassembles a string/blob payload split across feed chunks.
  *
  * One payload is in flight at a time across the whole decode, however deep
@@ -531,7 +548,7 @@ class _StrSeq implements Visitor {
     const p = this.a.take(total, offset, chunk);
     if (p === null) return;
     while (this.out.length <= id) this.out.push("");
-    this.out[id] = _dec.decode(p);
+    this.out[id] = _str(p);
   }
   sequenceBegin(): Visitor { return _DEAD; }
 }
@@ -625,7 +642,7 @@ class _ExampleNestedVis implements Visitor {
   }
   string(id: number, total: number, offset: number, chunk: Uint8Array): void {
     switch (id) {
-      case 2: { if (total > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); const _p = this.a.take(total, offset, chunk); if (_p === null) break; this.o.str = _dec.decode(_p); break; }
+      case 2: { if (total > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); const _p = this.a.take(total, offset, chunk); if (_p === null) break; this.o.str = _str(_p); break; }
       default: break;
     }
   }
