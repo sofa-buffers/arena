@@ -6,7 +6,23 @@
 //
 // Built as a second binary inside the generated crate (alongside `harness`),
 // so it can `mod message;` and reuse the generated serialize/decode directly.
+//
+// ONE source, TWO builds (the Rust half of #107): setup.sh copies this file into
+// both generated crates and builds them with identical RUSTFLAGS and profile,
+// against the two corelib-rs storage profiles that sofabgen's `allow_dynamic`
+// selects — growable (String/Vec) as impl=sofab and heap-free
+// (heapless::String/heapless::Vec) as impl=sofab-heapless. Both profiles share
+// one API and one wire, so the ONLY differences between the two runs are the
+// generated `message` module and BENCH_IMPL below; sharing the source is what
+// makes the pair a like-for-like measurement.
 mod message;
+
+/// Which storage profile this build measures; set by setup.sh (BENCH_IMPL env
+/// var at compile time, the analogue of the C++ target's -DBENCH_IMPL).
+const BENCH_IMPL: &str = match option_env!("BENCH_IMPL") {
+    Some(s) => s,
+    None => "sofab",
+};
 
 use message::Example;
 use sofab::OStream;
@@ -62,8 +78,12 @@ fn main() {
     } else {
         0.0
     };
+    // sizeof_bytes is the in-memory size of the message struct — the cost side of
+    // the heap-free trade (#107): fixed-capacity storage sizes with the schema's
+    // declared count/maxlen instead of with the payload, so it buys the decode
+    // speed with RAM. Optional BENCH key; the runner reports it as a footnote.
     println!(
-        "BENCH lang=rust impl=sofab serialized_bytes={} iters={} cpu_time_s={:.6} throughput_mbs={:.2} sha256={}",
-        serialized, iters, cpu, mbs, sha
+        "BENCH lang=rust impl={} serialized_bytes={} iters={} cpu_time_s={:.6} throughput_mbs={:.2} sizeof_bytes={} sha256={}",
+        BENCH_IMPL, serialized, iters, cpu, mbs, std::mem::size_of::<Example>(), sha
     );
 }

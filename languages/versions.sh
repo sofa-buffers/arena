@@ -34,8 +34,10 @@ GO_TOOLCHAIN=go1.25.11
 # --- Rust (host + embedded sofab crates) ------------------------------------
 RUST_SHA2=0.11
 # micropb 0.6 wires its container impls to heapless 0.8 (container-heapless-0-8);
-# 0.9 drops them and the no_std codec fails to compile. Keep the sofab crate in
-# lockstep with the micropb baseline on 0.8.
+# 0.9 drops them and the no_std codec fails to compile. Keep the sofab crates in
+# lockstep with the micropb baseline on 0.8 — both the rust-embedded one and the
+# maxspeed rust/sofab-heapless crate, whose allow_dynamic:false fields are
+# heapless containers too.
 RUST_HEAPLESS=0.8
 
 # --- Java (sofabgen template pins older than the arena tracks) --------------

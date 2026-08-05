@@ -27,9 +27,10 @@
 # and `sizeof_bytes=`, reported as footnotes and never ranked on.
 #
 # `impl` is `sofab`, `protobuf`/another baseline, or `sofab-<variant>` — the same
-# corelib and driver with one codegen option flipped (cpp's sofab-heapfree, #107).
-# A variant is a sofab impl to the gate and gets its own maxspeed row labelled
-# `<lang>/<variant>`, sharing its target's protobuf column.
+# corelib and driver with one codegen option flipped (cpp's sofab-heapfree and
+# rust's sofab-heapless, #107). A variant is a sofab impl to the gate and gets its
+# own maxspeed row labelled `<lang>/<variant>`, sharing its target's protobuf
+# column.
 #
 # Usage:
 #   ./scripts/run_benchmark.sh                 # setup + run every language
@@ -213,10 +214,11 @@ ratio() { # a/b with 2 decimals, or "-" if unusable
     awk -v a="$1" -v b="$2" 'BEGIN{ if(a=="" || b=="" || b+0==0){print "-"} else {printf "%.2f", a/b} }'
 }
 # A `sofab-<variant>` impl is a SECOND codegen configuration of the same corelib
-# in the same target (cpp's sofab-heapfree, #107) — same driver, same flags, same
-# wire, one key changed in cfg.yaml. It gets its own maxspeed row labelled
-# "<lang>/<variant>" and shares the target's single protobuf measurement, so the
-# pair differs in exactly the configured axis and nothing else.
+# in the same target (cpp's sofab-heapfree, rust's sofab-heapless, #107) — same
+# driver, same flags, same wire, one key changed in cfg.yaml. It gets its own
+# maxspeed row labelled "<lang>/<variant>" and shares the target's single
+# protobuf measurement, so the pair differs in exactly the configured axis and
+# nothing else.
 row_label() { # <lang> <impl>
     [ "$2" = sofab ] && printf '%s' "$1" || printf '%s/%s' "$1" "${2#sofab-}"
 }

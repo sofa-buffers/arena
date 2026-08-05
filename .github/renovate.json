@@ -15,6 +15,7 @@
     "**/tests/**",
     "**/__fixtures__/**",
     "languages/**/sofab/gen/**",
+    "languages/**/sofab-*/gen/**",
     "languages/go/sofab/go.mod",
     "languages/go/protobuf/go.mod"
   ],
