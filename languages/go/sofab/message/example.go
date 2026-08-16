@@ -3,7 +3,6 @@
 package message
 
 import (
-	"bytes"
 	"github.com/sofa-buffers/corelib-go"
 	"io"
 )
@@ -12,17 +11,18 @@ import (
 // Example is a generated SofaBuffers object.
 type Example struct {
 	_visitorBase
-	U64         uint64        `json:"u64"`
-	I64         int64         `json:"i64"`
-	Nested      ExampleNested `json:"nested"`
-	Arrays      ExampleArrays `json:"arrays"`
-	StringArray []string      `json:"string_array"`
-	U32         uint32        `json:"u32"`
-	I32         int32         `json:"i32"`
-	U16         uint16        `json:"u16"`
-	I16         int16         `json:"i16"`
-	U8          uint8         `json:"u8"`
-	I8          int8          `json:"i8"`
+	U64    uint64        `json:"u64"`
+	I64    int64         `json:"i64"`
+	Nested ExampleNested `json:"nested"`
+	Arrays ExampleArrays `json:"arrays"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+	StringArray []string `json:"string_array"`
+	U32         uint32   `json:"u32"`
+	I32         int32    `json:"i32"`
+	U16         uint16   `json:"u16"`
+	I16         int16    `json:"i16"`
+	U8          uint8    `json:"u8"`
+	I8          int8     `json:"i8"`
 }
 
 func (m *Example) Serialize(e *sofab.Encoder) {
@@ -167,34 +167,78 @@ func NewExample() *Example {
 	return m
 }
 
-// Encode serializes the message to bytes.
+// ExampleMaxSize is this message's worst-case encoded size, derived from the
+// schema: no value of it can encode to more.
+const ExampleMaxSize = 732
+
+// Encode serializes the message into a buffer this call allocates and owns.
+//
+// The buffer is exactly ExampleMaxSize bytes -- the schema's worst case -- so a
+// conformant value always fits. A value filled past a declared count/maxlen
+// does not, and is reported rather than truncated.
 func (m *Example) Encode() ([]byte, error) {
-	var buf bytes.Buffer
-	e := sofab.NewEncoder(&buf)
+	buf := make([]byte, ExampleMaxSize)
+	e, err := sofab.NewEncoderBuffer(buf, 0)
+	if err != nil {
+		return nil, err
+	}
 	m.Serialize(e)
 	if err := e.Flush(); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return e.Bytes(), nil
 }
 
 // EncodeTo serializes the message straight into w.
 //
-// The encoder drains into w as its internal buffer fills, so the message is
-// never held whole in memory: what bounds memory is w, not the message.
-// Encode is this with a bytes.Buffer.
+// The message is never held whole in memory: it is written through a small
+// scratch buffer this call owns, drained into w each time it fills, so what
+// bounds memory is that buffer rather than the message.
 func (m *Example) EncodeTo(w io.Writer) error {
-	e := sofab.NewEncoder(w)
+	var scratch [512]byte
+	e, err := sofab.NewEncoderSink(scratch[:], 0, func(_ *sofab.Encoder, b []byte) error {
+		_, werr := w.Write(b)
+		return werr
+	})
+	if err != nil {
+		return err
+	}
 	m.Serialize(e)
 	return e.Flush()
 }
 
 // DecodeExample parses bytes into a new message (with defaults pre-applied).
-// Decode runs the corelib's zero-copy AcceptBytes cursor over the buffer,
-// dispatching each field to the message's sofab.Visitor implementation.
+// Decode runs the corelib's AcceptBytes cursor over the buffer, dispatching
+// each field to the message's sofab.Visitor implementation.
+//
+// The cursor hands a payload over as a window into data, but the decoded
+// message OWNS its bytes: every destination copies. The message therefore
+// outlives data, and data may be reused or mutated the moment this returns.
+//
+// Use this when the message is already in memory. DecodeExampleFrom is the
+// streaming twin for a message that is not.
 func DecodeExample(data []byte) (*Example, error) {
 	m := NewExample()
 	if err := sofab.AcceptBytes(data, m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// DecodeExampleFrom parses a message straight out of r (with defaults pre-applied).
+//
+// The wire image is never held whole in memory: each field is read and
+// dispatched as r delivers it, so what bounds memory is the largest single
+// field, not the message. DecodeExample is the in-memory path for bytes you
+// already hold; this is the one to reach for over a network connection, a
+// file, or any producer that outruns the memory you want to spend.
+//
+// The verdict is identical either way -- the same visitor sees the same
+// events in the same order -- so a message that is INVALID whole is INVALID
+// streamed, at every chunk boundary.
+func DecodeExampleFrom(r io.Reader) (*Example, error) {
+	m := NewExample()
+	if err := sofab.NewDecoder(r).AcceptStream(m); err != nil {
 		return nil, err
 	}
 	return m, nil

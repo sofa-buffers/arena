@@ -16,13 +16,21 @@ const sofab = @import("sofab");
 pub const DecodeError = sofab.Error || error{IncompleteMessage};
 
 pub const ExampleArrays = struct {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     u8: FixedArray(u8, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     i8: FixedArray(i8, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     u16: FixedArray(u16, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     i16: FixedArray(i16, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     u32: FixedArray(u32, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     i32: FixedArray(i32, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     u64: FixedArray(u64, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     i64: FixedArray(i64, 5) = .{},
     nested: ExampleArraysNested = .{},
 
@@ -74,7 +82,9 @@ pub const ExampleArrays = struct {
 };
 
 pub const ExampleArraysNested = struct {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     fp32: FixedArray(f32, 5) = .{},
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     fp64: FixedArray(f64, 5) = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
@@ -99,7 +109,9 @@ pub const ExampleArraysNested = struct {
 pub const ExampleNested = struct {
     f32: f32 = 0.0,
     f64: f64 = 0.0,
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
     str: []const u8 = "",
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
     bytes_field: []const u8 = "",
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
@@ -133,6 +145,7 @@ pub const Example = struct {
     i64: i64 = 0,
     nested: ExampleNested = .{},
     arrays: ExampleArrays = .{},
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     string_array: []const []const u8 = &.{},
 
     /// Worst-case encoded size of this message, derived from the schema.
@@ -353,6 +366,26 @@ const _dec_Example = struct {
             },
             .root_arrays_nested => switch (id) {
                 1 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.nested.fp64.items, &self.ai, value, &self.inv); self.m.arrays.nested.fp64.len = self.ai; } },
+                else => {},
+            },
+            else => {},
+        }
+    }
+
+    /// Latch a schema bound at the fixlen LENGTH WORD, before any payload byte.
+    /// S5.2 makes INVALID dominate INCOMPLETE, so truncating right after this
+    /// word must not downgrade the verdict. The subtype switch is S7.3 -- a
+    /// contradicting fixlen kind at this id is a SKIPPED field, not this
+    /// field's length.
+    pub fn fixlenBegin(self: *_dec_Example, id: sofab.Id, subtype: sofab.FixlenType, total: usize) sofab.Error!void {
+        switch (subtype) {
+            .string => switch (self.cur) {
+                .root_nested => switch (id) { 2 => if (total > 32) return sofab.Error.InvalidMessage, else => {}, },
+                .root_string_array => { if (id >= 5) return sofab.Error.InvalidMessage; if (total > 64) return sofab.Error.InvalidMessage; },
+                else => {},
+            },
+            .blob => switch (self.cur) {
+                .root_nested => switch (id) { 3 => if (total > 4) return sofab.Error.InvalidMessage, else => {}, },
                 else => {},
             },
             else => {},

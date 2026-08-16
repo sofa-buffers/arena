@@ -57,16 +57,24 @@ function _fp32ArrayRaw(vals: readonly number[], raw: Uint8Array): Uint8Array {
 }
 
 export class ExampleArrays {
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   u8: number[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   i8: number[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   u16: number[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   i16: number[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   u32: number[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   i32: number[] = [];
   private _u64: Long[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   get u64(): Long[] { return this._u64; }
   set u64(vals: readonly (Long | bigint | number)[]) { this._u64 = vals.map(Long.fromValue); }
   private _i64: Long[] = [];
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   get i64(): Long[] { return this._i64; }
   set i64(vals: readonly (Long | bigint | number)[]) { this._i64 = vals.map(Long.fromValue); }
   nested: ExampleArraysNested = new ExampleArraysNested();
@@ -157,12 +165,12 @@ export class ExampleArrays {
   static decodeInto(c: Cursor, o: ExampleArrays): ExampleArrays {
     while (c.readHeader()) {
       switch (c.id) {
-      case 0: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray(5) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: array count above schema capacity 5"); for (const _e of _a) if (_e > 255) throw new SofabError(SofabErrorCode.InvalidMsg, "u8 element: value outside declared width u8"); o.u8 = _a; break; }
-      case 1: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray(5) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: array count above schema capacity 5"); for (const _e of _a) if (_e < -128 || _e > 127) throw new SofabError(SofabErrorCode.InvalidMsg, "i8 element: value outside declared width i8"); o.i8 = _a; break; }
-      case 2: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray(5) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u16: array count above schema capacity 5"); for (const _e of _a) if (_e > 65535) throw new SofabError(SofabErrorCode.InvalidMsg, "u16 element: value outside declared width u16"); o.u16 = _a; break; }
-      case 3: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray(5) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i16: array count above schema capacity 5"); for (const _e of _a) if (_e < -32768 || _e > 32767) throw new SofabError(SofabErrorCode.InvalidMsg, "i16 element: value outside declared width i16"); o.i16 = _a; break; }
-      case 4: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray(5) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u32: array count above schema capacity 5"); for (const _e of _a) if (_e > 4294967295) throw new SofabError(SofabErrorCode.InvalidMsg, "u32 element: value outside declared width u32"); o.u32 = _a; break; }
-      case 5: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray(5) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i32: array count above schema capacity 5"); for (const _e of _a) if (_e < -2147483648 || _e > 2147483647) throw new SofabError(SofabErrorCode.InvalidMsg, "i32 element: value outside declared width i32"); o.i32 = _a; break; }
+      case 0: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray(5, 255) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: array count above schema capacity 5"); for (const _e of _a) if (_e > 255) throw new SofabError(SofabErrorCode.InvalidMsg, "u8 element: value outside declared width u8"); o.u8 = _a; break; }
+      case 1: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray(5, -128, 127) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: array count above schema capacity 5"); for (const _e of _a) if (_e < -128 || _e > 127) throw new SofabError(SofabErrorCode.InvalidMsg, "i8 element: value outside declared width i8"); o.i8 = _a; break; }
+      case 2: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray(5, 65535) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u16: array count above schema capacity 5"); for (const _e of _a) if (_e > 65535) throw new SofabError(SofabErrorCode.InvalidMsg, "u16 element: value outside declared width u16"); o.u16 = _a; break; }
+      case 3: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray(5, -32768, 32767) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i16: array count above schema capacity 5"); for (const _e of _a) if (_e < -32768 || _e > 32767) throw new SofabError(SofabErrorCode.InvalidMsg, "i16 element: value outside declared width i16"); o.i16 = _a; break; }
+      case 4: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArray(5, 4294967295) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u32: array count above schema capacity 5"); for (const _e of _a) if (_e > 4294967295) throw new SofabError(SofabErrorCode.InvalidMsg, "u32 element: value outside declared width u32"); o.u32 = _a; break; }
+      case 5: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArray(5, -2147483648, 2147483647) as number[]; if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i32: array count above schema capacity 5"); for (const _e of _a) if (_e < -2147483648 || _e > 2147483647) throw new SofabError(SofabErrorCode.InvalidMsg, "i32 element: value outside declared width i32"); o.i32 = _a; break; }
       case 6: { if (c.wire !== WireType.ArrayUnsigned) { c.skip(c.wire); break; } const _a = c.readUnsignedArrayLong(5); if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u64: array count above schema capacity 5"); o._u64 = _a; break; }
       case 7: { if (c.wire !== WireType.ArraySigned) { c.skip(c.wire); break; } const _a = c.readSignedArrayLong(5); if (_a.length > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i64: array count above schema capacity 5"); o._i64 = _a; break; }
       case 10: if (c.wire !== WireType.SequenceStart) { c.skip(c.wire); break; } ExampleArraysNested.decodeInto(c, o.nested); break;
@@ -174,6 +182,7 @@ export class ExampleArrays {
 }
 
 export class ExampleArraysNested {
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   fp32: number[] = [];
   /**
    * Wire payload of `fp32`, captured on decode only when some element is a
@@ -185,6 +194,7 @@ export class ExampleArraysNested {
    * an element by hand always wins, and they never reach toJSON()/fromJSON().
    */
   fp32Fp32Raw: Uint8Array | null = null;
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   fp64: number[] = [];
 
   serialize(os: OStream): void {
@@ -269,7 +279,9 @@ export class ExampleNested {
    */
   f32Fp32Raw: Uint8Array | null = null;
   f64: number = 0;
+  /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
   str: string = "";
+  /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated. */
   bytes_field: Uint8Array = new Uint8Array();
 
   serialize(os: OStream): void {
@@ -335,7 +347,7 @@ export class ExampleNested {
       case 0: { if (c.wire !== WireType.Fixlen || c.fixSub !== FixlenSubtype.Fp32) { c.skip(c.wire); break; } const _r = c.readFp32Raw(); const _v = _fp32FromRaw(_r, 0); o.f32 = _v; o.f32Fp32Raw = Number.isNaN(_v) ? _r.slice() : null; break; }
       case 1: if (c.wire !== WireType.Fixlen || c.fixSub !== FixlenSubtype.Fp64) { c.skip(c.wire); break; } o.f64 = c.readFp64(); break;
       case 2: { if (c.wire !== WireType.Fixlen || c.fixSub !== FixlenSubtype.String) { c.skip(c.wire); break; } const _s = c.readString(32); if (_utf8Len(_s) > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); o.str = _s; break; }
-      case 3: { if (c.wire !== WireType.Fixlen || c.fixSub !== FixlenSubtype.Blob) { c.skip(c.wire); break; } const _b = c.readBlob(4); if (_b.length > 4) throw new SofabError(SofabErrorCode.InvalidMsg, "bytes_field: blob byte length above schema maxlen 4"); o.bytes_field = _b; break; }
+      case 3: { if (c.wire !== WireType.Fixlen || c.fixSub !== FixlenSubtype.Blob) { c.skip(c.wire); break; } const _b = c.readBlob(4); if (_b.length > 4) throw new SofabError(SofabErrorCode.InvalidMsg, "bytes_field: blob byte length above schema maxlen 4"); o.bytes_field = _b.slice(); break; }
       default: c.skip(c.wire); break;
       }
     }
@@ -355,6 +367,7 @@ export class Example {
   i64: bigint = 0n;
   nested: ExampleNested = new ExampleNested();
   arrays: ExampleArrays = new ExampleArrays();
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
   string_array: string[] = [];
 
   serialize(os: OStream): void {
@@ -395,6 +408,29 @@ export class Example {
       }
     }
     os.writeSequenceEnd();
+  }
+
+  // Worst-case encoded size, derived from the schema: no value of this class
+  // can encode to more, which is what lets encode() size one exact buffer.
+  static readonly MAX_SIZE = 732;
+
+  /**
+   * Encode into a buffer this call allocates and owns.
+   *
+   * The buffer is exactly `MAX_SIZE` bytes, the schema's worst case, so every
+   * value the schema permits fits. A value filled PAST a declared count/maxlen
+   * does not: it throws `SofabError` (BUFFER_FULL) rather than coming back
+   * short, because partial output must never pass for a whole message.
+   */
+  encode(): Uint8Array {
+    const _buf = new Uint8Array(Example.MAX_SIZE);
+    // No flush sink, so nothing can be split and no minimum buffer size applies:
+    // a field-less message encodes through a 0-byte buffer.
+    const _os = new OStream(_buf);
+    this.serialize(_os);
+    // A copy, not _os.bytes(): that is a view into this call's scratch, and the
+    // returned message has to outlive it.
+    return _buf.slice(0, _os.bytesUsed);
   }
 
   // True iff serialize would write no child at all, i.e. this object equals its
@@ -472,7 +508,7 @@ export class Example {
       case 200: {
         if (c.wire !== WireType.SequenceStart) { c.skip(c.wire); break; }
         const arr: string[] = [];
-        while (c.readHeader()) { if ((c.wire as WireType) !== WireType.Fixlen || c.fixSub !== FixlenSubtype.String) { c.skip(c.wire); continue; } if (c.id >= 5) throw new SofabError(SofabErrorCode.InvalidMsg, "arr: array index above schema capacity 5"); const _id = c.id; while (arr.length <= _id) arr.push(""); const _s = c.readString(); if (_utf8Len(_s) > 64) throw new SofabError(SofabErrorCode.InvalidMsg, "arr element: string byte length above schema maxlen 64"); arr[_id] = _s; }
+        while (c.readHeader()) { if ((c.wire as WireType) !== WireType.Fixlen || c.fixSub !== FixlenSubtype.String) { c.skip(c.wire); continue; } if (c.id >= 5) throw new SofabError(SofabErrorCode.InvalidMsg, "arr: array index above schema capacity 5"); const _id = c.id; while (arr.length <= _id) arr.push(""); const _s = c.readString(64); if (_utf8Len(_s) > 64) throw new SofabError(SofabErrorCode.InvalidMsg, "arr element: string byte length above schema maxlen 64"); arr[_id] = _s; }
         o.string_array = arr;
         break;
       }
@@ -542,6 +578,11 @@ class _Acc {
 class _StrSeq implements Visitor {
   constructor(readonly out: string[], readonly a: _Acc,
               readonly cap: number, readonly emax: number, readonly nm: string) {}
+  fixlenBegin(id: number, sub: FixlenSubtype, total: number): void {
+    if (sub !== FixlenSubtype.String) return;
+    if (this.cap >= 0 && id >= this.cap) throw new SofabError(SofabErrorCode.InvalidMsg, `${this.nm}: array index above schema capacity ${this.cap}`);
+    if (this.emax >= 0 && total > this.emax) throw new SofabError(SofabErrorCode.InvalidMsg, `${this.nm} element: string byte length above schema maxlen ${this.emax}`);
+  }
   string(id: number, total: number, offset: number, chunk: Uint8Array): void {
     if (this.cap >= 0 && id >= this.cap) throw new SofabError(SofabErrorCode.InvalidMsg, `${this.nm}: array index above schema capacity ${this.cap}`);
     if (this.emax >= 0 && total > this.emax) throw new SofabError(SofabErrorCode.InvalidMsg, `${this.nm} element: string byte length above schema maxlen ${this.emax}`);
@@ -556,16 +597,16 @@ class _StrSeq implements Visitor {
 /** Streaming decode visitor for {@link ExampleArrays}. */
 class _ExampleArraysVis implements Visitor {
   constructor(readonly o: ExampleArrays, readonly a: _Acc) {}
-  arrayBegin(id: number, _kind: ArrayKind, count: number): void {
+  arrayBegin(id: number, kind: ArrayKind, count: number): void {
     switch (id) {
-      case 0: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: array count above schema capacity 5"); this.o.u8 = []; break;
-      case 1: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: array count above schema capacity 5"); this.o.i8 = []; break;
-      case 2: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u16: array count above schema capacity 5"); this.o.u16 = []; break;
-      case 3: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i16: array count above schema capacity 5"); this.o.i16 = []; break;
-      case 4: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u32: array count above schema capacity 5"); this.o.u32 = []; break;
-      case 5: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i32: array count above schema capacity 5"); this.o.i32 = []; break;
-      case 6: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u64: array count above schema capacity 5"); this.o.u64 = []; break;
-      case 7: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i64: array count above schema capacity 5"); this.o.i64 = []; break;
+      case 0: if (kind !== ArrayKind.Unsigned) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: array count above schema capacity 5"); this.o.u8 = []; break;
+      case 1: if (kind !== ArrayKind.Signed) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: array count above schema capacity 5"); this.o.i8 = []; break;
+      case 2: if (kind !== ArrayKind.Unsigned) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u16: array count above schema capacity 5"); this.o.u16 = []; break;
+      case 3: if (kind !== ArrayKind.Signed) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i16: array count above schema capacity 5"); this.o.i16 = []; break;
+      case 4: if (kind !== ArrayKind.Unsigned) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u32: array count above schema capacity 5"); this.o.u32 = []; break;
+      case 5: if (kind !== ArrayKind.Signed) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i32: array count above schema capacity 5"); this.o.i32 = []; break;
+      case 6: if (kind !== ArrayKind.Unsigned) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u64: array count above schema capacity 5"); this.o.u64 = []; break;
+      case 7: if (kind !== ArrayKind.Signed) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i64: array count above schema capacity 5"); this.o.i64 = []; break;
       default: break;
     }
   }
@@ -600,22 +641,30 @@ class _ExampleArraysVis implements Visitor {
 class _ExampleArraysNestedVis implements Visitor {
   constructor(readonly o: ExampleArraysNested, readonly a: _Acc) {}
   readonly fp32Raw = true;
-  arrayBegin(id: number, _kind: ArrayKind, count: number): void {
+  private _rawFp32: Uint8Array | null = null;
+  private _rawNaNFp32 = false;
+  arrayBegin(id: number, kind: ArrayKind, count: number): void {
     switch (id) {
-      case 0: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp32: array count above schema capacity 5"); this.o.fp32 = []; break;
-      case 1: if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp64: array count above schema capacity 5"); this.o.fp64 = []; break;
+      case 0: if (kind !== ArrayKind.Fp32) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp32: array count above schema capacity 5"); this.o.fp32 = []; this.o.fp32Fp32Raw = null; this._rawFp32 = new Uint8Array(count * 4); this._rawNaNFp32 = false; break;
+      case 1: if (kind !== ArrayKind.Fp64) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp64: array count above schema capacity 5"); this.o.fp64 = []; break;
       default: break;
     }
   }
-  arrayFp32(id: number, i: number, v: number): void {
+  arrayFp32(id: number, i: number, v: number, raw?: Uint8Array): void {
     switch (id) {
-      case 0: this.o.fp32[i] = v; break;
+      case 0: { this.o.fp32[i] = v; const _r = this._rawFp32; if (raw !== undefined && _r !== null && (i + 1) * 4 <= _r.length) _r.set(raw, i * 4); if (Number.isNaN(v)) this._rawNaNFp32 = true; break; }
       default: break;
     }
   }
   arrayFp64(id: number, i: number, v: number): void {
     switch (id) {
       case 1: this.o.fp64[i] = v; break;
+      default: break;
+    }
+  }
+  arrayEnd(id: number): void {
+    switch (id) {
+      case 0: this.o.fp32Fp32Raw = this._rawNaNFp32 ? this._rawFp32 : null; this._rawFp32 = null; break;
       default: break;
     }
   }
@@ -637,6 +686,13 @@ class _ExampleNestedVis implements Visitor {
   fp64(id: number, v: number): void {
     switch (id) {
       case 1: this.o.f64 = v; break;
+      default: break;
+    }
+  }
+  fixlenBegin(id: number, sub: FixlenSubtype, total: number): void {
+    switch (id) {
+      case 2: if (sub === FixlenSubtype.String && total > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); break;
+      case 3: if (sub === FixlenSubtype.Blob && total > 4) throw new SofabError(SofabErrorCode.InvalidMsg, "bytes_field: blob byte length above schema maxlen 4"); break;
       default: break;
     }
   }

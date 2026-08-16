@@ -9,13 +9,21 @@ import (
 // ExampleArrays is a generated SofaBuffers object.
 type ExampleArrays struct {
 	_visitorBase
-	U8     []uint8             `json:"u8"`
-	I8     []int8              `json:"i8"`
-	U16    []uint16            `json:"u16"`
-	I16    []int16             `json:"i16"`
-	U32    []uint32            `json:"u32"`
-	I32    []int32             `json:"i32"`
-	U64    []uint64            `json:"u64"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	U8 []uint8 `json:"u8"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	I8 []int8 `json:"i8"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	U16 []uint16 `json:"u16"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	I16 []int16 `json:"i16"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	U32 []uint32 `json:"u32"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	I32 []int32 `json:"i32"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	U64 []uint64 `json:"u64"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	I64    []int64             `json:"i64"`
 	Nested ExampleArraysNested `json:"nested"`
 }
@@ -207,6 +215,36 @@ func (m *ExampleArrays) FixlenHeader(id sofab.ID, subtype int, length int) error
 	return nil
 }
 
+func (m *ExampleArrays) ArrayElemBound(id sofab.ID, kind sofab.ArrayKind) (int64, int64, bool) {
+	switch id {
+	case 0:
+		if kind == sofab.ArrayUnsigned {
+			return 0, 255, true
+		}
+	case 1:
+		if kind == sofab.ArraySigned {
+			return -128, 127, true
+		}
+	case 2:
+		if kind == sofab.ArrayUnsigned {
+			return 0, 65535, true
+		}
+	case 3:
+		if kind == sofab.ArraySigned {
+			return -32768, 32767, true
+		}
+	case 4:
+		if kind == sofab.ArrayUnsigned {
+			return 0, 4294967295, true
+		}
+	case 5:
+		if kind == sofab.ArraySigned {
+			return -2147483648, 2147483647, true
+		}
+	}
+	return 0, 0, false
+}
+
 func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	switch id {
 	case 10:
@@ -218,7 +256,9 @@ func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 // ExampleArraysNested is a generated SofaBuffers object.
 type ExampleArraysNested struct {
 	_visitorBase
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	Fp32 []float32 `json:"fp32"`
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	Fp64 []float64 `json:"fp64"`
 }
 
@@ -286,8 +326,10 @@ func (m *ExampleArraysNested) FixlenHeader(id sofab.ID, subtype int, length int)
 // ExampleNested is a generated SofaBuffers object.
 type ExampleNested struct {
 	_visitorBase
-	F64        float64 `json:"f64"`
-	Str        string  `json:"str"`
+	F64 float64 `json:"f64"`
+	// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+	Str string `json:"str"`
+	// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
 	BytesField []byte  `json:"bytes_field"`
 	F32        float32 `json:"f32"`
 }

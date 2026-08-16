@@ -6,13 +6,21 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArrays {
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub u8: Vec<u8>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub i8: Vec<i8>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub u16: Vec<u16>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub i16: Vec<i16>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub u32: Vec<u32>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub i32: Vec<i32>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub u64: Vec<u64>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub i64: Vec<i64>,
     pub nested: ExampleArraysNested,
 }
@@ -66,7 +74,9 @@ impl ExampleArrays {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArraysNested {
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub fp32: Vec<f32>,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     pub fp64: Vec<f64>,
 }
 
@@ -95,7 +105,9 @@ impl ExampleArraysNested {
 pub struct ExampleNested {
     pub f32: f32,
     pub f64: f64,
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
     pub str: String,
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
     pub bytes_field: Vec<u8>,
 }
 
@@ -133,6 +145,7 @@ pub struct Example {
     pub i64: i64,
     pub nested: ExampleNested,
     pub arrays: ExampleArrays,
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     pub string_array: Vec<String>,
 }
 
@@ -194,7 +207,7 @@ impl Example {
 pub use example_dec::Decoder as ExampleDecoder;
 mod example_dec {
     use super::*;
-    use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind};
+    use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind, FixlenType};
 
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
@@ -369,6 +382,25 @@ impl<'a> Visitor for V<'a> {
         match (self.cur, id) {
             (_Loc::Root_nested, 1) => self.m.nested.f64 = value,
             (_Loc::Root_arrays_nested, 1) => { if self.afill == 0 { return; } self.afill -= 1; self.m.arrays.nested.fp64.push(value); },
+            _ => {}
+        }
+    }
+    fn fixlen_begin(&mut self, id: Id, subtype: FixlenType, total: usize) {
+        // Every bound below is fully established by the LENGTH WORD, so it is
+        // decided here rather than once payload bytes arrive: S5.2 makes INVALID
+        // dominate INCOMPLETE, so truncating right after this word must not
+        // downgrade the verdict. The subtype match is S7.3 -- a contradicting
+        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        match subtype {
+            FixlenType::Str => match (self.cur, id) {
+                (_Loc::Root_nested, 2) => if total > 32 { self.inv = true; return; },
+                (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } if total > 64 { self.inv = true; return; } },
+                _ => {}
+            },
+            FixlenType::Blob => match (self.cur, id) {
+                (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
+                _ => {}
+            },
             _ => {}
         }
     }

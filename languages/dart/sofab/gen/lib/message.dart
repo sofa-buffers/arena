@@ -72,6 +72,12 @@ class _StrSeq extends _Visitor {
   final int emax;
   final _Dec e;
   @override
+  void onFixlenHeader(int id, int subtype, int length) {
+    if (subtype != sofab.FixlenType.string) return;
+    if (cap >= 0 && id >= cap) { e.inv = true; return; }
+    if (emax >= 0 && length > emax) { e.inv = true; return; }
+  }
+  @override
   void onStringBytes(int id, Uint8List bytes) {
     if (cap >= 0 && id >= cap) { e.inv = true; return; }
     if (emax >= 0 && bytes.length > emax) { e.inv = true; return; }
@@ -84,13 +90,21 @@ class _StrSeq extends _Visitor {
 }
 
 class ExampleArrays {
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> u8 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> i8 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> u16 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> i16 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> u32 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> i32 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> u64 = <int>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<int> i64 = <int>[];
   ExampleArraysNested nested = ExampleArraysNested();
 
@@ -228,6 +242,42 @@ class _ExampleArraysVisitor extends _Visitor {
     }
   }
   @override
+  sofab.ElemRange? onArrayElemBound(int id, sofab.ArrayKind kind) {
+    switch (id) {
+      case 0:
+        if (kind == sofab.ArrayKind.unsigned) {
+          return const sofab.ElemRange(0, 255);
+        }
+        return null;
+      case 1:
+        if (kind == sofab.ArrayKind.signed) {
+          return const sofab.ElemRange(-128, 127);
+        }
+        return null;
+      case 2:
+        if (kind == sofab.ArrayKind.unsigned) {
+          return const sofab.ElemRange(0, 65535);
+        }
+        return null;
+      case 3:
+        if (kind == sofab.ArrayKind.signed) {
+          return const sofab.ElemRange(-32768, 32767);
+        }
+        return null;
+      case 4:
+        if (kind == sofab.ArrayKind.unsigned) {
+          return const sofab.ElemRange(0, 4294967295);
+        }
+        return null;
+      case 5:
+        if (kind == sofab.ArrayKind.signed) {
+          return const sofab.ElemRange(-2147483648, 2147483647);
+        }
+        return null;
+    }
+    return null;
+  }
+  @override
   sofab.MessageVisitor? onSequenceStart(int id) {
     switch (id) {
       case 10:
@@ -238,7 +288,9 @@ class _ExampleArraysVisitor extends _Visitor {
 }
 
 class ExampleArraysNested {
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<double> fp32 = <double>[];
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   List<double> fp64 = <double>[];
 
   void serialize(sofab.Encoder e) {
@@ -315,7 +367,9 @@ class ExampleNested {
   double f32 = 0.0;
   int? f32Fp32Bits;
   double f64 = 0.0;
+  /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
   String str = '';
+  /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
   Uint8List bytes_field = Uint8List(0);
 
   void serialize(sofab.Encoder e) {
@@ -436,6 +490,7 @@ class Example {
   int i64 = 0;
   ExampleNested nested = ExampleNested();
   ExampleArrays arrays = ExampleArrays();
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
   List<String> string_array = <String>[];
 
   void serialize(sofab.Encoder e) {
@@ -497,11 +552,23 @@ class Example {
     return true;
   }
 
-  /// Worst-case serialized size (schema-bounded fields; a cap for
-  /// unbounded ones).
+  /// Worst-case serialized size, derived from the schema: no value of this
+  /// message can encode to more, which is why [encode] can size one exact
+  /// buffer from it.
   static const int maxSize = 732;
-  /// Serializes this message to a fresh byte buffer.
-  Uint8List encode() => sofab.Encoder.encodeToBytes(serialize);
+  /// Serializes this message into a buffer this call allocates and owns.
+  ///
+  /// The buffer is exactly [maxSize] bytes -- the schema's worst case -- so any
+  /// conformant value fits. A value filled past a declared count/maxlen does
+  /// not, and throws [sofab.SofabException] (`bufferFull`) rather than being
+  /// handed back truncated.
+  Uint8List encode() {
+    final buf = Uint8List(maxSize);
+    final e = sofab.Encoder.overBuffer(buf);
+    serialize(e);
+    e.flush();
+    return e.written;
+  }
 
   /// Encodes into an [sofab.Encoder] the caller owns, then flushes the tail.
   ///

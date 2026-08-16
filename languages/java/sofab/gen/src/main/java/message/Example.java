@@ -4,125 +4,6 @@ import org.sofabuffers.sofab.*;
 import java.io.IOException;
 import java.util.*;
 
-class ExampleNested {
-    public float f32;
-    public double f64;
-    public String str = "";
-    public byte[] bytes_field = Sbuf.EMPTY_BYTES;
-
-    public void serialize(OStream os) throws IOException {
-        if (this.f32 != 0f) { os.writeFp32(0, this.f32); }
-        if (this.f64 != 0) { os.writeFp64(1, this.f64); }
-        if ((this.str == null || !this.str.isEmpty())) { os.writeString(2, this.str == null ? "" : this.str); }
-        if (this.bytes_field == null || this.bytes_field.length != 0) { os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
-    }
-    /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
-    boolean isDefault() {
-        if (this.f32 != 0f) return false;
-        if (this.f64 != 0) return false;
-        if ((this.str == null || !this.str.isEmpty())) return false;
-        if (this.bytes_field == null || this.bytes_field.length != 0) return false;
-        return true;
-    }
-    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
-    public void reset() {
-        this.f32 = 0f;
-        this.f64 = 0;
-        this.str = "";
-        this.bytes_field = Sbuf.EMPTY_BYTES;
-    }
-}
-
-class ExampleArraysNested {
-    public float[] fp32 = Sbuf.EMPTY_FLOATS;
-    public double[] fp64 = Sbuf.EMPTY_DOUBLES;
-
-    public void serialize(OStream os) throws IOException {
-        if (this.fp32 != null && this.fp32.length != 0) {
-            os.writeArrayFp32(0, this.fp32);
-        }
-        if (this.fp64 != null && this.fp64.length != 0) {
-            os.writeArrayFp64(1, this.fp64);
-        }
-    }
-    /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
-    boolean isDefault() {
-        if (this.fp32 != null && this.fp32.length != 0) return false;
-        if (this.fp64 != null && this.fp64.length != 0) return false;
-        return true;
-    }
-    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
-    public void reset() {
-        this.fp32 = Sbuf.EMPTY_FLOATS;
-        this.fp64 = Sbuf.EMPTY_DOUBLES;
-    }
-}
-
-class ExampleArrays {
-    public long[] u8 = Sbuf.EMPTY_LONGS;
-    public long[] i8 = Sbuf.EMPTY_LONGS;
-    public long[] u16 = Sbuf.EMPTY_LONGS;
-    public long[] i16 = Sbuf.EMPTY_LONGS;
-    public long[] u32 = Sbuf.EMPTY_LONGS;
-    public long[] i32 = Sbuf.EMPTY_LONGS;
-    public long[] u64 = Sbuf.EMPTY_LONGS;
-    public long[] i64 = Sbuf.EMPTY_LONGS;
-    public ExampleArraysNested nested = new ExampleArraysNested();
-
-    public void serialize(OStream os) throws IOException {
-        if (this.u8 != null && this.u8.length != 0) {
-            os.writeArrayUnsigned(0, this.u8);
-        }
-        if (this.i8 != null && this.i8.length != 0) {
-            os.writeArraySigned(1, this.i8);
-        }
-        if (this.u16 != null && this.u16.length != 0) {
-            os.writeArrayUnsigned(2, this.u16);
-        }
-        if (this.i16 != null && this.i16.length != 0) {
-            os.writeArraySigned(3, this.i16);
-        }
-        if (this.u32 != null && this.u32.length != 0) {
-            os.writeArrayUnsigned(4, this.u32);
-        }
-        if (this.i32 != null && this.i32.length != 0) {
-            os.writeArraySigned(5, this.i32);
-        }
-        if (this.u64 != null && this.u64.length != 0) {
-            os.writeArrayUnsigned(6, this.u64);
-        }
-        if (this.i64 != null && this.i64.length != 0) {
-            os.writeArraySigned(7, this.i64);
-        }
-        os.writeSequenceBeginLazy(10); (this.nested == null ? new ExampleArraysNested() : this.nested).serialize(os); os.writeSequenceEnd();
-    }
-    /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
-    boolean isDefault() {
-        if (this.u8 != null && this.u8.length != 0) return false;
-        if (this.i8 != null && this.i8.length != 0) return false;
-        if (this.u16 != null && this.u16.length != 0) return false;
-        if (this.i16 != null && this.i16.length != 0) return false;
-        if (this.u32 != null && this.u32.length != 0) return false;
-        if (this.i32 != null && this.i32.length != 0) return false;
-        if (this.u64 != null && this.u64.length != 0) return false;
-        if (this.i64 != null && this.i64.length != 0) return false;
-        if (this.nested != null && !this.nested.isDefault()) return false;
-        return true;
-    }
-    /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
-    public void reset() {
-        this.u8 = Sbuf.EMPTY_LONGS;
-        this.i8 = Sbuf.EMPTY_LONGS;
-        this.u16 = Sbuf.EMPTY_LONGS;
-        this.i16 = Sbuf.EMPTY_LONGS;
-        this.u32 = Sbuf.EMPTY_LONGS;
-        this.i32 = Sbuf.EMPTY_LONGS;
-        this.u64 = Sbuf.EMPTY_LONGS;
-        this.i64 = Sbuf.EMPTY_LONGS;
-        if (this.nested == null) this.nested = new ExampleArraysNested(); else this.nested.reset();
-    }
-}
-
 /** This example demonstrates the use of SofaBuffers to encode and decode a message. */
 public class Example {
     public long u8;
@@ -135,6 +16,7 @@ public class Example {
     public long i64;
     public ExampleNested nested = new ExampleNested();
     public ExampleArrays arrays = new ExampleArrays();
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
     public List<String> string_array = new ArrayList<>();
 
     public void serialize(OStream os) throws IOException {
@@ -372,6 +254,26 @@ class ExampleVisitor implements Visitor {
     private static String _utf8(byte[] b, int off, int len) {
         if (Utf8.valid(b, off, off + len)) return new String(b, off, len, java.nio.charset.StandardCharsets.UTF_8);
         throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string: invalid UTF-8"));
+    }
+    @Override
+    public void fixlenBegin(int id, FixlenType subtype, int total) {
+        // Decided at the LENGTH WORD, not once payload bytes arrive: S5.2 makes
+        // INVALID dominate INCOMPLETE, so truncating right after this word must
+        // not downgrade the verdict. The subtype test is S7.3 -- a contradicting
+        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        if (subtype == FixlenType.STRING) {
+            switch (cur) {
+            case 1: switch (id) { case 2: if (total > 32) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32")); break; default: break; } break;
+            case 4: if (id >= 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "Root_string_array element: array index above schema capacity 5")); if (total > 64) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64")); break;
+            default: break;
+            }
+        }
+        if (subtype == FixlenType.BLOB) {
+            switch (cur) {
+            case 1: switch (id) { case 3: if (total > 4) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "bytes_field: blob length above schema maxlen 4")); break; default: break; } break;
+            default: break;
+            }
+        }
     }
     public void string(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
         // A payload this scope does not declare is skipped: its bytes are jumped
