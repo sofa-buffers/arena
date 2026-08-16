@@ -7,15 +7,28 @@ from sofab import Encoder, Decoder, SofaDecodeError, WireType, FixlenSubtype
 
 @dataclass
 class ExampleArrays:
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     u8: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     i8: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     u16: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     i16: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     u32: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     i32: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     u64: list[int] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     i64: list[int] = field(default_factory=list)
     nested: ExampleArraysNested = field(default_factory=lambda: ExampleArraysNested())
+
+    # Worst-case encoded size, derived from the schema: no value of this
+    # class can encode to more, which is why encode() can size one exact
+    # buffer from it.
+    MAX_SIZE = 284
 
     def _is_default(self) -> bool:
         if not (len(self.u8) == 0):
@@ -68,60 +81,67 @@ class ExampleArrays:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("u8: array count above schema capacity 5")
-                self.u8 = d.read_unsigned_array()
+                self.u8 = d.read_unsigned_array(255)
                 if any(_v > 255 for _v in self.u8):
                     raise SofaDecodeError("u8 element: value outside declared width u8")
             elif fld.id == 1:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("i8: array count above schema capacity 5")
-                self.i8 = d.read_signed_array()
+                self.i8 = d.read_signed_array(-128, 127)
                 if any(_v < -128 or _v > 127 for _v in self.i8):
                     raise SofaDecodeError("i8 element: value outside declared width i8")
             elif fld.id == 2:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("u16: array count above schema capacity 5")
-                self.u16 = d.read_unsigned_array()
+                self.u16 = d.read_unsigned_array(65535)
                 if any(_v > 65535 for _v in self.u16):
                     raise SofaDecodeError("u16 element: value outside declared width u16")
             elif fld.id == 3:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("i16: array count above schema capacity 5")
-                self.i16 = d.read_signed_array()
+                self.i16 = d.read_signed_array(-32768, 32767)
                 if any(_v < -32768 or _v > 32767 for _v in self.i16):
                     raise SofaDecodeError("i16 element: value outside declared width i16")
             elif fld.id == 4:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("u32: array count above schema capacity 5")
-                self.u32 = d.read_unsigned_array()
+                self.u32 = d.read_unsigned_array(4294967295)
                 if any(_v > 4294967295 for _v in self.u32):
                     raise SofaDecodeError("u32 element: value outside declared width u32")
             elif fld.id == 5:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("i32: array count above schema capacity 5")
-                self.i32 = d.read_signed_array()
+                self.i32 = d.read_signed_array(-2147483648, 2147483647)
                 if any(_v < -2147483648 or _v > 2147483647 for _v in self.i32):
                     raise SofaDecodeError("i32 element: value outside declared width i32")
             elif fld.id == 6:
                 if fld.type != WireType.ARRAY_UNSIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("u64: array count above schema capacity 5")
                 self.u64 = d.read_unsigned_array()
@@ -129,6 +149,7 @@ class ExampleArrays:
                 if fld.type != WireType.ARRAY_SIGNED:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("i64: array count above schema capacity 5")
                 self.i64 = d.read_signed_array()
@@ -177,20 +198,43 @@ class ExampleArrays:
         return o
 
     def encode(self) -> bytes:
-        e = Encoder()
+        """Encode into a buffer this call allocates and owns.
+
+        The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
+        so any conformant value fits. A value filled past a declared
+        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
+        truncated, and nothing is returned.
+        """
+        buf = bytearray(ExampleArrays.MAX_SIZE)
+        e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
-        return e.getvalue()
+        # Through a memoryview: slicing the bytearray itself would copy the
+        # prefix once more before bytes() copies it again.
+        return bytes(memoryview(buf)[: e.bytes_used()])
 
     @classmethod
     def decode(cls, data: bytes) -> "ExampleArrays":
+        """Decode a message that OWNS its bytes.
+
+        Every destination holds a copy -- ``str``/``bytes`` values the corelib
+        built, never a window into ``data`` -- so the message outlives the
+        input and ``data`` may be reused or mutated the moment this returns.
+        """
         o = cls()
         o.deserialize(Decoder(io.BytesIO(data)))
         return o
 
 @dataclass
 class ExampleArraysNested:
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     fp32: list[float] = field(default_factory=list)
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     fp64: list[float] = field(default_factory=list)
+
+    # Worst-case encoded size, derived from the schema: no value of this
+    # class can encode to more, which is why encode() can size one exact
+    # buffer from it.
+    MAX_SIZE = 66
 
     def _is_default(self) -> bool:
         if not (len(self.fp32) == 0):
@@ -214,6 +258,7 @@ class ExampleArraysNested:
                 if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP32:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("fp32: array count above schema capacity 5")
                 self.fp32 = d.read_float32_array()
@@ -221,6 +266,7 @@ class ExampleArraysNested:
                 if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP64:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if fld.count > 5:
                     raise SofaDecodeError("fp64: array count above schema capacity 5")
                 self.fp64 = d.read_float64_array()
@@ -243,12 +289,28 @@ class ExampleArraysNested:
         return o
 
     def encode(self) -> bytes:
-        e = Encoder()
+        """Encode into a buffer this call allocates and owns.
+
+        The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
+        so any conformant value fits. A value filled past a declared
+        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
+        truncated, and nothing is returned.
+        """
+        buf = bytearray(ExampleArraysNested.MAX_SIZE)
+        e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
-        return e.getvalue()
+        # Through a memoryview: slicing the bytearray itself would copy the
+        # prefix once more before bytes() copies it again.
+        return bytes(memoryview(buf)[: e.bytes_used()])
 
     @classmethod
     def decode(cls, data: bytes) -> "ExampleArraysNested":
+        """Decode a message that OWNS its bytes.
+
+        Every destination holds a copy -- ``str``/``bytes`` values the corelib
+        built, never a window into ``data`` -- so the message outlives the
+        input and ``data`` may be reused or mutated the moment this returns.
+        """
         o = cls()
         o.deserialize(Decoder(io.BytesIO(data)))
         return o
@@ -257,8 +319,15 @@ class ExampleArraysNested:
 class ExampleNested:
     f32: float = 0.0
     f64: float = 0.0
+    #: Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
     str: str = ""
+    #: Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
     bytes_field: bytes = b""
+
+    # Worst-case encoded size, derived from the schema: no value of this
+    # class can encode to more, which is why encode() can size one exact
+    # buffer from it.
+    MAX_SIZE = 57
 
     def _is_default(self) -> bool:
         if not (self.f32 == 0.0):
@@ -300,6 +369,7 @@ class ExampleNested:
                 if fld.type != WireType.FIXLEN or fld.subtype != FixlenSubtype.STRING:
                     d.skip()
                     continue
+                d.schema_bounded()
                 if d.fixlen_len() > 32:
                     raise SofaDecodeError("str: string byte length above schema maxlen 32")
                 self.str = d.string()
@@ -307,9 +377,10 @@ class ExampleNested:
                 if fld.type != WireType.FIXLEN or fld.subtype != FixlenSubtype.BLOB:
                     d.skip()
                     continue
-                self.bytes_field = d.bytes()
-                if len(self.bytes_field) > 4:
+                d.schema_bounded()
+                if d.fixlen_len() > 4:
                     raise SofaDecodeError("bytes_field: blob byte length above schema maxlen 4")
+                self.bytes_field = d.bytes()
             else:
                 d.skip()
 
@@ -335,12 +406,28 @@ class ExampleNested:
         return o
 
     def encode(self) -> bytes:
-        e = Encoder()
+        """Encode into a buffer this call allocates and owns.
+
+        The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
+        so any conformant value fits. A value filled past a declared
+        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
+        truncated, and nothing is returned.
+        """
+        buf = bytearray(ExampleNested.MAX_SIZE)
+        e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
-        return e.getvalue()
+        # Through a memoryview: slicing the bytearray itself would copy the
+        # prefix once more before bytes() copies it again.
+        return bytes(memoryview(buf)[: e.bytes_used()])
 
     @classmethod
     def decode(cls, data: bytes) -> "ExampleNested":
+        """Decode a message that OWNS its bytes.
+
+        Every destination holds a copy -- ``str``/``bytes`` values the corelib
+        built, never a window into ``data`` -- so the message outlives the
+        input and ``data`` may be reused or mutated the moment this returns.
+        """
         o = cls()
         o.deserialize(Decoder(io.BytesIO(data)))
         return o
@@ -358,7 +445,13 @@ class Example:
     i64: int = 0
     nested: ExampleNested = field(default_factory=lambda: ExampleNested())
     arrays: ExampleArrays = field(default_factory=lambda: ExampleArrays())
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     string_array: list[str] = field(default_factory=list)
+
+    # Worst-case encoded size, derived from the schema: no value of this
+    # class can encode to more, which is why encode() can size one exact
+    # buffer from it.
+    MAX_SIZE = 732
 
     def _is_default(self) -> bool:
         if not (self.u8 == 0):
@@ -493,10 +586,12 @@ class Example:
                     if _ef0.type != WireType.FIXLEN or _ef0.subtype != FixlenSubtype.STRING:
                         d.skip()
                         continue
+                    d.schema_bounded()
                     if _ef0.id >= 5:
                         raise SofaDecodeError("self.string_array: array index above schema capacity 5")
                     while len(self.string_array) <= _ef0.id:
                         self.string_array.append("")
+                    d.schema_bounded()
                     if d.fixlen_len() > 64:
                         raise SofaDecodeError("self.string_array: string element byte length above schema maxlen 64")
                     self.string_array[_ef0.id] = d.string()
@@ -546,12 +641,28 @@ class Example:
         return o
 
     def encode(self) -> bytes:
-        e = Encoder()
+        """Encode into a buffer this call allocates and owns.
+
+        The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
+        so any conformant value fits. A value filled past a declared
+        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
+        truncated, and nothing is returned.
+        """
+        buf = bytearray(Example.MAX_SIZE)
+        e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
-        return e.getvalue()
+        # Through a memoryview: slicing the bytearray itself would copy the
+        # prefix once more before bytes() copies it again.
+        return bytes(memoryview(buf)[: e.bytes_used()])
 
     @classmethod
     def decode(cls, data: bytes) -> "Example":
+        """Decode a message that OWNS its bytes.
+
+        Every destination holds a copy -- ``str``/``bytes`` values the corelib
+        built, never a window into ``data`` -- so the message outlives the
+        input and ``data`` may be reused or mutated the moment this returns.
+        """
         o = cls()
         o.deserialize(Decoder(io.BytesIO(data)))
         return o

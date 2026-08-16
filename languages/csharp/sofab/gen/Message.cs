@@ -7,13 +7,37 @@ using sofab;
 namespace Sofabuffers;
 
 public sealed class ExampleArrays {
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public byte[] u8 = Array.Empty<byte>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public sbyte[] i8 = Array.Empty<sbyte>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public ushort[] u16 = Array.Empty<ushort>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public short[] i16 = Array.Empty<short>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public uint[] u32 = Array.Empty<uint>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public int[] i32 = Array.Empty<int>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public ulong[] u64 = Array.Empty<ulong>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public long[] i64 = Array.Empty<long>();
     public ExampleArraysNested nested = new();
 
@@ -59,7 +83,13 @@ public sealed class ExampleArrays {
 }
 
 public sealed class ExampleArraysNested {
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public float[] fp32 = Array.Empty<float>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public double[] fp64 = Array.Empty<double>();
 
     public void Serialize(OStream os) {
@@ -80,7 +110,13 @@ public sealed class ExampleArraysNested {
 public sealed class ExampleNested {
     public float f32;
     public double f64;
+    /// <summary>
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    /// </summary>
     public string str = "";
+    /// <summary>
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    /// </summary>
     public byte[] bytes_field = Array.Empty<byte>();
 
     public void Serialize(OStream os) {
@@ -112,6 +148,9 @@ public sealed class Example {
     public long i64;
     public ExampleNested nested = new();
     public ExampleArrays arrays = new();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    /// </summary>
     public List<string> string_array = new();
 
     public void Serialize(OStream os) {
@@ -297,6 +336,24 @@ internal sealed class ExampleVisitor : IVisitor {
         try { return _strictUtf8.GetString(b, off, len); }
         catch (System.Text.DecoderFallbackException) { throw new SofabException(SofabError.InvalidMessage, "string: invalid UTF-8"); }
     }
+    public void FixlenBegin(int id, FixlenType subtype, int total) {
+        // Decided at the LENGTH WORD, not once payload bytes arrive: S5.2 makes
+        // INVALID dominate INCOMPLETE, so truncating right after this word must
+        // not downgrade the verdict. The subtype test is S7.3 -- a contradicting
+        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        if (subtype == FixlenType.String) {
+            switch ((cur, id)) {
+            case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
+            case (Root_string_array, _): if (id >= 5) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: array index above schema capacity 5"); if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
+            }
+        }
+        if (subtype == FixlenType.Blob) {
+            switch ((cur, id)) {
+            case (Root_nested, 3): if (total > 4) throw new SofabException(SofabError.InvalidMessage, "bytes_field: blob length above schema maxlen 4"); break;
+            }
+        }
+    }
+
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
         // A payload this scope does not declare is skipped: its bytes are jumped
         // over, never inspected. Resolve the destination first and leave before a

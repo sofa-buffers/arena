@@ -10,13 +10,21 @@ sofab::require!(array, fixlen, fp64, sequence, value64);
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ExampleArrays {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u8: heapless::Vec<u8, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i8: heapless::Vec<i8, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u16: heapless::Vec<u16, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i16: heapless::Vec<i16, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u32: heapless::Vec<u32, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i32: heapless::Vec<i32, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u64: heapless::Vec<u64, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i64: heapless::Vec<i64, 5>,
     pub nested: ExampleArraysNested,
 }
@@ -71,7 +79,9 @@ impl ExampleArrays {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ExampleArraysNested {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub fp32: heapless::Vec<f32, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub fp64: heapless::Vec<f64, 5>,
 }
 
@@ -101,7 +111,9 @@ impl ExampleArraysNested {
 pub struct ExampleNested {
     pub f32: f32,
     pub f64: f64,
+    /// Schema bound: maxlen 32 -- the capacity is in the type; a longer value is INVALID, never truncated.
     pub str: heapless::String<32>,
+    /// Schema bound: maxlen 4 -- the capacity is in the type; a longer value is INVALID, never truncated.
     pub bytes_field: heapless::Vec<u8, 4>,
 }
 
@@ -140,6 +152,7 @@ pub struct Example {
     pub i64: i64,
     pub nested: ExampleNested,
     pub arrays: ExampleArrays,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire. Element maxlen 64, same rule.
     pub string_array: heapless::Vec<heapless::String<64>, 5>,
 }
 
@@ -202,7 +215,7 @@ impl Example {
 pub use example_dec::Decoder as ExampleDecoder;
 mod example_dec {
     use super::*;
-    use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind};
+    use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind, FixlenType};
 
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
@@ -377,6 +390,25 @@ impl<'a> Visitor for V<'a> {
         match (self.cur, id) {
             (_Loc::Root_nested, 1) => self.m.nested.f64 = value,
             (_Loc::Root_arrays_nested, 1) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.nested.fp64.push(value); }; },
+            _ => {}
+        }
+    }
+    fn fixlen_begin(&mut self, id: Id, subtype: FixlenType, total: usize) {
+        // Every bound below is fully established by the LENGTH WORD, so it is
+        // decided here rather than once payload bytes arrive: S5.2 makes INVALID
+        // dominate INCOMPLETE, so truncating right after this word must not
+        // downgrade the verdict. The subtype match is S7.3 -- a contradicting
+        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        match subtype {
+            FixlenType::Str => match (self.cur, id) {
+                (_Loc::Root_nested, 2) => if total > 32 { self.inv = true; return; },
+                (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } if total > 64 { self.inv = true; return; } },
+                _ => {}
+            },
+            FixlenType::Blob => match (self.cur, id) {
+                (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
+                _ => {}
+            },
             _ => {}
         }
     }

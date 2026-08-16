@@ -84,7 +84,9 @@ namespace fullscale {
 
 struct ExampleNested : sofab::Message {
     double f64 = 0.0;
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
     std::string str = "";
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
     std::vector<std::uint8_t> bytes_field = {};
     float f32 = 0.0f;
 
@@ -175,7 +177,9 @@ struct ExampleNested : sofab::Message {
 };
 
 struct ExampleArraysNested : sofab::Message {
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<float> fp32 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<double> fp64 = {};
 
     /**
@@ -257,13 +261,21 @@ struct ExampleArraysNested : sofab::Message {
 };
 
 struct ExampleArrays : sofab::Message {
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::uint8_t> u8 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::int8_t> i8 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::uint16_t> u16 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::int16_t> i16 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::uint32_t> u32 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::int32_t> i32 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::uint64_t> u64 = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     std::vector<std::int64_t> i64 = {};
     ExampleArraysNested nested = {};
 
@@ -405,6 +417,7 @@ struct Example : sofab::Message {
     std::int64_t i64 = 0;
     ExampleNested nested = {};
     ExampleArrays arrays = {};
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     std::vector<std::string> string_array = {};
     std::uint32_t u32 = 0;
     std::int32_t i32 = 0;
@@ -447,12 +460,15 @@ struct Example : sofab::Message {
 
     /**
      * @brief Encode this message into a new byte vector.
-     * @return The encoded bytes (empty if the message encodes to nothing).
+     * @return The encoded bytes. Empty if the message encodes to nothing,
+     *         and also empty if the encode was refused -- use encodeTo() when
+     *         the two need telling apart.
      */
     std::vector<std::uint8_t> encode() const {
         std::vector<std::uint8_t> out(_maxSize);
         sofab::OStreamView os{out.data(), out.size()};
         serialize(os);
+        if (!os.ok()) { return {}; }
         out.resize(os.bytesUsed());
         return out;
     }

@@ -45,6 +45,35 @@ type _strSeq struct {
 	emax int
 }
 
+// The element's schema bounds are decided at the LENGTH WORD, before a byte of
+// payload is taken. S5.2 makes INVALID dominate INCOMPLETE, so a message
+// truncated right after the word carrying the violating number must still be
+// INVALID -- deciding it in String(), which never runs for such a message,
+// reported INCOMPLETE instead.
+//
+// Both bounds sit inside the declared-subtype test: FixlenHeader fires for ANY
+// fixlen subtype at this id, and an element whose subtype contradicts the
+// declaration was never this array's value (S7.3), so neither its id nor its
+// length may be measured against this array's bounds.
+//
+// ArrayBegin comes along because sofab.HeaderVisitor declares both and the cursor
+// reaches them through ONE type assertion -- implementing only one leaves the
+// assertion failing and silently disables the other hook.
+func (s *_strSeq) ArrayBegin(sofab.ID, sofab.ArrayKind, int) error { return nil }
+
+func (s *_strSeq) FixlenHeader(id sofab.ID, subtype, length int) error {
+	if subtype != 2 {
+		return nil
+	}
+	if s.cap >= 0 && int(id) >= s.cap {
+		return sofab.ErrInvalidMsg
+	}
+	if s.emax >= 0 && length > s.emax {
+		return sofab.ErrInvalidMsg
+	}
+	return nil
+}
+
 func (s *_strSeq) String(id sofab.ID, v string) error {
 	if s.cap >= 0 && int(id) >= s.cap {
 		return sofab.ErrInvalidMsg
@@ -70,6 +99,23 @@ type _bytesSeq struct {
 	out  *[][]byte
 	cap  int
 	emax int
+}
+
+// The blob twin of the string collector above: bounds latched at the length word,
+// gated on the declared subtype, with ArrayBegin alongside for the one assertion.
+func (s *_bytesSeq) ArrayBegin(sofab.ID, sofab.ArrayKind, int) error { return nil }
+
+func (s *_bytesSeq) FixlenHeader(id sofab.ID, subtype, length int) error {
+	if subtype != 3 {
+		return nil
+	}
+	if s.cap >= 0 && int(id) >= s.cap {
+		return sofab.ErrInvalidMsg
+	}
+	if s.emax >= 0 && length > s.emax {
+		return sofab.ErrInvalidMsg
+	}
+	return nil
 }
 
 func (s *_bytesSeq) Bytes(id sofab.ID, v []byte) error {
@@ -148,13 +194,27 @@ func _placeRow[T any](out *[][]T, cap int, id sofab.ID, row []T) error {
 
 // _uMatSeq / _sMatSeq / _f32MatSeq / _f64MatSeq / _boolMatSeq collect the rows of
 // a matrix (array whose elements are native arrays); each row arrives widened.
+// hi/lo are the width the schema declares for a row's elements. The conversion
+// below only masks, so an element outside that width has to be rejected here or
+// it would be stored as a different value than the wire carried.
+//
+// A zero bound means the element type spans the whole range this callback can
+// deliver, so nothing can fall outside it and the scan is skipped.
 type _uMatSeq[T ~uint8 | ~uint16 | ~uint32 | ~uint64] struct {
 	_visitorBase
 	out *[][]T
 	cap int
+	hi  uint64
 }
 
 func (s *_uMatSeq[T]) UnsignedArray(id sofab.ID, v []uint64) error {
+	if s.hi != 0 {
+		for _, _x := range v {
+			if _x > s.hi {
+				return sofab.ErrInvalidMsg
+			}
+		}
+	}
 	return _placeRow(s.out, s.cap, id, sofab.NarrowUnsigned[T](v))
 }
 
@@ -162,9 +222,18 @@ type _sMatSeq[T ~int8 | ~int16 | ~int32 | ~int64] struct {
 	_visitorBase
 	out *[][]T
 	cap int
+	lo  int64
+	hi  int64
 }
 
 func (s *_sMatSeq[T]) SignedArray(id sofab.ID, v []int64) error {
+	if s.lo != 0 {
+		for _, _x := range v {
+			if _x < s.lo || _x > s.hi {
+				return sofab.ErrInvalidMsg
+			}
+		}
+	}
 	return _placeRow(s.out, s.cap, id, sofab.NarrowSigned[T](v))
 }
 

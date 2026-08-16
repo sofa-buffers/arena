@@ -94,7 +94,7 @@ func benchMain(w string, in []byte) int {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode> [Message]")
+		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|bench> [Message|workload]")
 		os.Exit(2)
 	}
 	mode := os.Args[1]
@@ -131,6 +131,14 @@ func main() {
 			out, _ := json.Marshal(obj)
 			os.Stdout.Write(out)
 			fmt.Fprintln(os.Stdout)
+		} else if mode == "streamdecode" {
+			obj, err := message.DecodeExampleFrom(&dripReader{b: in})
+			if err != nil {
+				fail(err)
+			}
+			out, _ := json.Marshal(obj)
+			os.Stdout.Write(out)
+			fmt.Fprintln(os.Stdout)
 		} else {
 			fail(fmt.Errorf("unknown mode %q", mode))
 		}
@@ -142,4 +150,25 @@ func main() {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "error:", err)
 	os.Exit(1)
+}
+
+// dripReader delivers one byte per Read, so `streamdecode` drives the
+// decoder across a boundary at every single position in the message. A
+// bytes.Reader would hand the whole thing over in one Read and prove only
+// that the signature compiles.
+type dripReader struct {
+	b []byte
+	i int
+}
+
+func (r *dripReader) Read(p []byte) (int, error) {
+	if r.i >= len(r.b) {
+		return 0, io.EOF
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+	p[0] = r.b[r.i]
+	r.i++
+	return 1, nil
 }
