@@ -180,6 +180,8 @@ class ExampleVisitor implements Visitor {
     private int ai = 0;                 // index into the primitive array currently being filled
     private int askip = 0;              // elements left to discard from a wire-type-contradictory array (S7.3)
     private int afill = 0;              // elements still expected by an armed native-array fill (S7.3)
+    private int atgt = 0;               // which destination the armed fill writes into
+    private Object abulk;               // destination offered to Visitor.arrayBulk, null when not offered
     private static final int ARRAY_INIT_CAP = 16; // bounded eager reservation; grow lazily
     private int acap = 0;               // declared element count = growth ceiling for the array being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
@@ -188,6 +190,19 @@ class ExampleVisitor implements Visitor {
     ExampleVisitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
+        // An element of the array arrayBegin armed: its destination is already
+        // resolved, so it is stored against that target rather than routed by
+        // (scope, id) again. Self-terminating on the announced count.
+        if (afill != 0) {
+            afill--;
+            switch (atgt) {
+            case 1: if (value < 0 || value > 255L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8")); if (ai >= m.arrays.u8.length) m.arrays.u8 = ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = (byte) value; return;
+            case 2: if (value < 0 || value > 65535L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16")); if (ai >= m.arrays.u16.length) m.arrays.u16 = ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = (short) value; return;
+            case 3: if (value < 0 || value > 4294967295L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32")); if (ai >= m.arrays.u32.length) m.arrays.u32 = ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = (int) value; return;
+            case 4: if (ai >= m.arrays.u64.length) m.arrays.u64 = ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; return;
+            }
+            return;
+        }
         // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
@@ -198,15 +213,22 @@ class ExampleVisitor implements Visitor {
             case 4: if (value < 0 || value > 4294967295L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: value outside declared width u32")); m.u32 = value; break;
             case 6: m.u64 = value; break;
         } break;
-        case 2: switch (id) {
-            case 0: if (afill == 0) break; afill--; if (value < 0 || value > 255L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8")); m.arrays.u8 = ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = value; break;
-            case 2: if (afill == 0) break; afill--; if (value < 0 || value > 65535L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16")); m.arrays.u16 = ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = value; break;
-            case 4: if (afill == 0) break; afill--; if (value < 0 || value > 4294967295L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32")); m.arrays.u32 = ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = value; break;
-            case 6: if (afill == 0) break; afill--; m.arrays.u64 = ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; break;
-        } break;
         }
     }
     public void signed(int id, long value) {
+        // An element of the array arrayBegin armed: its destination is already
+        // resolved, so it is stored against that target rather than routed by
+        // (scope, id) again. Self-terminating on the announced count.
+        if (afill != 0) {
+            afill--;
+            switch (atgt) {
+            case 1: if (value < -128L || value > 127L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8")); if (ai >= m.arrays.i8.length) m.arrays.i8 = ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = (byte) value; return;
+            case 2: if (value < -32768L || value > 32767L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16")); if (ai >= m.arrays.i16.length) m.arrays.i16 = ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = (short) value; return;
+            case 3: if (value < -2147483648L || value > 2147483647L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32")); if (ai >= m.arrays.i32.length) m.arrays.i32 = ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = (int) value; return;
+            case 4: if (ai >= m.arrays.i64.length) m.arrays.i64 = ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; return;
+            }
+            return;
+        }
         // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
@@ -217,15 +239,19 @@ class ExampleVisitor implements Visitor {
             case 5: if (value < -2147483648L || value > 2147483647L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: value outside declared width i32")); m.i32 = value; break;
             case 7: m.i64 = value; break;
         } break;
-        case 2: switch (id) {
-            case 1: if (afill == 0) break; afill--; if (value < -128L || value > 127L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8")); m.arrays.i8 = ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = value; break;
-            case 3: if (afill == 0) break; afill--; if (value < -32768L || value > 32767L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16")); m.arrays.i16 = ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = value; break;
-            case 5: if (afill == 0) break; afill--; if (value < -2147483648L || value > 2147483647L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32")); m.arrays.i32 = ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = value; break;
-            case 7: if (afill == 0) break; afill--; m.arrays.i64 = ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; break;
-        } break;
         }
     }
     public void fp32(int id, float value) {
+        // An element of the array arrayBegin armed: its destination is already
+        // resolved, so it is stored against that target rather than routed by
+        // (scope, id) again. Self-terminating on the announced count.
+        if (afill != 0) {
+            afill--;
+            switch (atgt) {
+            case 1: if (ai >= m.arrays.nested.fp32.length) m.arrays.nested.fp32 = ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; return;
+            }
+            return;
+        }
         // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
@@ -233,21 +259,25 @@ class ExampleVisitor implements Visitor {
         case 1: switch (id) {
             case 0: m.nested.f32 = value; break;
         } break;
-        case 3: switch (id) {
-            case 0: if (afill == 0) break; afill--; m.arrays.nested.fp32 = ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; break;
-        } break;
         }
     }
     public void fp64(int id, double value) {
+        // An element of the array arrayBegin armed: its destination is already
+        // resolved, so it is stored against that target rather than routed by
+        // (scope, id) again. Self-terminating on the announced count.
+        if (afill != 0) {
+            afill--;
+            switch (atgt) {
+            case 1: if (ai >= m.arrays.nested.fp64.length) m.arrays.nested.fp64 = ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; return;
+            }
+            return;
+        }
         // Drop an element of an array whose id does
         // not declare one -- armed by arrayBegin, self-terminating on count.
         if (askip > 0) { askip--; return; }
         switch (cur) {
         case 1: switch (id) {
             case 1: m.nested.f64 = value; break;
-        } break;
-        case 3: switch (id) {
-            case 1: if (afill == 0) break; afill--; m.arrays.nested.fp64 = ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; break;
         } break;
         }
     }
@@ -338,60 +368,39 @@ class ExampleVisitor implements Visitor {
     public void arrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
         acap = count;
-        // A native array delivered at an id that does not declare one
-        // of the SAME array kind is a wire-type contradiction -- arm a discard
-        // counter so the element callbacks drop exactly `count` elements. Every id
-        // that really declares an array of that element kind disarms it below.
-        askip = 0;
+        // An array delivered at an id that does not declare one of the SAME
+        // array kind is a wire-type contradiction: drop exactly `count` elements
+        // and leave the declared field untouched (S7.3). Every arm below that
+        // runs is a declared array at a matching kind, and disarms this.
+        askip = count;
         afill = 0;
-        if (kind == ArrayKind.UNSIGNED) {
-            askip = count;
-            switch (cur) {
-            case 2: switch (id) {
-                case 0: case 2: case 4: case 6: askip = 0; afill = count; break;
-            } break;
-            }
-        }
-        else if (kind == ArrayKind.SIGNED) {
-            askip = count;
-            switch (cur) {
-            case 2: switch (id) {
-                case 1: case 3: case 5: case 7: askip = 0; afill = count; break;
-            } break;
-            }
-        }
-        else if (kind == ArrayKind.FP32) {
-            askip = count;
-            switch (cur) {
-            case 3: switch (id) {
-                case 0: askip = 0; afill = count; break;
-            } break;
-            }
-        }
-        else if (kind == ArrayKind.FP64) {
-            askip = count;
-            switch (cur) {
-            case 3: switch (id) {
-                case 1: askip = 0; afill = count; break;
-            } break;
-            }
-        }
+        abulk = null;      // no bulk destination unless an arm below offers one
         switch (cur) {
         case 2: switch (id) {
-            case 0: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); m.arrays.u8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 1: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); m.arrays.i8 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 2: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); m.arrays.u16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 3: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); m.arrays.i16 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 4: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); m.arrays.u32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 5: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); m.arrays.i32 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 6: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); m.arrays.u64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 7: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); m.arrays.i64 = new long[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 0: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; abulk = m.arrays.u8 = new byte[count]; break;
+            case 1: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; abulk = m.arrays.i8 = new byte[count]; break;
+            case 2: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); askip = 0; afill = count; atgt = 2; abulk = m.arrays.u16 = new short[count]; break;
+            case 3: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); askip = 0; afill = count; atgt = 2; abulk = m.arrays.i16 = new short[count]; break;
+            case 4: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); askip = 0; afill = count; atgt = 3; abulk = m.arrays.u32 = new int[count]; break;
+            case 5: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); askip = 0; afill = count; atgt = 3; abulk = m.arrays.i32 = new int[count]; break;
+            case 6: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); askip = 0; afill = count; atgt = 4; abulk = m.arrays.u64 = new long[count]; break;
+            case 7: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); askip = 0; afill = count; atgt = 4; abulk = m.arrays.i64 = new long[count]; break;
         } break;
         case 3: switch (id) {
-            case 0: if (kind != ArrayKind.FP32) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); m.arrays.nested.fp32 = new float[Math.min(count, ARRAY_INIT_CAP)]; break;
-            case 1: if (kind != ArrayKind.FP64) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); m.arrays.nested.fp64 = new double[Math.min(count, ARRAY_INIT_CAP)]; break;
+            case 0: if (kind != ArrayKind.FP32) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp32 = new float[count]; break;
+            case 1: if (kind != ArrayKind.FP64) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp64 = new double[count]; break;
         } break;
         }
+    }
+    public Object arrayBulk(int id, ArrayKind kind, int count) {
+        // Offered iff arrayBegin sized a schema-bounded destination just now.
+        // Its element width IS the declared width, so the decoder checks and
+        // narrows in the pass that decodes.
+        return abulk;
+    }
+    public void arrayBulkEnd(int id, int n) {
+        afill = 0;   // the elements never went through the element callbacks
+        abulk = null;
     }
     public void sequenceBegin(int id) {
         if (sp == stk.length) stk = java.util.Arrays.copyOf(stk, sp * 2);
@@ -413,6 +422,27 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void sequenceEnd() { cur = sp > 0 ? stk[--sp] : 0; }
+    private static byte[] ensureCap(byte[] a, int i, int cap) {
+        if (i < a.length) return a;
+        long n = (long) a.length * 2;
+        if (n < i + 1) n = i + 1;
+        if (n > cap) n = cap;
+        return java.util.Arrays.copyOf(a, (int) n);
+    }
+    private static short[] ensureCap(short[] a, int i, int cap) {
+        if (i < a.length) return a;
+        long n = (long) a.length * 2;
+        if (n < i + 1) n = i + 1;
+        if (n > cap) n = cap;
+        return java.util.Arrays.copyOf(a, (int) n);
+    }
+    private static int[] ensureCap(int[] a, int i, int cap) {
+        if (i < a.length) return a;
+        long n = (long) a.length * 2;
+        if (n < i + 1) n = i + 1;
+        if (n > cap) n = cap;
+        return java.util.Arrays.copyOf(a, (int) n);
+    }
     private static long[] ensureCap(long[] a, int i, int cap) {
         if (i < a.length) return a;
         long n = (long) a.length * 2;
