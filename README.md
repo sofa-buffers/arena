@@ -190,12 +190,12 @@ columns and keep only the size **advantage** (`1.14×`).
 | Go         | 162.9 | 147.8 | 375 420 | 299 109 | **1.14×** | **1.10×** | **1.26×** |
 | C#         | 215.9 | 131.4 | 497 542 | 266 078 | **1.14×** | **1.64×** | **1.87×** |
 | Java       | 312.8 | 276.7 | 720 619 | 560 049 | **1.14×** | **1.13×** | **1.29×** |
-| TypeScript · Node/V8 † |  60.1 |  79.5 | 138 544 | 160 820 | **1.14×** | 0.76× | 0.86× |
-| TypeScript · Bun/JSC † |  46.4 |  56.5 | 106 842 | 114 282 | **1.14×** | 0.82× | 0.93× |
+| TypeScript · Node/V8 † |  78.6 |  79.6 | 181 166 | 161 065 | **1.14×** | 0.99× | **1.12×** |
+| TypeScript · Bun/JSC † |  85.5 |  55.6 | 196 935 | 112 493 | **1.14×** | **1.54×** | **1.75×** |
 | Python ‡   |  21.8 | 190.6 |  50 135 | 385 745 | **1.14×** | 0.11× | 0.13× |
 
 ***SofaBuffers is faster per message (`msg/s`) than protobuf in every compiled
-language** — TypeScript and Python the only outliers. `MB/s` reads
+language** — and on both JavaScript engines; Python the only outlier. `MB/s` reads
 lower than `msg/s` throughout because SofaBuffers moves fewer bytes per message
 (its smaller wire). adv >1 → SofaBuffers ahead; comparable only within a row.*
 
@@ -277,8 +277,9 @@ than the smallest protobuf alternative in every one.*
   margin, Java the most recent to be tuned past its baseline. Turning off dynamic
   allocation lifts the compiled rows further still — `rust/heapless` and
   `cpp/heapfree` gain against the very same protobuf run as their base rows.
-  TypeScript trails on both JS engines — tracking JS-engine maturity, not the
-  format — and Python is the far outlier, because its protobuf baseline is a thin shell
+  TypeScript runs ahead on both JS engines as well — clearly on Bun/JSC, and per
+  message on Node/V8, where `MB/s` is level — and Python is the far outlier,
+  because its protobuf baseline is a thin shell
   over Google's C `upb` engine while SofaBuffers still drives every field from
   Python. *(How the codegen was tuned: [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md).)*
 - **The smallest embedded codec in every language, on both ISAs** — measured the
