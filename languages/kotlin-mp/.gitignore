@@ -1,0 +1,6 @@
+# Gradle build outputs (rebuilt by setup.sh). The wire-compiler CLI jar is not
+# here: like nanopb/EmbeddedProto it is a fetched build tool and lands in the
+# repo-level (gitignored) vendor/.
+.gradle/
+build/
+*/build/

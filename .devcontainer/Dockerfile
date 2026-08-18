@@ -19,7 +19,24 @@ ENV DEBIAN_FRONTEND=noninteractive
 #                                accelerator (.pyx → C); baked in so the Python
 #                                target's build never depends on a bench-time
 #                                pip install of Cython
-#   default-jdk + maven        Java target (SofaBuffers corelib-java + protobuf-java)
+#   default-jdk + maven        Java target (SofaBuffers corelib-java + protobuf-java);
+#                                the JDK also hosts Kotlin/JVM for the Kotlin
+#                                Multiplatform target below
+#   openjdk-21-jdk-headless    build-only JDK for Gradle: its Kotlin DSL compiler
+#                                cannot parse the default JDK's "25.0.3" version
+#                                string and dies before evaluating a build file.
+#                                Only the kotlin-mp BUILD runs on it — the bench
+#                                itself runs on default-jdk, like the java target
+#   (gradle tarball)           Kotlin Multiplatform target (SofaBuffers
+#                                corelib-kotlin-mp): official Gradle 8.14.5 baked
+#                                below drives the Kotlin MP build (the Kotlin
+#                                2.4.x compiler + plugins are fetched by Gradle
+#                                from mavenCentral at build time). Kotlin/JVM runs
+#                                on default-jdk, Kotlin/JS on nodejs (below), and
+#                                Kotlin/Native (linuxX64/linuxArm64) on the LLVM
+#                                toolchain Kotlin/Native self-downloads into
+#                                KONAN_DATA_DIR — hence zip + zlib1g/libtinfo/
+#                                libncurses in the apt list for that toolchain
 #   (Go tarball)               Go target — official 1.25.x baked below
 #                              (apt's golang-go is 1.22, too old for protobuf-go v1.36)
 #   (rustup)                   Rust target (SofaBuffers corelib-rs + prost); adds
@@ -51,15 +68,16 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   valgrind, time             optional CPU-independent / RSS measurement helpers
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl wget unzip git jq time pkg-config \
+    ca-certificates curl wget unzip zip git jq time pkg-config \
     build-essential cmake make \
     valgrind \
+    zlib1g-dev libtinfo6 libncurses6 \
     protobuf-compiler libprotobuf-dev libprotoc-dev \
     protobuf-c-compiler libprotobuf-c-dev \
     gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
     gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf \
     python3 python3-venv python3-pip python3-dev cython3 \
-    default-jdk maven \
+    default-jdk maven openjdk-21-jdk-headless \
     libicu-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -147,6 +165,28 @@ RUN XPACK_V=13.4.0-1 && case "$(dpkg --print-architecture)" in \
     && tar -C /opt -xzf /tmp/xpack-riscv.tgz \
     && rm /tmp/xpack-riscv.tgz \
     && riscv-none-elf-g++ --version | head -1
+
+# --- Gradle (Kotlin Multiplatform build tool) ---------------------------------
+# The kotlin-mp target (SofaBuffers corelib-kotlin-mp) builds through Gradle: it
+# resolves the Kotlin 2.4.x multiplatform compiler + plugins from mavenCentral at
+# build time, so nothing Kotlin-specific is baked — only the build driver is.
+# corelib-kotlin-mp ships a Gradle wrapper pinned to 8.14.5; this system-wide
+# Gradle matches that version so `gradle` works before/without the wrapper (e.g.
+# regenerating it) and never triggers a wrapper version mismatch. Gradle's
+# distribution is arch-independent (pure JVM), so a single pinned zip serves
+# amd64 and arm64; it runs on the default-jdk installed above.
+ARG GRADLE_VERSION=8.14.5
+ENV PATH=/opt/gradle/bin:$PATH
+RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip \
+    && unzip -q /tmp/gradle.zip -d /opt \
+    && ln -s "/opt/gradle-${GRADLE_VERSION}" /opt/gradle \
+    && rm /tmp/gradle.zip \
+    && gradle --version
+
+# Kotlin/Native (the linuxX64/linuxArm64 legs of the MP build) self-downloads an
+# LLVM toolchain + platform libraries on first use; pin its cache here so it
+# lands outside the mounted /workspace instead of polluting the repo checkout.
+ENV KONAN_DATA_DIR=/opt/konan
 
 # --- protoc-gen-go (Go protobuf plugin) --------------------------------------
 ENV GOPATH=/root/go PATH=/root/go/bin:$PATH

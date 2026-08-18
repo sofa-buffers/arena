@@ -14,7 +14,7 @@ of mixing goals:
 
 > - **Maxspeed** — for the **same message**, how fast does **SofaBuffers**
 >   encode+decode vs **Protocol Buffers**, in **C++, Rust, Zig, Dart, Go, C#, Java,
->   TypeScript and Python**? Ranked by **throughput (MB/s)**.
+>   Kotlin Multiplatform, TypeScript and Python**? Ranked by **throughput (MB/s)**.
 > - **Embedded** — how small is the **SofaBuffers** codec (**`.text` / RAM**) vs
 >   **footprint-oriented** protobuf libraries — **nanopb, micropb, EmbeddedProto**
 >   (and `protobuf-c` for reference) — in **C, C++ and Rust**? Ranked by **code size**.
@@ -49,6 +49,7 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 | **Maxspeed** — rust/heapless | `corelib-rs` (std) with `allow_dynamic: false` — every schema-bounded field in `heapless::String`/`heapless::Vec`, so a decode allocates nothing | the same `prost` run as the `rust` row | throughput |
 | **Maxspeed** — zig | `corelib-zig` | [zig-protobuf](https://github.com/Arwalk/zig-protobuf) (Arwalk) | throughput |
 | **Maxspeed** — go, csharp, java, typescript, python, dart | each language's corelib | Google protobuf runtime (Dart: [`protoc_plugin`](https://pub.dev/packages/protoc_plugin)) | throughput |
+| **Maxspeed** — kotlin-mp | `corelib-kotlin-mp` — one `commonMain` codec for JVM, JS and native | [**Square Wire**](https://github.com/square/wire) — the protobuf implementation that generates Kotlin Multiplatform sources directly (no Java classes in the chain), on its KMP `wire-runtime` | throughput |
 | **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
 | **Embedded** — cpp-embedded | `corelib-c-cpp` C++ wrapper (`corelib: c-cpp`) | **EmbeddedProto** | footprint |
 | **Embedded** — rust-embedded | `corelib-rs-no-std` (no_std, no-alloc) | **micropb** | footprint |
@@ -132,7 +133,9 @@ bare-metal cross toolchains (`gcc-arm-none-eabi` + newlib/libstdc++,
 only one with a RISC-V bare-metal libstdc++, for `cpp-riscv`) used by the
 footprint-only targets. Embedded
 baselines also need `protoc` and a network fetch of nanopb / EmbeddedProto
-(build-time only).
+(build-time only), and the `kotlin-mp` target builds through Gradle — which runs
+on the image's build-only JDK 21, not its default JDK (see
+[`languages/kotlin-mp/README.md`](languages/kotlin-mp/README.md)).
 
 ```bash
 # one-time: fetch sofabgen + the corelibs + the python protobuf toolchain
@@ -305,13 +308,16 @@ scripts/
 .devcontainer/     the multi-language dev image (Dockerfile + build/start/attach)
 tools/             sofabgen + python venv (bootstrapped, gitignored)
 vendor/            SofaBuffers corelibs + fetched baselines (nanopb, protobuf-c
-                   source, EmbeddedProto) — all cloned, gitignored
+                   source, EmbeddedProto, the Wire compiler CLI) — all fetched,
+                   gitignored
 ```
 
 ## Credits
 
 - **SofaBuffers** — the format, generator and corelibs: https://github.com/sofa-buffers
 - **Protocol Buffers** — https://protobuf.dev
+- **Square Wire** (Apache-2.0) — the Kotlin Multiplatform protobuf implementation
+  benchmarked in the `kotlin-mp` row: https://github.com/square/wire
 - Embedded protobuf baselines: **nanopb** (zlib), **micropb** (MIT/Apache-2.0),
   **protobuf-c** (BSD), and **EmbeddedProto** (GPLv3 — used build-time only, fetched
   into gitignored `vendor/`, never redistributed): https://github.com/Embedded-AMS/EmbeddedProto

@@ -139,6 +139,11 @@ reference wires are the fairness anchor.
 
 - `typescript-bun` builds nothing: it reruns `languages/typescript`'s generated
   benches under Bun/JSC — keep the two targets in lockstep.
+- `kotlin-mp` runs Gradle on the image's **build-only JDK 21**, not the default
+  JDK 25 (Gradle's embedded Kotlin DSL compiler chokes on the `25.0.3` version
+  string); the bench itself runs on the default JVM. Its two impls share one
+  Gradle build so the per-row flag identity is structural — read
+  `languages/kotlin-mp/README.md` before touching either build file.
 - Timing helper may differ per target (C++ uses CPU-time clock, the c-embedded
   family shares `languages/c-embedded/bench.h`) — what matters is that every
   impl in a target uses the **same** helper.

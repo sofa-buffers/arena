@@ -34,7 +34,7 @@ mkdir -p tools vendor
 # NOTE: fetching a CI artifact (unlike the old release asset) REQUIRES a GitHub
 # token — the Actions artifacts API is auth-only even for public repos. It is
 # read from GITHUB_TOKEN in .devcontainer/.env just below.
-CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-no-std corelib-java corelib-cs corelib-ts corelib-zig corelib-dart"
+CORELIBS="corelib-py corelib-c-cpp corelib-cpp corelib-go corelib-rs corelib-rs-no-std corelib-java corelib-cs corelib-ts corelib-zig corelib-dart corelib-kotlin-mp"
 
 # A token lifts the GitHub API rate limit and reaches a private mirror if one is
 # configured; reused for both the release lookup and the binary download.
