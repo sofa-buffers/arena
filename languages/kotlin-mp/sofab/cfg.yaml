@@ -1,0 +1,6 @@
+# `emit: project` is what carries the Json helper (the sources-only mode emits
+# the codec alone), which the driver uses to fill the message from the canonical
+# schema/state.json. The project scaffolding it also writes is pruned by
+# setup.sh — this row supplies its own Kotlin Multiplatform build.
+generic: { emit: project }
+targets: { kotlin: { package: message } }
