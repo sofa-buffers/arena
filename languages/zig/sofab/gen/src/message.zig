@@ -17,47 +17,47 @@ pub const DecodeError = sofab.Error || error{IncompleteMessage};
 
 pub const ExampleArrays = struct {
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    u8: FixedArray(u8, 5) = .{},
+    u8: sofab.FixedArray(u8, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    i8: FixedArray(i8, 5) = .{},
+    i8: sofab.FixedArray(i8, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    u16: FixedArray(u16, 5) = .{},
+    u16: sofab.FixedArray(u16, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    i16: FixedArray(i16, 5) = .{},
+    i16: sofab.FixedArray(i16, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    u32: FixedArray(u32, 5) = .{},
+    u32: sofab.FixedArray(u32, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    i32: FixedArray(i32, 5) = .{},
+    i32: sofab.FixedArray(i32, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    u64: FixedArray(u64, 5) = .{},
+    u64: sofab.FixedArray(u64, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    i64: FixedArray(i64, 5) = .{},
+    i64: sofab.FixedArray(i64, 5) = .{},
     nested: ExampleArraysNested = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn serialize(self: *const ExampleArrays, os: *sofab.OStream) sofab.Error!void {
-        if (self.u8.len != 0) {
+        if (self.u8.len() != 0) {
             try os.writeArrayUnsigned(0, self.u8.slice());
         }
-        if (self.i8.len != 0) {
+        if (self.i8.len() != 0) {
             try os.writeArraySigned(1, self.i8.slice());
         }
-        if (self.u16.len != 0) {
+        if (self.u16.len() != 0) {
             try os.writeArrayUnsigned(2, self.u16.slice());
         }
-        if (self.i16.len != 0) {
+        if (self.i16.len() != 0) {
             try os.writeArraySigned(3, self.i16.slice());
         }
-        if (self.u32.len != 0) {
+        if (self.u32.len() != 0) {
             try os.writeArrayUnsigned(4, self.u32.slice());
         }
-        if (self.i32.len != 0) {
+        if (self.i32.len() != 0) {
             try os.writeArraySigned(5, self.i32.slice());
         }
-        if (self.u64.len != 0) {
+        if (self.u64.len() != 0) {
             try os.writeArrayUnsigned(6, self.u64.slice());
         }
-        if (self.i64.len != 0) {
+        if (self.i64.len() != 0) {
             try os.writeArraySigned(7, self.i64.slice());
         }
         try os.writeSequenceBeginLazy(10);
@@ -68,14 +68,14 @@ pub const ExampleArrays = struct {
     /// True when every field equals its declared default, compared per field
     /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const ExampleArrays) bool {
-        if (self.u8.len != 0) return false;
-        if (self.i8.len != 0) return false;
-        if (self.u16.len != 0) return false;
-        if (self.i16.len != 0) return false;
-        if (self.u32.len != 0) return false;
-        if (self.i32.len != 0) return false;
-        if (self.u64.len != 0) return false;
-        if (self.i64.len != 0) return false;
+        if (self.u8.len() != 0) return false;
+        if (self.i8.len() != 0) return false;
+        if (self.u16.len() != 0) return false;
+        if (self.i16.len() != 0) return false;
+        if (self.u32.len() != 0) return false;
+        if (self.i32.len() != 0) return false;
+        if (self.u64.len() != 0) return false;
+        if (self.i64.len() != 0) return false;
         if (!self.nested.isDefault()) return false;
         return true;
     }
@@ -83,16 +83,16 @@ pub const ExampleArrays = struct {
 
 pub const ExampleArraysNested = struct {
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    fp32: FixedArray(f32, 5) = .{},
+    fp32: sofab.FixedArray(f32, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
-    fp64: FixedArray(f64, 5) = .{},
+    fp64: sofab.FixedArray(f64, 5) = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn serialize(self: *const ExampleArraysNested, os: *sofab.OStream) sofab.Error!void {
-        if (self.fp32.len != 0) {
+        if (self.fp32.len() != 0) {
             try os.writeArrayFp32(0, self.fp32.slice());
         }
-        if (self.fp64.len != 0) {
+        if (self.fp64.len() != 0) {
             try os.writeArrayFp64(1, self.fp64.slice());
         }
     }
@@ -100,8 +100,8 @@ pub const ExampleArraysNested = struct {
     /// True when every field equals its declared default, compared per field
     /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const ExampleArraysNested) bool {
-        if (self.fp32.len != 0) return false;
-        if (self.fp64.len != 0) return false;
+        if (self.fp32.len() != 0) return false;
+        if (self.fp64.len() != 0) return false;
         return true;
     }
 };
@@ -193,13 +193,13 @@ pub const Example = struct {
 
     /// Encode into a fresh buffer allocated from `alloc`.
     pub fn encode(self: *const Example, alloc: std.mem.Allocator) (sofab.Error || std.mem.Allocator.Error)![]u8 {
-        var sink: _EncodeSink = .{ .alloc = alloc };
+        var sink: sofab.CollectingSink = .{ .alloc = alloc };
+        defer sink.deinit();
         var scratch: [512]u8 = undefined;
-        var os = sofab.OStream.initFlush(&scratch, 0, &sink, _EncodeSink.push);
+        var os = sofab.OStream.initFlush(&scratch, 0, &sink, sofab.CollectingSink.push);
         try self.serialize(&os);
         _ = os.flush();
-        if (sink.failed) return error.OutOfMemory;
-        return sink.list.toOwnedSlice(alloc);
+        return sink.toOwnedSlice();
     }
 
     /// Decode a complete message. Zero-copy: the result borrows string and
@@ -284,10 +284,9 @@ const _dec_Example = struct {
     stack: [256]_Loc = undefined,
     sp: usize = 0,
     cur: _Loc = .root,
-    acc: std.ArrayList(u8) = .empty, // only a payload split across feed chunks lands here
+    acc: sofab.PayloadAcc = .{}, // only a payload split across feed chunks lands here
     own: bool = false, // copy every payload instead of borrowing (streaming path)
     inv: bool = false, // a scalar array over its schema count, or a wrapper element id >= count -> INVALID
-    ai: usize = 0, // index into the native array currently being filled
     askip: usize = 0, // elements left to discard from a wire-type-contradictory array
     afill: usize = 0, // elements still expected by an armed native-array fill (S7.3)
 
@@ -311,10 +310,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; if (value > 255) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.u8.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.u8.len = self.ai; } },
-                2 => { if (self.afill != 0) { self.afill -= 1; if (value > 65535) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.u16.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.u16.len = self.ai; } },
-                4 => { if (self.afill != 0) { self.afill -= 1; if (value > 4294967295) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.u32.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.u32.len = self.ai; } },
-                6 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.u64.items, &self.ai, value, &self.inv); self.m.arrays.u64.len = self.ai; } },
+                0 => { if (self.afill != 0) { self.afill -= 1; if (value > 255) { self.inv = true; return; } self.m.arrays.u8.push(@intCast(value), &self.inv); } },
+                2 => { if (self.afill != 0) { self.afill -= 1; if (value > 65535) { self.inv = true; return; } self.m.arrays.u16.push(@intCast(value), &self.inv); } },
+                4 => { if (self.afill != 0) { self.afill -= 1; if (value > 4294967295) { self.inv = true; return; } self.m.arrays.u32.push(@intCast(value), &self.inv); } },
+                6 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.u64.push(value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -332,10 +331,10 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; if (value < -128 or value > 127) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.i8.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.i8.len = self.ai; } },
-                3 => { if (self.afill != 0) { self.afill -= 1; if (value < -32768 or value > 32767) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.i16.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.i16.len = self.ai; } },
-                5 => { if (self.afill != 0) { self.afill -= 1; if (value < -2147483648 or value > 2147483647) { self.inv = true; return; } sofab.arrays.putChecked(&self.m.arrays.i32.items, &self.ai, @intCast(value), &self.inv); self.m.arrays.i32.len = self.ai; } },
-                7 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.i64.items, &self.ai, value, &self.inv); self.m.arrays.i64.len = self.ai; } },
+                1 => { if (self.afill != 0) { self.afill -= 1; if (value < -128 or value > 127) { self.inv = true; return; } self.m.arrays.i8.push(@intCast(value), &self.inv); } },
+                3 => { if (self.afill != 0) { self.afill -= 1; if (value < -32768 or value > 32767) { self.inv = true; return; } self.m.arrays.i16.push(@intCast(value), &self.inv); } },
+                5 => { if (self.afill != 0) { self.afill -= 1; if (value < -2147483648 or value > 2147483647) { self.inv = true; return; } self.m.arrays.i32.push(@intCast(value), &self.inv); } },
+                7 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.i64.push(value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -350,7 +349,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.nested.fp32.items, &self.ai, value, &self.inv); self.m.arrays.nested.fp32.len = self.ai; } },
+                0 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.nested.fp32.push(value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -365,7 +364,7 @@ const _dec_Example = struct {
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; sofab.arrays.putChecked(&self.m.arrays.nested.fp64.items, &self.ai, value, &self.inv); self.m.arrays.nested.fp64.len = self.ai; } },
+                1 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.nested.fp64.push(value, &self.inv); } },
                 else => {},
             },
             else => {},
@@ -396,10 +395,10 @@ const _dec_Example = struct {
         const chunk = self._reassemble(total, offset, _chunk) orelse return;
         switch (self.cur) {
             .root_nested => switch (id) {
-                2 => if (total > 32) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
+                2 => if (total > 32) { self.inv = true; } else { if (!sofab.utf8Valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
                 else => {},
             },
-            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { if (!sofab.utf8_valid(chunk)) { self.inv = true; } else { sofab.arrays.setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } } },
+            .root_string_array => if (id >= 5) { self.inv = true; } else { if (total > 64) { self.inv = true; } else { if (!sofab.utf8Valid(chunk)) { self.inv = true; } else { sofab.arrays.setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } } },
             else => {},
         }
     }
@@ -416,7 +415,6 @@ const _dec_Example = struct {
     }
 
     pub fn arrayBegin(self: *_dec_Example, id: sofab.Id, kind: sofab.ArrayKind, count: usize) void {
-        self.ai = 0;
         self.askip = switch (kind) {
             .unsigned => switch (self.cur) {
                 .root_arrays => switch (id) {
@@ -491,19 +489,19 @@ const _dec_Example = struct {
         };
         switch (self.cur) {
             .root_arrays => switch (id) {
-                0 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u8.len = 0; },
-                1 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i8.len = 0; },
-                2 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u16.len = 0; },
-                3 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i16.len = 0; },
-                4 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u32.len = 0; },
-                5 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i32.len = 0; },
-                6 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u64.len = 0; },
-                7 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i64.len = 0; },
+                0 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u8.clear(); },
+                1 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i8.clear(); },
+                2 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u16.clear(); },
+                3 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i16.clear(); },
+                4 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u32.clear(); },
+                5 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i32.clear(); },
+                6 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u64.clear(); },
+                7 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i64.clear(); },
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => if (kind == .fp32) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp32.len = 0; },
-                1 => if (kind == .fp64) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp64.len = 0; },
+                0 => if (kind == .fp32) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp32.clear(); },
+                1 => if (kind == .fp64) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp64.clear(); },
                 else => {},
             },
             else => {},
@@ -526,22 +524,14 @@ const _dec_Example = struct {
     /// next stitched item. Borrowing on that path aliased earlier fields and
     /// elements onto later ones at particular chunk sizes.
     ///
-    /// A completed payload is handed back as its OWN allocation rather than as
-    /// a view into `acc`. A destination KEEPS the slice it is given -- wrapper
-    /// array elements outlive the callback -- while `acc` is scratch that the
-    /// next split payload clears, appends to, and may reallocate. A view into
-    /// it would alias every element stored earlier onto the newest one, and a
-    /// growing buffer would rebase them onto the old block: a stale length
-    /// past the live bytes, and a freed read under an allocator that releases.
+    /// A split payload is stitched by sofab.PayloadAcc, which hands it back
+    /// as its own allocation -- a destination KEEPS the slice it is given.
     fn _reassemble(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
         if (offset == 0 and chunk.len >= total) {
             if (!self.own) return chunk; // contiguous decode: borrow the caller's buffer
             return self.alloc.dupe(u8, chunk[0..total]) catch { self.inv = true; return null; };
         }
-        if (offset == 0) self.acc.clearRetainingCapacity();
-        self.acc.appendSlice(self.alloc, chunk) catch { self.inv = true; return null; };
-        if (self.acc.items.len < total) return null; // more chunks to come
-        return self.alloc.dupe(u8, self.acc.items[0..total]) catch { self.inv = true; return null; };
+        return self.acc.push(self.alloc, total, offset, chunk) catch { self.inv = true; return null; };
     }
 
     pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {
@@ -573,85 +563,3 @@ const _dec_Example = struct {
         }
     }
 };
-
-// --- shared encode/decode support -------------------------------------------
-
-/// Flush sink behind encode(): drains the OStream scratch buffer into a
-/// growable byte list.
-const _EncodeSink = struct {
-    alloc: std.mem.Allocator,
-    list: std.ArrayList(u8) = .empty,
-    failed: bool = false,
-    fn push(ctx: ?*anyopaque, data: []const u8) void {
-        const self: *_EncodeSink = @ptrCast(@alignCast(ctx.?));
-        self.list.appendSlice(self.alloc, data) catch {
-            self.failed = true;
-        };
-    }
-};
-
-/// Mutable pointer to element `i` of a decode-allocated wrapper array.
-///
-/// The element id IS the array index (S5.1), so sequenceBegin
-/// grows the destination to id + 1 -- default-filling the gaps left by omitted
-/// elements -- records the id, and every child store then lands HERE, at that
-/// index. Appending instead would shorten the array by the size of any interior
-/// id gap, and would decode a REOPENED element id as a second element instead of
-/// merging into the first (S7.4). It is the object-element twin of what
-/// sofab.arrays.setElem does for a string/blob element.
-///
-/// Gaps are ordinary here: an interior element equal to the element default is
-/// omitted by a conformant encoder (S2), and only the LAST element is guaranteed
-/// present -- which is what makes the decoded length, highest present id + 1,
-/// exact.
-fn _at(s: anytype, i: usize) *std.meta.Elem(@TypeOf(s)) {
-    return @constCast(&s[i]);
-}
-
-/// Storage for a `count: N` native array: N elements of inline capacity plus
-/// the length.
-///
-/// `count` is a CAPACITY, never a length (S3): the field carries
-/// 0..N elements and the wire count M IS the length, so a bare `[N]T` -- which
-/// can only ever BE N long -- cannot represent the value. This can, without
-/// giving up the inline storage that keeps a bounded array allocation-free on
-/// both encode and decode.
-///
-/// The value is `items[0..len]`; `items[len..]` is spare capacity and never
-/// reaches the wire. `.{}` is the EMPTY array -- which is what a fresh count:N
-/// array is: N is a bound, not a content.
-pub fn FixedArray(comptime T: type, comptime N: usize) type {
-    return struct {
-        const Self = @This();
-
-        /// The schema `count`: the most elements this field may carry.
-        pub const capacity: usize = N;
-
-        items: [N]T = std.mem.zeroes([N]T),
-        len: usize = 0,
-
-        /// The array's value: exactly the elements the wire carries.
-        pub fn slice(self: *const Self) []const T {
-            return self.items[0..self.len];
-        }
-
-        /// Replace the value with `vals`, truncated to the capacity N.
-        pub fn set(self: *Self, vals: []const T) void {
-            const n = @min(vals.len, N);
-            @memcpy(self.items[0..n], vals[0..n]);
-            self.len = n;
-        }
-
-        /// A value holding `vals` (truncated to N) -- the literal form.
-        pub fn init(vals: []const T) Self {
-            var s: Self = .{};
-            s.set(vals);
-            return s;
-        }
-    };
-}
-
-/// Native-array destination of exactly the announced wire count.
-fn _allocN(comptime T: type, a: std.mem.Allocator, n: usize) []const T {
-    return sofab.arrays.allocN(T, a, n);
-}

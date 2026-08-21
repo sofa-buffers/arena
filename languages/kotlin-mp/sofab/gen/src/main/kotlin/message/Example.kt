@@ -214,11 +214,10 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
     private var acap = 0                // declared element count = growth ceiling for the array being filled
     private var stk = IntArray(16)      // sequence scope stack
     private var sp = 0
-    private val acc = Sbuf.Acc()        // reassembly of a string/blob payload split across chunks
+    private val acc = PayloadAcc()      // reassembly of a string/blob payload split across chunks
 
     private companion object {
         private const val DEAD = -1     // the skipped-subtree scope: no arm below matches it
-        private const val ARRAY_INIT_CAP = 16  // bounded eager reservation; grow lazily
     }
 
     override fun unsigned(id: Int, value: Long) {
@@ -228,10 +227,10 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (value < 0L || value > 255L) throw SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8"); if (ai >= m.arrays.u8.size) m.arrays.u8 = Sbuf.ensureCapUByte(m.arrays.u8, ai, acap); m.arrays.u8[ai] = value.toUByte(); ai++ }
-                2 -> { if (value < 0L || value > 65535L) throw SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16"); if (ai >= m.arrays.u16.size) m.arrays.u16 = Sbuf.ensureCapUShort(m.arrays.u16, ai, acap); m.arrays.u16[ai] = value.toUShort(); ai++ }
-                3 -> { if (value < 0L || value > 4294967295L) throw SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32"); if (ai >= m.arrays.u32.size) m.arrays.u32 = Sbuf.ensureCapUInt(m.arrays.u32, ai, acap); m.arrays.u32[ai] = value.toUInt(); ai++ }
-                4 -> { if (ai >= m.arrays.u64.size) m.arrays.u64 = Sbuf.ensureCapULong(m.arrays.u64, ai, acap); m.arrays.u64[ai] = value.toULong(); ai++ }
+                1 -> { if (value < 0L || value > 255L) throw SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8"); if (ai >= m.arrays.u8.size) m.arrays.u8 = Seq.ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai] = value.toUByte(); ai++ }
+                2 -> { if (value < 0L || value > 65535L) throw SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16"); if (ai >= m.arrays.u16.size) m.arrays.u16 = Seq.ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai] = value.toUShort(); ai++ }
+                3 -> { if (value < 0L || value > 4294967295L) throw SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32"); if (ai >= m.arrays.u32.size) m.arrays.u32 = Seq.ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai] = value.toUInt(); ai++ }
+                4 -> { if (ai >= m.arrays.u64.size) m.arrays.u64 = Seq.ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai] = value.toULong(); ai++ }
             }
             return
         }
@@ -256,10 +255,10 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (value < -128L || value > 127L) throw SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8"); if (ai >= m.arrays.i8.size) m.arrays.i8 = Sbuf.ensureCapByte(m.arrays.i8, ai, acap); m.arrays.i8[ai] = value.toByte(); ai++ }
-                2 -> { if (value < -32768L || value > 32767L) throw SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16"); if (ai >= m.arrays.i16.size) m.arrays.i16 = Sbuf.ensureCapShort(m.arrays.i16, ai, acap); m.arrays.i16[ai] = value.toShort(); ai++ }
-                3 -> { if (value < -2147483648L || value > 2147483647L) throw SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32"); if (ai >= m.arrays.i32.size) m.arrays.i32 = Sbuf.ensureCapInt(m.arrays.i32, ai, acap); m.arrays.i32[ai] = value.toInt(); ai++ }
-                4 -> { if (ai >= m.arrays.i64.size) m.arrays.i64 = Sbuf.ensureCapLong(m.arrays.i64, ai, acap); m.arrays.i64[ai] = value; ai++ }
+                1 -> { if (value < -128L || value > 127L) throw SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8"); if (ai >= m.arrays.i8.size) m.arrays.i8 = Seq.ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai] = value.toByte(); ai++ }
+                2 -> { if (value < -32768L || value > 32767L) throw SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16"); if (ai >= m.arrays.i16.size) m.arrays.i16 = Seq.ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai] = value.toShort(); ai++ }
+                3 -> { if (value < -2147483648L || value > 2147483647L) throw SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32"); if (ai >= m.arrays.i32.size) m.arrays.i32 = Seq.ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai] = value.toInt(); ai++ }
+                4 -> { if (ai >= m.arrays.i64.size) m.arrays.i64 = Seq.ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai] = value; ai++ }
             }
             return
         }
@@ -284,7 +283,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (ai >= m.arrays.nested.fp32.size) m.arrays.nested.fp32 = Sbuf.ensureCapFloat(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai] = value; ai++ }
+                1 -> { if (ai >= m.arrays.nested.fp32.size) m.arrays.nested.fp32 = Seq.ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai] = value; ai++ }
             }
             return
         }
@@ -306,7 +305,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (ai >= m.arrays.nested.fp64.size) m.arrays.nested.fp64 = Sbuf.ensureCapDouble(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai] = value; ai++ }
+                1 -> { if (ai >= m.arrays.nested.fp64.size) m.arrays.nested.fp64 = Seq.ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai] = value; ai++ }
             }
             return
         }
@@ -319,11 +318,6 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
             }
             else -> {}
         }
-    }
-
-    private fun utf8(b: ByteArray, off: Int, len: Int): String {
-        if (!Utf8.valid(b, off, off + len)) throw SofabException(SofabError.INVALID_MSG, "string: invalid UTF-8")
-        return b.decodeToString(off, off + len)
     }
 
     override fun fixlenBegin(id: Int, subtype: FixlenType, total: Int) {
@@ -365,15 +359,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
             4 -> if (total > 64) throw SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64")
             else -> {}
         }
-        val s: String
-        if (offset == 0 && chunkLength >= total) {
-            s = utf8(data, chunkOffset, total)
-        } else {
-            acc.write(data, chunkOffset, chunkLength)
-            if (acc.size < total) return
-            s = utf8(acc.buf, 0, total)
-            acc.reset()
-        }
+        val s = acc.string(total, offset, data, chunkOffset, chunkLength) ?: return
         when (cur) {
             1 -> when (id) {
                 2 -> m.nested.str = s
@@ -399,15 +385,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
             }
             else -> {}
         }
-        val b: ByteArray
-        if (offset == 0 && chunkLength >= total) {
-            b = data.copyOfRange(chunkOffset, chunkOffset + total)
-        } else {
-            acc.write(data, chunkOffset, chunkLength)
-            if (acc.size < total) return
-            b = acc.buf.copyOf(total)
-            acc.reset()
-        }
+        val b = acc.blob(total, offset, data, chunkOffset, chunkLength) ?: return
         when (cur) {
             1 -> when (id) {
                 3 -> m.nested.bytes_field = b

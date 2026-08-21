@@ -8,9 +8,9 @@ import org.sofabuffers.sofab.*
 
 public class ExampleArraysNested {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var fp32: FloatArray = Sbuf.EMPTY_FLOAT
+    public var fp32: FloatArray = Seq.EMPTY_FLOATS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var fp64: DoubleArray = Sbuf.EMPTY_DOUBLE
+    public var fp64: DoubleArray = Seq.EMPTY_DOUBLES
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {
@@ -31,8 +31,8 @@ public class ExampleArraysNested {
 
     /** Restore every field to its declared default, in place; call before reusing an instance as a decode destination. */
     public fun reset() {
-        this.fp32 = Sbuf.EMPTY_FLOAT
-        this.fp64 = Sbuf.EMPTY_DOUBLE
+        this.fp32 = Seq.EMPTY_FLOATS
+        this.fp64 = Seq.EMPTY_DOUBLES
     }
 }
 

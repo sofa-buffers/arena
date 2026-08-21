@@ -28,7 +28,7 @@ ExampleArrays _fromJsonExampleArrays(Map<String, dynamic> j) {
   if (j.containsKey('i16')) { m.i16 = <int>[for (final _x in (j['i16'] as List)) (_x as num).toInt()]; }
   if (j.containsKey('u32')) { m.u32 = <int>[for (final _x in (j['u32'] as List)) (_x as num).toInt()]; }
   if (j.containsKey('i32')) { m.i32 = <int>[for (final _x in (j['i32'] as List)) (_x as num).toInt()]; }
-  if (j.containsKey('u64')) { m.u64 = <int>[for (final _x in (j['u64'] as List)) (_x is String ? BigInt.parse(_x as String) : BigInt.from((_x as num).toInt())).toSigned(64).toInt()]; }
+  if (j.containsKey('u64')) { m.u64 = <int>[for (final _x in (j['u64'] as List)) (_x is String ? BigInt.parse(_x) : BigInt.from((_x as num).toInt())).toSigned(64).toInt()]; }
   if (j.containsKey('i64')) { m.i64 = <int>[for (final _x in (j['i64'] as List)) (_x as num).toInt()]; }
   if (j.containsKey('nested')) { m.nested = _fromJsonExampleArraysNested(j['nested'] as Map<String, dynamic>); }
   return m;

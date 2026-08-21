@@ -6,9 +6,9 @@ import java.util.*;
 
 public class ExampleArraysNested {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public float[] fp32 = Sbuf.EMPTY_FLOATS;
+    public float[] fp32 = Seq.EMPTY_FLOATS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public double[] fp64 = Sbuf.EMPTY_DOUBLES;
+    public double[] fp64 = Seq.EMPTY_DOUBLES;
 
     public void serialize(OStream os) throws IOException {
         if (this.fp32 != null && this.fp32.length != 0) {
@@ -26,8 +26,8 @@ public class ExampleArraysNested {
     }
     /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
     public void reset() {
-        this.fp32 = Sbuf.EMPTY_FLOATS;
-        this.fp64 = Sbuf.EMPTY_DOUBLES;
+        this.fp32 = Seq.EMPTY_FLOATS;
+        this.fp64 = Seq.EMPTY_DOUBLES;
     }
 }
 

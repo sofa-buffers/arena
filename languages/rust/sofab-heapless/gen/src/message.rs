@@ -212,7 +212,7 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
@@ -225,7 +225,7 @@ mod example_dec {
         let invalid;
         let fed;
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             fed = is.feed(data, &mut v);
             overflow = v.err;
@@ -262,7 +262,7 @@ mod example_dec {
         stack: Vec<_Loc>,
         cur: _Loc,
         dead: u16,
-        acc: Vec<u8>,
+        acc: sofab::PayloadAcc,
         err: bool,
         inv: bool,
         askip: usize,
@@ -271,7 +271,7 @@ mod example_dec {
 
     impl Decoder {
         pub fn new() -> Self {
-            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 }
+            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 }
         }
 
         /// Feed the next chunk. `Ok(())` if it ended on a field boundary,
@@ -333,7 +333,7 @@ struct V<'a> {
     stack: Vec<_Loc>,
     cur: _Loc,
     dead: u16, // depth of the skipped subtree cur sits in (see sequence_begin)
-    acc: Vec<u8>,
+    acc: sofab::PayloadAcc,
     err: bool,
     inv: bool,
     askip: usize, // elements left to discard from a wire-type-contradictory array
@@ -420,14 +420,13 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root_string_array, _) => if total > 64 { self.inv = true; return; },
             _ => {}
         }
-        if offset == 0 { self.acc.clear(); }
-        let _s = if offset == 0 && chunk.len() >= total {
-            match core::str::from_utf8(&chunk[..total]) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } }
-        } else {
-            let _ = self.acc.extend_from_slice(chunk);
-            if self.acc.len() < total { return; }
-            match core::str::from_utf8(&self.acc[..total]) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } }
-        };
+        // A Rust string type is Unicode, so a string is always strict. Invalid
+        // UTF-8 is the INVALID decode outcome (self.inv -> Error::InvalidMsg),
+        // never a lossy U+FFFD and never empty; the two Rust profiles agree
+        // (subsumes #80). The verdict is passed on the ASSEMBLED payload, which
+        // is why it sits after the feed and not per chunk.
+        let _p = match self.acc.feed(total, offset, chunk) { Some(_v) => _v, None => return };
+        let _s = match core::str::from_utf8(_p) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }
             (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { _e.clear(); let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
@@ -441,14 +440,7 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
             _ => {}
         }
-        if offset == 0 { self.acc.clear(); }
-        let _b: &[u8] = if offset == 0 && chunk.len() >= total {
-            &chunk[..total]
-        } else {
-            let _ = self.acc.extend_from_slice(chunk);
-            if self.acc.len() < total { return; }
-            &self.acc[..total]
-        };
+        let _b = match self.acc.feed(total, offset, chunk) { Some(_v) => _v, None => return };
         match (self.cur, id) {
             (_Loc::Root_nested, 3) => { self.m.nested.bytes_field.clear(); let _ = self.m.nested.bytes_field.extend_from_slice(_b); if self.m.nested.bytes_field.len() != total { self.err = true; } }
             _ => {}

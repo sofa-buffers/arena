@@ -35,6 +35,16 @@ async function benchMain(w: string, reps: number, input: Buffer): Promise<number
     process.stderr.write(`wire_hex=${Buffer.from(wire).toString("hex")}\n`);
     return 0;
   }
+  if (w === "stream_example") {
+    const obj = M.Example.fromJSON(JSON.parse(input.toString("utf8")));
+    const wire = obj.encode(); // setup: the decode input
+    let sink = 0;
+    const body = () => { const _d = new M.ExampleDecoder(); _d.feed(wire); sink ^= Number(_d.finish().u8); };
+    for (let i = 0; i < BENCH_WARMUP; i++) body();
+    for (let i = 0; i < reps; i++) body();
+    process.stderr.write(`sink=${sink} bytes=${wire.length}\n`);
+    return 0;
+  }
   process.stderr.write(`unknown workload: ${w}\n`);
   return 2;
 }

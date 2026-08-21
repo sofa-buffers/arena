@@ -30,7 +30,7 @@ public class Example {
         if (this.i64 != 0L) { os.writeSigned(7, this.i64); }
         os.writeSequenceBeginLazy(10); (this.nested == null ? new ExampleNested() : this.nested).serialize(os); os.writeSequenceEnd();
         os.writeSequenceBeginLazy(100); (this.arrays == null ? new ExampleArrays() : this.arrays).serialize(os); os.writeSequenceEnd();
-        List<String> _t0 = Sbuf.orEmpty(this.string_array);
+        List<String> _t0 = Seq.orEmpty(this.string_array);
         os.writeSequenceBeginLazy(200);
         for (int _i0 = 0; _i0 < _t0.size(); _i0++) { String _e0 = _t0.get(_i0); if (_e0 == null) _e0 = ""; if (!_e0.isEmpty() || _i0 == _t0.size() - 1) os.writeString(_i0, _e0); }
         os.writeSequenceEnd();
@@ -47,7 +47,7 @@ public class Example {
         if (this.i64 != 0L) return false;
         if (this.nested != null && !this.nested.isDefault()) return false;
         if (this.arrays != null && !this.arrays.isDefault()) return false;
-        if (!Sbuf.orEmpty(this.string_array).isEmpty()) return false;
+        if (!Seq.orEmpty(this.string_array).isEmpty()) return false;
         return true;
     }
     /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
@@ -62,21 +62,14 @@ public class Example {
         this.i64 = 0L;
         if (this.nested == null) this.nested = new ExampleNested(); else this.nested.reset();
         if (this.arrays == null) this.arrays = new ExampleArrays(); else this.arrays.reset();
-        this.string_array = Sbuf.resetList(this.string_array);
+        this.string_array = Seq.reset(this.string_array);
     }
     public static final int MAX_SIZE = 732;
-    // Per-thread scratch buffer: encode() serialises into it and returns an
-    // exact-size copy, so the worst-case buffer is not re-allocated (and
-    // zeroed) on every call. Do not call encode() reentrantly from a
-    // serialize() override on the same thread.
-    private static final ThreadLocal<byte[]> ENC_BUF =
-        ThreadLocal.withInitial(() -> new byte[MAX_SIZE]);
     public byte[] encode() {
         try {
-            byte[] buf = ENC_BUF.get();
-            OStream os = new OStream(buf);
+            OStream os = OStream.overScratch(MAX_SIZE);
             serialize(os);
-            return Arrays.copyOf(buf, os.bytesUsed());
+            return os.copyOfBytesUsed();
         } catch (IOException e) { throw new RuntimeException(e); }
     }
     /**
@@ -182,11 +175,10 @@ class ExampleVisitor implements Visitor {
     private int afill = 0;              // elements still expected by an armed native-array fill (S7.3)
     private int atgt = 0;               // which destination the armed fill writes into
     private Object abulk;               // destination offered to Visitor.arrayBulk, null when not offered
-    private static final int ARRAY_INIT_CAP = 16; // bounded eager reservation; grow lazily
     private int acap = 0;               // declared element count = growth ceiling for the array being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
     private int sp = 0;
-    private java.io.ByteArrayOutputStream acc; // lazy: only split string/blob payloads need it
+    private final PayloadAcc acc = new PayloadAcc();
     ExampleVisitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
@@ -196,10 +188,10 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (value < 0 || value > 255L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8")); if (ai >= m.arrays.u8.length) m.arrays.u8 = ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = (byte) value; return;
-            case 2: if (value < 0 || value > 65535L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16")); if (ai >= m.arrays.u16.length) m.arrays.u16 = ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = (short) value; return;
-            case 3: if (value < 0 || value > 4294967295L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32")); if (ai >= m.arrays.u32.length) m.arrays.u32 = ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = (int) value; return;
-            case 4: if (ai >= m.arrays.u64.length) m.arrays.u64 = ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; return;
+            case 1: if (value < 0 || value > 255L) throw Sofab.invalid("u8 element: value outside declared width u8"); if (ai >= m.arrays.u8.length) m.arrays.u8 = Seq.ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = (byte) value; return;
+            case 2: if (value < 0 || value > 65535L) throw Sofab.invalid("u16 element: value outside declared width u16"); if (ai >= m.arrays.u16.length) m.arrays.u16 = Seq.ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = (short) value; return;
+            case 3: if (value < 0 || value > 4294967295L) throw Sofab.invalid("u32 element: value outside declared width u32"); if (ai >= m.arrays.u32.length) m.arrays.u32 = Seq.ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = (int) value; return;
+            case 4: if (ai >= m.arrays.u64.length) m.arrays.u64 = Seq.ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; return;
             }
             return;
         }
@@ -208,9 +200,9 @@ class ExampleVisitor implements Visitor {
         if (askip > 0) { askip--; return; }
         switch (cur) {
         case 0: switch (id) {
-            case 0: if (value < 0 || value > 255L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: value outside declared width u8")); m.u8 = value; break;
-            case 2: if (value < 0 || value > 65535L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: value outside declared width u16")); m.u16 = value; break;
-            case 4: if (value < 0 || value > 4294967295L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: value outside declared width u32")); m.u32 = value; break;
+            case 0: if (value < 0 || value > 255L) throw Sofab.invalid("u8: value outside declared width u8"); m.u8 = value; break;
+            case 2: if (value < 0 || value > 65535L) throw Sofab.invalid("u16: value outside declared width u16"); m.u16 = value; break;
+            case 4: if (value < 0 || value > 4294967295L) throw Sofab.invalid("u32: value outside declared width u32"); m.u32 = value; break;
             case 6: m.u64 = value; break;
         } break;
         }
@@ -222,10 +214,10 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (value < -128L || value > 127L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8")); if (ai >= m.arrays.i8.length) m.arrays.i8 = ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = (byte) value; return;
-            case 2: if (value < -32768L || value > 32767L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16")); if (ai >= m.arrays.i16.length) m.arrays.i16 = ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = (short) value; return;
-            case 3: if (value < -2147483648L || value > 2147483647L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32")); if (ai >= m.arrays.i32.length) m.arrays.i32 = ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = (int) value; return;
-            case 4: if (ai >= m.arrays.i64.length) m.arrays.i64 = ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; return;
+            case 1: if (value < -128L || value > 127L) throw Sofab.invalid("i8 element: value outside declared width i8"); if (ai >= m.arrays.i8.length) m.arrays.i8 = Seq.ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = (byte) value; return;
+            case 2: if (value < -32768L || value > 32767L) throw Sofab.invalid("i16 element: value outside declared width i16"); if (ai >= m.arrays.i16.length) m.arrays.i16 = Seq.ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = (short) value; return;
+            case 3: if (value < -2147483648L || value > 2147483647L) throw Sofab.invalid("i32 element: value outside declared width i32"); if (ai >= m.arrays.i32.length) m.arrays.i32 = Seq.ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = (int) value; return;
+            case 4: if (ai >= m.arrays.i64.length) m.arrays.i64 = Seq.ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; return;
             }
             return;
         }
@@ -234,9 +226,9 @@ class ExampleVisitor implements Visitor {
         if (askip > 0) { askip--; return; }
         switch (cur) {
         case 0: switch (id) {
-            case 1: if (value < -128L || value > 127L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: value outside declared width i8")); m.i8 = value; break;
-            case 3: if (value < -32768L || value > 32767L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: value outside declared width i16")); m.i16 = value; break;
-            case 5: if (value < -2147483648L || value > 2147483647L) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: value outside declared width i32")); m.i32 = value; break;
+            case 1: if (value < -128L || value > 127L) throw Sofab.invalid("i8: value outside declared width i8"); m.i8 = value; break;
+            case 3: if (value < -32768L || value > 32767L) throw Sofab.invalid("i16: value outside declared width i16"); m.i16 = value; break;
+            case 5: if (value < -2147483648L || value > 2147483647L) throw Sofab.invalid("i32: value outside declared width i32"); m.i32 = value; break;
             case 7: m.i64 = value; break;
         } break;
         }
@@ -248,7 +240,7 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (ai >= m.arrays.nested.fp32.length) m.arrays.nested.fp32 = ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; return;
+            case 1: if (ai >= m.arrays.nested.fp32.length) m.arrays.nested.fp32 = Seq.ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; return;
             }
             return;
         }
@@ -268,7 +260,7 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (ai >= m.arrays.nested.fp64.length) m.arrays.nested.fp64 = ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; return;
+            case 1: if (ai >= m.arrays.nested.fp64.length) m.arrays.nested.fp64 = Seq.ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; return;
             }
             return;
         }
@@ -281,10 +273,6 @@ class ExampleVisitor implements Visitor {
         } break;
         }
     }
-    private static String _utf8(byte[] b, int off, int len) {
-        if (Utf8.valid(b, off, off + len)) return new String(b, off, len, java.nio.charset.StandardCharsets.UTF_8);
-        throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string: invalid UTF-8"));
-    }
     @Override
     public void fixlenBegin(int id, FixlenType subtype, int total) {
         // Decided at the LENGTH WORD, not once payload bytes arrive: S5.2 makes
@@ -293,14 +281,14 @@ class ExampleVisitor implements Visitor {
         // fixlen kind at this id is a SKIPPED field, not this field's length.
         if (subtype == FixlenType.STRING) {
             switch (cur) {
-            case 1: switch (id) { case 2: if (total > 32) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32")); break; default: break; } break;
-            case 4: if (id >= 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "Root_string_array element: array index above schema capacity 5")); if (total > 64) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64")); break;
+            case 1: switch (id) { case 2: if (total > 32) throw Sofab.invalid("str: string length above schema maxlen 32"); break; default: break; } break;
+            case 4: if (id >= 5) throw Sofab.invalid("Root_string_array element: array index above schema capacity 5"); if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
             default: break;
             }
         }
         if (subtype == FixlenType.BLOB) {
             switch (cur) {
-            case 1: switch (id) { case 3: if (total > 4) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "bytes_field: blob length above schema maxlen 4")); break; default: break; } break;
+            case 1: switch (id) { case 3: if (total > 4) throw Sofab.invalid("bytes_field: blob length above schema maxlen 4"); break; default: break; } break;
             default: break;
             }
         }
@@ -319,25 +307,17 @@ class ExampleVisitor implements Visitor {
         // accumulated -- never a truncation.
         switch (cur) {
         case 1: switch (id) {
-            case 2: if (total > 32) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32")); break;
+            case 2: if (total > 32) throw Sofab.invalid("str: string length above schema maxlen 32"); break;
         } break;
-        case 4: if (total > 64) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64")); break;
+        case 4: if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
         }
-        String _s;
-        if (offset == 0 && chunkLength >= total) {
-            _s = _utf8(data, chunkOffset, total);
-        } else {
-            if (acc == null) acc = new java.io.ByteArrayOutputStream();
-            acc.write(data, chunkOffset, chunkLength);
-            if (acc.size() < total) return;
-            _s = _utf8(acc.toByteArray(), 0, total);
-            acc.reset();
-        }
+        String _s = acc.string(total, offset, data, chunkOffset, chunkLength);
+        if (_s == null) return;
         switch (cur) {
         case 1: switch (id) {
             case 2: m.nested.str = _s; break;
         } break;
-        case 4: if (id >= 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "Root_string_array element: array index above schema capacity 5")); while (m.string_array.size() <= id) m.string_array.add(""); m.string_array.set(id, _s); break;
+        case 4: if (id >= 5) throw Sofab.invalid("Root_string_array element: array index above schema capacity 5"); while (m.string_array.size() <= id) m.string_array.add(""); m.string_array.set(id, _s); break;
         }
     }
     public void blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
@@ -346,19 +326,11 @@ class ExampleVisitor implements Visitor {
         // accumulated -- never a truncation.
         switch (cur) {
         case 1: switch (id) {
-            case 3: if (total > 4) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "bytes_field: blob length above schema maxlen 4")); break;
+            case 3: if (total > 4) throw Sofab.invalid("bytes_field: blob length above schema maxlen 4"); break;
         } break;
         }
-        byte[] _b;
-        if (offset == 0 && chunkLength >= total) {
-            _b = java.util.Arrays.copyOfRange(data, chunkOffset, chunkOffset + total);
-        } else {
-            if (acc == null) acc = new java.io.ByteArrayOutputStream();
-            acc.write(data, chunkOffset, chunkLength);
-            if (acc.size() < total) return;
-            _b = acc.toByteArray();
-            acc.reset();
-        }
+        byte[] _b = acc.blob(total, offset, data, chunkOffset, chunkLength);
+        if (_b == null) return;
         switch (cur) {
         case 1: switch (id) {
             case 3: m.nested.bytes_field = _b; break;
@@ -377,18 +349,18 @@ class ExampleVisitor implements Visitor {
         abulk = null;      // no bulk destination unless an arm below offers one
         switch (cur) {
         case 2: switch (id) {
-            case 0: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u8: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; abulk = m.arrays.u8 = new byte[count]; break;
-            case 1: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i8: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; abulk = m.arrays.i8 = new byte[count]; break;
-            case 2: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u16: array count above schema capacity 5")); askip = 0; afill = count; atgt = 2; abulk = m.arrays.u16 = new short[count]; break;
-            case 3: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i16: array count above schema capacity 5")); askip = 0; afill = count; atgt = 2; abulk = m.arrays.i16 = new short[count]; break;
-            case 4: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u32: array count above schema capacity 5")); askip = 0; afill = count; atgt = 3; abulk = m.arrays.u32 = new int[count]; break;
-            case 5: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i32: array count above schema capacity 5")); askip = 0; afill = count; atgt = 3; abulk = m.arrays.i32 = new int[count]; break;
-            case 6: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "u64: array count above schema capacity 5")); askip = 0; afill = count; atgt = 4; abulk = m.arrays.u64 = new long[count]; break;
-            case 7: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5")); askip = 0; afill = count; atgt = 4; abulk = m.arrays.i64 = new long[count]; break;
+            case 0: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw Sofab.invalid("u8: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; abulk = m.arrays.u8 = new byte[count]; break;
+            case 1: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw Sofab.invalid("i8: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; abulk = m.arrays.i8 = new byte[count]; break;
+            case 2: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw Sofab.invalid("u16: array count above schema capacity 5"); askip = 0; afill = count; atgt = 2; abulk = m.arrays.u16 = new short[count]; break;
+            case 3: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw Sofab.invalid("i16: array count above schema capacity 5"); askip = 0; afill = count; atgt = 2; abulk = m.arrays.i16 = new short[count]; break;
+            case 4: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw Sofab.invalid("u32: array count above schema capacity 5"); askip = 0; afill = count; atgt = 3; abulk = m.arrays.u32 = new int[count]; break;
+            case 5: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw Sofab.invalid("i32: array count above schema capacity 5"); askip = 0; afill = count; atgt = 3; abulk = m.arrays.i32 = new int[count]; break;
+            case 6: if (kind != ArrayKind.UNSIGNED) break; if (count > 5) throw Sofab.invalid("u64: array count above schema capacity 5"); askip = 0; afill = count; atgt = 4; abulk = m.arrays.u64 = new long[count]; break;
+            case 7: if (kind != ArrayKind.SIGNED) break; if (count > 5) throw Sofab.invalid("i64: array count above schema capacity 5"); askip = 0; afill = count; atgt = 4; abulk = m.arrays.i64 = new long[count]; break;
         } break;
         case 3: switch (id) {
-            case 0: if (kind != ArrayKind.FP32) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp32 = new float[count]; break;
-            case 1: if (kind != ArrayKind.FP64) break; if (count > 5) throw new java.io.UncheckedIOException(new SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5")); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp64 = new double[count]; break;
+            case 0: if (kind != ArrayKind.FP32) break; if (count > 5) throw Sofab.invalid("fp32: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp32 = new float[count]; break;
+            case 1: if (kind != ArrayKind.FP64) break; if (count > 5) throw Sofab.invalid("fp64: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp64 = new double[count]; break;
         } break;
         }
     }
@@ -422,47 +394,5 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void sequenceEnd() { cur = sp > 0 ? stk[--sp] : 0; }
-    private static byte[] ensureCap(byte[] a, int i, int cap) {
-        if (i < a.length) return a;
-        long n = (long) a.length * 2;
-        if (n < i + 1) n = i + 1;
-        if (n > cap) n = cap;
-        return java.util.Arrays.copyOf(a, (int) n);
-    }
-    private static short[] ensureCap(short[] a, int i, int cap) {
-        if (i < a.length) return a;
-        long n = (long) a.length * 2;
-        if (n < i + 1) n = i + 1;
-        if (n > cap) n = cap;
-        return java.util.Arrays.copyOf(a, (int) n);
-    }
-    private static int[] ensureCap(int[] a, int i, int cap) {
-        if (i < a.length) return a;
-        long n = (long) a.length * 2;
-        if (n < i + 1) n = i + 1;
-        if (n > cap) n = cap;
-        return java.util.Arrays.copyOf(a, (int) n);
-    }
-    private static long[] ensureCap(long[] a, int i, int cap) {
-        if (i < a.length) return a;
-        long n = (long) a.length * 2;
-        if (n < i + 1) n = i + 1;
-        if (n > cap) n = cap;
-        return java.util.Arrays.copyOf(a, (int) n);
-    }
-    private static float[] ensureCap(float[] a, int i, int cap) {
-        if (i < a.length) return a;
-        long n = (long) a.length * 2;
-        if (n < i + 1) n = i + 1;
-        if (n > cap) n = cap;
-        return java.util.Arrays.copyOf(a, (int) n);
-    }
-    private static double[] ensureCap(double[] a, int i, int cap) {
-        if (i < a.length) return a;
-        long n = (long) a.length * 2;
-        if (n < i + 1) n = i + 1;
-        if (n > cap) n = cap;
-        return java.util.Arrays.copyOf(a, (int) n);
-    }
 }
 

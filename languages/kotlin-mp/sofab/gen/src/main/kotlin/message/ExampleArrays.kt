@@ -8,21 +8,21 @@ import org.sofabuffers.sofab.*
 
 public class ExampleArrays {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var u8: UByteArray = Sbuf.EMPTY_UBYTE
+    public var u8: UByteArray = Seq.EMPTY_UBYTES
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var i8: ByteArray = Sbuf.EMPTY_BYTE
+    public var i8: ByteArray = Seq.EMPTY_BYTES
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var u16: UShortArray = Sbuf.EMPTY_USHORT
+    public var u16: UShortArray = Seq.EMPTY_USHORTS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var i16: ShortArray = Sbuf.EMPTY_SHORT
+    public var i16: ShortArray = Seq.EMPTY_SHORTS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var u32: UIntArray = Sbuf.EMPTY_UINT
+    public var u32: UIntArray = Seq.EMPTY_UINTS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var i32: IntArray = Sbuf.EMPTY_INT
+    public var i32: IntArray = Seq.EMPTY_INTS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var u64: ULongArray = Sbuf.EMPTY_ULONG
+    public var u64: ULongArray = Seq.EMPTY_ULONGS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public var i64: LongArray = Sbuf.EMPTY_LONG
+    public var i64: LongArray = Seq.EMPTY_LONGS
     public var nested: ExampleArraysNested = ExampleArraysNested()
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
@@ -70,14 +70,14 @@ public class ExampleArrays {
 
     /** Restore every field to its declared default, in place; call before reusing an instance as a decode destination. */
     public fun reset() {
-        this.u8 = Sbuf.EMPTY_UBYTE
-        this.i8 = Sbuf.EMPTY_BYTE
-        this.u16 = Sbuf.EMPTY_USHORT
-        this.i16 = Sbuf.EMPTY_SHORT
-        this.u32 = Sbuf.EMPTY_UINT
-        this.i32 = Sbuf.EMPTY_INT
-        this.u64 = Sbuf.EMPTY_ULONG
-        this.i64 = Sbuf.EMPTY_LONG
+        this.u8 = Seq.EMPTY_UBYTES
+        this.i8 = Seq.EMPTY_BYTES
+        this.u16 = Seq.EMPTY_USHORTS
+        this.i16 = Seq.EMPTY_SHORTS
+        this.u32 = Seq.EMPTY_UINTS
+        this.i32 = Seq.EMPTY_INTS
+        this.u64 = Seq.EMPTY_ULONGS
+        this.i64 = Seq.EMPTY_LONGS
         this.nested.reset()
     }
 }

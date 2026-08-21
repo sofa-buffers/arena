@@ -12,7 +12,7 @@ public class ExampleNested {
     /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
     public var str: String = ""
     /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated. */
-    public var bytes_field: ByteArray = Sbuf.EMPTY_BYTE
+    public var bytes_field: ByteArray = Seq.EMPTY_BYTES
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {
@@ -36,7 +36,7 @@ public class ExampleNested {
         this.f32 = 0.0f
         this.f64 = 0.0
         this.str = ""
-        this.bytes_field = Sbuf.EMPTY_BYTE
+        this.bytes_field = Seq.EMPTY_BYTES
     }
 }
 

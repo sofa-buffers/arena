@@ -212,7 +212,7 @@ mod example_dec {
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
@@ -225,7 +225,7 @@ mod example_dec {
         let invalid;
         let fed;
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             fed = is.feed(data, &mut v);
             overflow = v.err;
@@ -262,7 +262,7 @@ mod example_dec {
         stack: Vec<_Loc>,
         cur: _Loc,
         dead: u16,
-        acc: Vec<u8>,
+        acc: sofab::PayloadAcc,
         err: bool,
         inv: bool,
         askip: usize,
@@ -271,7 +271,7 @@ mod example_dec {
 
     impl Decoder {
         pub fn new() -> Self {
-            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 }
+            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 }
         }
 
         /// Feed the next chunk. `Ok(())` if it ended on a field boundary,
@@ -333,7 +333,7 @@ struct V<'a> {
     stack: Vec<_Loc>,
     cur: _Loc,
     dead: u16, // depth of the skipped subtree cur sits in (see sequence_begin)
-    acc: Vec<u8>,
+    acc: sofab::PayloadAcc,
     err: bool,
     inv: bool,
     askip: usize, // elements left to discard from a wire-type-contradictory array
@@ -420,21 +420,13 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root_string_array, _) => if total > 64 { self.inv = true; return; },
             _ => {}
         }
-        // Single-shot: whole payload in one chunk -> build straight from the
-        // slice, skipping the `acc` accumulate + second copy.
-        // A string is UTF-8 and Rust's
-        // String is a Unicode type, so it is always strict. Invalid UTF-8 is
-        // the INVALID decode outcome (self.inv -> Error::InvalidMsg), never a
-        // lossy U+FFFD and never empty; the two Rust profiles agree (subsumes #80).
-        let _s = if offset == 0 && chunk.len() >= total {
-            match core::str::from_utf8(&chunk[..total]) { Ok(_v) => _v.to_owned(), Err(_) => { self.inv = true; String::new() } }
-        } else {
-            self.acc.extend_from_slice(chunk);
-            if self.acc.len() < total { return; }
-            let s = match core::str::from_utf8(&self.acc) { Ok(_v) => _v.to_owned(), Err(_) => { self.inv = true; String::new() } };
-            self.acc.clear();
-            s
-        };
+        // A Rust string type is Unicode, so a string is always strict. Invalid
+        // UTF-8 is the INVALID decode outcome (self.inv -> Error::InvalidMsg),
+        // never a lossy U+FFFD and never empty; the two Rust profiles agree
+        // (subsumes #80). The verdict is passed on the ASSEMBLED payload, which
+        // is why it sits after the feed and not per chunk.
+        let _p = match self.acc.feed(total, offset, chunk) { Some(_v) => _v, None => return };
+        let _s = match core::str::from_utf8(_p) { Ok(_v) => _v.to_owned(), Err(_) => { self.inv = true; String::new() } };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => self.m.nested.str = _s,
             (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { self.m.string_array.push(Default::default()); } self.m.string_array[id as usize] = _s; }
@@ -448,15 +440,8 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
             _ => {}
         }
-        let _b = if offset == 0 && chunk.len() >= total {
-            chunk[..total].to_vec()
-        } else {
-            self.acc.extend_from_slice(chunk);
-            if self.acc.len() < total { return; }
-            let b = self.acc.clone();
-            self.acc.clear();
-            b
-        };
+        let _p = match self.acc.feed(total, offset, chunk) { Some(_v) => _v, None => return };
+        let _b = _p.to_vec();
         match (self.cur, id) {
             (_Loc::Root_nested, 3) => self.m.nested.bytes_field = _b,
             _ => {}

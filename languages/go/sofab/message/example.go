@@ -10,7 +10,7 @@ import (
 // Example - This example demonstrates the use of SofaBuffers to encode and decode a message.
 // Example is a generated SofaBuffers object.
 type Example struct {
-	_visitorBase
+	sofab.VisitorBase
 	U64    uint64        `json:"u64"`
 	I64    int64         `json:"i64"`
 	Nested ExampleNested `json:"nested"`
@@ -156,9 +156,9 @@ func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 		return &m.Arrays, nil
 	case 200:
 		m.StringArray = m.StringArray[:0]
-		return &_strSeq{out: &m.StringArray, cap: 5, emax: 64}, nil
+		return &sofab.StringSeq{Out: &m.StringArray, Cap: 5, ElemMax: 64}, nil
 	}
-	return _visitorBase{}, nil
+	return nil, nil
 }
 
 // NewExample returns a Example with schema defaults applied.

@@ -8,7 +8,7 @@ import (
 
 // ExampleArrays is a generated SofaBuffers object.
 type ExampleArrays struct {
-	_visitorBase
+	sofab.VisitorBase
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	U8 []uint8 `json:"u8"`
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
@@ -250,12 +250,12 @@ func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	case 10:
 		return &m.Nested, nil
 	}
-	return _visitorBase{}, nil
+	return nil, nil
 }
 
 // ExampleArraysNested is a generated SofaBuffers object.
 type ExampleArraysNested struct {
-	_visitorBase
+	sofab.VisitorBase
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	Fp32 []float32 `json:"fp32"`
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
@@ -325,7 +325,7 @@ func (m *ExampleArraysNested) FixlenHeader(id sofab.ID, subtype int, length int)
 
 // ExampleNested is a generated SofaBuffers object.
 type ExampleNested struct {
-	_visitorBase
+	sofab.VisitorBase
 	F64 float64 `json:"f64"`
 	// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
 	Str string `json:"str"`
@@ -387,7 +387,7 @@ func (m *ExampleNested) String(id sofab.ID, v string) error {
 		if len(v) > 32 {
 			return sofab.ErrInvalidMsg
 		}
-		if !sofab.Utf8Valid([]byte(v)) {
+		if !sofab.UTF8Valid([]byte(v)) {
 			return sofab.ErrInvalidMsg
 		}
 		m.Str = v

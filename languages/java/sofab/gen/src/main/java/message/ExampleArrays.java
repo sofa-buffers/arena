@@ -6,21 +6,21 @@ import java.util.*;
 
 public class ExampleArrays {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public byte[] u8 = Sbuf.EMPTY_BYTES;
+    public byte[] u8 = Seq.EMPTY_BYTES;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public byte[] i8 = Sbuf.EMPTY_BYTES;
+    public byte[] i8 = Seq.EMPTY_BYTES;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public short[] u16 = Sbuf.EMPTY_SHORTS;
+    public short[] u16 = Seq.EMPTY_SHORTS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public short[] i16 = Sbuf.EMPTY_SHORTS;
+    public short[] i16 = Seq.EMPTY_SHORTS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public int[] u32 = Sbuf.EMPTY_INTS;
+    public int[] u32 = Seq.EMPTY_INTS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public int[] i32 = Sbuf.EMPTY_INTS;
+    public int[] i32 = Seq.EMPTY_INTS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public long[] u64 = Sbuf.EMPTY_LONGS;
+    public long[] u64 = Seq.EMPTY_LONGS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
-    public long[] i64 = Sbuf.EMPTY_LONGS;
+    public long[] i64 = Seq.EMPTY_LONGS;
     public ExampleArraysNested nested = new ExampleArraysNested();
 
     public void serialize(OStream os) throws IOException {
@@ -65,14 +65,14 @@ public class ExampleArrays {
     }
     /** Restores every field to its declared default, in place; call before reusing an instance as a decode destination. */
     public void reset() {
-        this.u8 = Sbuf.EMPTY_BYTES;
-        this.i8 = Sbuf.EMPTY_BYTES;
-        this.u16 = Sbuf.EMPTY_SHORTS;
-        this.i16 = Sbuf.EMPTY_SHORTS;
-        this.u32 = Sbuf.EMPTY_INTS;
-        this.i32 = Sbuf.EMPTY_INTS;
-        this.u64 = Sbuf.EMPTY_LONGS;
-        this.i64 = Sbuf.EMPTY_LONGS;
+        this.u8 = Seq.EMPTY_BYTES;
+        this.i8 = Seq.EMPTY_BYTES;
+        this.u16 = Seq.EMPTY_SHORTS;
+        this.i16 = Seq.EMPTY_SHORTS;
+        this.u32 = Seq.EMPTY_INTS;
+        this.i32 = Seq.EMPTY_INTS;
+        this.u64 = Seq.EMPTY_LONGS;
+        this.i64 = Seq.EMPTY_LONGS;
         if (this.nested == null) this.nested = new ExampleArraysNested(); else this.nested.reset();
     }
 }

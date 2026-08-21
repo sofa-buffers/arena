@@ -7,78 +7,10 @@
 #include <span>
 #include <cstring>
 #include <cstddef>
-#include <type_traits>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
     "SofaBuffers: generated against C++ API v1, but the linked corelib differs.");
-
-#ifndef SOFABGEN_WRAPPER_SEQ_HELPERS
-#define SOFABGEN_WRAPPER_SEQ_HELPERS
-/// Wrapper-array element helpers shared by every sofabgen-generated header.
-namespace sofabgen {
-
-/**
- * @brief Collects an array of strings, blobs, structs, unions or rows, placing
- *        each element at the index its own id names.
- *
- * Such an array travels as a sequence whose child id IS the element's index, so
- * an element is stored at `dest[id]` -- never appended. The ids may have gaps:
- * an INTERIOR element equal to the element default is left off the wire, and the
- * gap it leaves is filled with that default. Appending instead would shorten the
- * array by the size of every gap, and would turn a repeated element id into a
- * second element instead of continuing the first one. The array's LAST element
- * is always on the wire, so the decoded length -- highest present id + 1 -- is
- * exact.
- *
- * The schema `count` N is a CAPACITY, not a length: it bounds the array -- an
- * index at or past N is rejected as a malformed message, before the container
- * grows, which also bounds the gap fill against an over-index amplification --
- * but it never adds an element the wire did not carry.
- *
- * @tparam Container Destination container; its `value_type` is the element type.
- */
-template <typename Container>
-struct WrapperSeq : sofab::IStreamMessage {
-    using Elem = typename Container::value_type;
-    Container *out = nullptr;  ///< Destination, bound by the generated read.
-    long cap = -1;             ///< Schema `count`, or -1 when the array has none.
-
-    /**
-     * @brief Empty the destination before collecting into it.
-     *
-     * The sequence IS the array's value, so a field id occurring twice replaces
-     * the array rather than extending it. This runs only once the field is known
-     * to be a sequence, so an occurrence skipped for a contradicting wire type
-     * cannot wipe a valid earlier one.
-     */
-    void prepare() noexcept { if (out != nullptr) { out->clear(); } }
-
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t count) noexcept override {
-        /* The two corelibs put the wire tag enum in different scopes; decltype
-         * names neither. */
-        using Tag = decltype(is.wire());
-        if constexpr (std::is_base_of_v<sofab::IStreamMessage, Elem>) {
-            /* An element whose wire type contradicts the declared one is skipped
-             * exactly like an unknown id -- which means it must leave the
-             * container untouched, so the decision comes before the fill below. */
-            if (is.wire() != Tag::SequenceStart) { return; }
-        }
-        if (cap >= 0 && static_cast<long>(id) >= cap) { is.invalidate(); return; }
-        while (out->size() <= static_cast<std::size_t>(id)) { (void)out->emplace_back(); }
-        Elem &row = (*out)[static_cast<std::size_t>(id)];
-        /* A row that is itself a count-less array is filled only up to its
-         * current size, so size it to the row's element count first. Struct,
-         * union and fixed-length rows have no resize(). */
-        if constexpr (requires { row.resize(count); } && !std::is_base_of_v<sofab::IStreamMessage, Elem>) {
-            row.resize(count);
-        }
-        is.read(row);
-    }
-};
-
-} // namespace sofabgen
-#endif // SOFABGEN_WRAPPER_SEQ_HELPERS
 
 namespace fullscale {
 

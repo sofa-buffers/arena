@@ -10,7 +10,7 @@ public class ExampleNested {
     /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
     public String str = "";
     /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated. */
-    public byte[] bytes_field = Sbuf.EMPTY_BYTES;
+    public byte[] bytes_field = Seq.EMPTY_BYTES;
 
     public void serialize(OStream os) throws IOException {
         if (this.f32 != 0f) { os.writeFp32(0, this.f32); }
@@ -31,7 +31,7 @@ public class ExampleNested {
         this.f32 = 0f;
         this.f64 = 0;
         this.str = "";
-        this.bytes_field = Sbuf.EMPTY_BYTES;
+        this.bytes_field = Seq.EMPTY_BYTES;
     }
 }
 
