@@ -12,8 +12,16 @@ environment:
 
 dependencies:
   # The official Dart protobuf runtime that protoc-gen-dart targets. Must match
-  # the baked protoc_plugin (protoc_plugin 25.x -> protobuf ^6.0.0); an older
-  # major misses BuilderInfo methods the generated code calls (e.g. `aI`).
-  protobuf: ^6.0.0
+  # the baked protoc_plugin, whose own pubspec is the authority: protoc_plugin
+  # 25.1.0 declares `protobuf: ^6.1.0`. An older major misses BuilderInfo
+  # methods the generated code calls (e.g. `aI`); 6.0.0 specifically types
+  # BuilderInfo's subBuilder/createEmptyInstance as `T Function()` while this
+  # plugin still emits `static $pb.GeneratedMessage $_createMessage()`, so the
+  # AOT compile dies with "GeneratedMessage Function() can't be assigned to
+  # FullScaleSeqStruct Function()". Keep the floor at the plugin's own floor:
+  # a looser one lets a stale pubspec.lock (uncommitted, but it survives a
+  # container rebuild in the workspace mount) satisfy `pub get` with 6.0.0 and
+  # the row fails to build for a reason the manifest looks innocent of.
+  protobuf: ^6.1.0
   # 64-bit integers for proto (u)int64 fields.
   fixnum: ^1.1.0
