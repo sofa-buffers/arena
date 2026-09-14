@@ -405,6 +405,24 @@ pub fn main(init: std.process.Init) !void {
             const obj = try message.Example.decode(alloc, input);
             try toJson_Example(&obj, out);
             try out.writeByte('\n');
+        } else if (std.mem.eql(u8, mode, "streamdecode")) {
+            var obj: message.Example = .{};
+            var dec = message.Example.decoder(&obj, alloc);
+            for (input) |b| {
+                const fed = dec.feed(&[_]u8{b}) catch |e| {
+                    std.debug.print("decode error: {s} [status={s}]\n",
+                                    .{ @errorName(e), @tagName(dec.status()) });
+                    std.process.exit(1);
+                };
+                if (dec.status() != fed) return error.StatusDisagreesWithFeed;
+            }
+            dec.finish() catch |e| {
+                std.debug.print("decode error: {s} [status={s}]\n",
+                                .{ @errorName(e), @tagName(dec.status()) });
+                std.process.exit(1);
+            };
+            try toJson_Example(&obj, out);
+            try out.writeByte('\n');
         } else {
             std.process.exit(2);
         }

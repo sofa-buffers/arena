@@ -6,4 +6,5 @@
 # with corelib-py on PYTHONPATH:
 echo '{...}' | python harness.py encode <Message>   # JSON -> bytes
 python harness.py decode <Message> < bytes.bin       # bytes -> JSON
+python harness.py recode <Message> < bytes.bin       # bytes -> bytes (no JSON)
 ```

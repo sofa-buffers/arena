@@ -9,7 +9,80 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 )
+
+// benchAlignSink holds the buffer benchAlignSpan allocated last, so the
+// compiler cannot decide the allocation is dead and drop it.
+var benchAlignSink []byte
+
+// benchAlignSpan pins the allocator to a known point in the size class the
+// measured op allocates its output from, so that op costs the same in every
+// process. Without it a bench row reading one op is bimodal by ~9%, at random.
+//
+// Go hands out small objects from a per-P span of one size class, and a span
+// holds a handful of them -- seven, say, in the 1152-byte class a 1037-byte
+// buffer falls in. Whichever allocation lands on the last slot of a span
+// makes the NEXT one refill the span from mcentral -- ~1843 Ir of allocator
+// slow path. Which slot the collected op gets depends on how many objects of
+// that class the runtime's own start-up already took, which varies per
+// process, so a fixed number of warmups cannot settle it: it only moves the
+// unlucky phase somewhere else.
+//
+// So this does not guess the phase, it removes it. Allocating the same size
+// repeatedly walks the span one object at a time -- successive addresses are
+// exactly one size class apart -- until the allocator hands back one that is
+// NOT adjacent, which is the first object of a fresh span. Returning there
+// leaves the collected op holding the second slot of that span, in every
+// process. sample is the warmup's own output, so the size class is the one
+// the op actually uses and no message constant has to be threaded in here.
+//
+// noinline and a separate symbol, like the warmups: --toggle-collect keys on
+// entering a symbol, so anything the measured op must not be charged for has
+// to happen outside run_*.
+//
+//go:noinline
+func benchAlignSpan(sample []byte) {
+	n := cap(sample)
+	if n == 0 {
+		return
+	}
+	at := func() uintptr {
+		b := make([]byte, n)
+		benchAlignSink = b
+		return reflect.ValueOf(b).Pointer()
+	}
+	// The stride is the size class, which is not n and is not exported by the
+	// runtime -- so learn it: inside a span every step is the stride, so the
+	// most common step over a short run is it, whatever the class turns out
+	// to be and whichever probe straddled a span boundary.
+	const probes = 32
+	steps := make(map[uintptr]int, probes)
+	prev := at()
+	stride, seen := uintptr(0), 0
+	for i := 0; i < probes; i++ {
+		p := at()
+		d := p - prev
+		prev = p
+		steps[d]++
+		if steps[d] > seen {
+			stride, seen = d, steps[d]
+		}
+	}
+	// Bounded: a span cannot hold more objects than it has bytes, and a run
+	// that somehow never sees a boundary must still end.
+	for i := 0; i < 1<<12; i++ {
+		p := at()
+		if p-prev != stride {
+			return
+		}
+		prev = p
+	}
+	// Falling out means no span boundary was found, so the op runs at an
+	// arbitrary phase and the row is bimodal again. Say so rather than
+	// returning quietly: a silent no-op here is invisible in results.txt.
+	fmt.Fprintln(os.Stderr, "benchAlignSpan: no span boundary in 4096 allocations; this reading is not phase-pinned")
+}
 
 // Bench state at package scope: the results outlive the measured call so
 // main can observe them after collection stops, which is what keeps the op
@@ -69,7 +142,8 @@ func benchMain(w string, in []byte) int {
 			fail(err)
 		}
 		if w == "encode_example" {
-			warmup_encode_example() // one-time runtime costs (not collected)
+			warmup_encode_example()          // one-time runtime costs (not collected)
+			benchAlignSpan(benchExampleWire) // known allocator phase (not collected)
 			run_encode_example()
 		} else {
 			warmup_encode_example() // setup: the decode input (not collected)

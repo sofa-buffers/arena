@@ -56,6 +56,28 @@ public class Main {
                 Example obj = Example.decode(input);
                 StringBuilder sb = new StringBuilder(); Json.to(obj, sb);
                 System.out.write(sb.toString().getBytes(StandardCharsets.UTF_8)); System.out.write('\n');
+            } else if (mode.equals("streamdecode")) {
+                Example.Decoder dec = Example.decoder();
+                Example obj;
+                try {
+                    int csz = args.length > 2 ? Integer.parseInt(args[2]) : 1;
+                    int step = csz > 0 ? csz : Math.max(input.length, 1);
+                    for (int off = 0; off < input.length; off += step) {
+                        org.sofabuffers.sofab.DecodeStatus fed =
+                            dec.feed(input, off, Math.min(step, input.length - off));
+                        if (dec.status() != fed) {
+                            throw new IllegalStateException(
+                                "status " + dec.status() + " disagrees with the feed that set it (" + fed + ")");
+                        }
+                    }
+                    obj = dec.finish();
+                } catch (Exception e) {
+                    System.err.println(
+                        "decode error: " + e + " [status=" + dec.status() + "]");
+                    System.exit(1); return;
+                }
+                StringBuilder sb = new StringBuilder(); Json.to(obj, sb);
+                System.out.write(sb.toString().getBytes(StandardCharsets.UTF_8)); System.out.write('\n');
             } else if (mode.equals("trydecode")) {
                 Example obj = new Example();
                 org.sofabuffers.sofab.DecodeStatus st = Example.tryDecode(input, obj);

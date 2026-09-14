@@ -4,7 +4,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:harness/message.dart';
-import 'package:sofabuffers/sofabuffers.dart' as sofab;
+import 'package:sofa_buffers_corelib/sofa_buffers_corelib.dart' as sofab;
+
+int _exact64(Object? v) {
+  if (v is int) return v;
+  if (v is double && v == v.roundToDouble() && v.abs() <= 9007199254740992.0) {
+    return v.toInt();
+  }
+  throw FormatException(
+      'a 64-bit field arrived as the JSON number $v, which jsonDecode has already '
+      'rounded -- spell a value above 2^53 as a string so it survives');
+}
 
 Map<String, dynamic> _toJsonExampleArrays(ExampleArrays m) {
   return <String, dynamic>{
@@ -28,7 +38,7 @@ ExampleArrays _fromJsonExampleArrays(Map<String, dynamic> j) {
   if (j.containsKey('i16')) { m.i16 = <int>[for (final _x in (j['i16'] as List)) (_x as num).toInt()]; }
   if (j.containsKey('u32')) { m.u32 = <int>[for (final _x in (j['u32'] as List)) (_x as num).toInt()]; }
   if (j.containsKey('i32')) { m.i32 = <int>[for (final _x in (j['i32'] as List)) (_x as num).toInt()]; }
-  if (j.containsKey('u64')) { m.u64 = <int>[for (final _x in (j['u64'] as List)) (_x is String ? BigInt.parse(_x) : BigInt.from((_x as num).toInt())).toSigned(64).toInt()]; }
+  if (j.containsKey('u64')) { m.u64 = <int>[for (final _x in (j['u64'] as List)) (_x is String ? BigInt.parse(_x) : BigInt.from(_exact64(_x))).toSigned(64).toInt()]; }
   if (j.containsKey('i64')) { m.i64 = <int>[for (final _x in (j['i64'] as List)) (_x as num).toInt()]; }
   if (j.containsKey('nested')) { m.nested = _fromJsonExampleArraysNested(j['nested'] as Map<String, dynamic>); }
   return m;
@@ -90,7 +100,7 @@ Example _fromJsonExample(Map<String, dynamic> j) {
   if (j.containsKey('i16')) { m.i16 = (j['i16'] as num).toInt(); }
   if (j.containsKey('u32')) { m.u32 = (j['u32'] as num).toInt(); }
   if (j.containsKey('i32')) { m.i32 = (j['i32'] as num).toInt(); }
-  if (j.containsKey('u64')) { m.u64 = (j['u64'] is String ? BigInt.parse(j['u64'] as String) : BigInt.from((j['u64'] as num).toInt())).toSigned(64).toInt(); }
+  if (j.containsKey('u64')) { m.u64 = (j['u64'] is String ? BigInt.parse(j['u64'] as String) : BigInt.from(_exact64(j['u64']))).toSigned(64).toInt(); }
   if (j.containsKey('i64')) { m.i64 = (j['i64'] as num).toInt(); }
   if (j.containsKey('nested')) { m.nested = _fromJsonExampleNested(j['nested'] as Map<String, dynamic>); }
   if (j.containsKey('arrays')) { m.arrays = _fromJsonExampleArrays(j['arrays'] as Map<String, dynamic>); }
@@ -125,7 +135,7 @@ void _benchOpExample(bool enc, Example obj, Uint8List wire) {
 
 void main(List<String> args) {
   if (args.isEmpty) {
-    stderr.writeln('usage: harness <encode|decode|trydecode|recode|bench> [Message|workload]');
+    stderr.writeln('usage: harness <encode|decode|streamdecode|trydecode|recode|bench> [Message|workload]');
     exit(2);
   }
   final mode = args[0];
@@ -144,6 +154,26 @@ void main(List<String> args) {
         final st = Example.tryDecode(input, obj);
         if (st != sofab.DecodeStatus.complete) {
           stderr.writeln('decode failed: ${st.name}');
+          exit(1);
+        }
+        stdout.writeln(jsonEncode(_toJsonExample(obj)));
+      } else if (mode == 'streamdecode') {
+        final out = Example();
+        final dec = Example.decoder(out);
+        final csz = args.length > 2 ? int.parse(args[2]) : 1;
+        final step = csz > 0 ? csz : (input.isEmpty ? 1 : input.length);
+        for (var off = 0; off < input.length; off += step) {
+          final end = off + step < input.length ? off + step : input.length;
+          final st = dec.feed(input.sublist(off, end));
+          if (st != sofab.DecodeStatus.complete &&
+              st != sofab.DecodeStatus.incomplete) {
+            stderr.writeln('decode failed: ${st.name}');
+            exit(1);
+          }
+        }
+        final obj = dec.finish();
+        if (obj == null) {
+          stderr.writeln('decode failed: ${dec.status.name}');
           exit(1);
         }
         stdout.writeln(jsonEncode(_toJsonExample(obj)));

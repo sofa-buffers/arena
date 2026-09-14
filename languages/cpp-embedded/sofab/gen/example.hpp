@@ -3,14 +3,17 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include <array>
 #include <span>
-#include <cstring>
 #include <cstddef>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
     "SofaBuffers: generated against C++ API v1, but the linked corelib differs.");
+
+/* --- value-width guard: field ids must fit the corelib's id ceiling --- */
+#if 200 > SOFAB_ID_MAX
+# error "SofaBuffers: field ids in example exceed SOFAB_ID_MAX for this value width (see SOFAB_DISABLE_INT64_SUPPORT)."
+#endif
 
 namespace fullscale {
 

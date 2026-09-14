@@ -89,160 +89,120 @@ func (m *ExampleArrays) isDefault() bool {
 	return true
 }
 
-func (m *ExampleArrays) UnsignedArray(id sofab.ID, v []uint64) error {
-	switch id {
-	case 0:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		for _, _x := range v {
-			if _x > 255 {
-				return sofab.ErrInvalidMsg
-			}
-		}
-		m.U8 = sofab.NarrowUnsigned[uint8](v)
-	case 2:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		for _, _x := range v {
-			if _x > 65535 {
-				return sofab.ErrInvalidMsg
-			}
-		}
-		m.U16 = sofab.NarrowUnsigned[uint16](v)
-	case 4:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		for _, _x := range v {
-			if _x > 4294967295 {
-				return sofab.ErrInvalidMsg
-			}
-		}
-		m.U32 = sofab.NarrowUnsigned[uint32](v)
-	case 6:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		m.U64 = v
-	}
-	return nil
-}
-
-func (m *ExampleArrays) SignedArray(id sofab.ID, v []int64) error {
-	switch id {
-	case 1:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		for _, _x := range v {
-			if _x < -128 || _x > 127 {
-				return sofab.ErrInvalidMsg
-			}
-		}
-		m.I8 = sofab.NarrowSigned[int8](v)
-	case 3:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		for _, _x := range v {
-			if _x < -32768 || _x > 32767 {
-				return sofab.ErrInvalidMsg
-			}
-		}
-		m.I16 = sofab.NarrowSigned[int16](v)
-	case 5:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		for _, _x := range v {
-			if _x < -2147483648 || _x > 2147483647 {
-				return sofab.ErrInvalidMsg
-			}
-		}
-		m.I32 = sofab.NarrowSigned[int32](v)
-	case 7:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		m.I64 = v
-	}
-	return nil
-}
-
 func (m *ExampleArrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	case 0:
-		if kind == sofab.ArrayUnsigned && count > 5 {
+		if kind != sofab.ArrayUnsigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.U8 = make([]uint8, 0, count)
 	case 1:
-		if kind == sofab.ArraySigned && count > 5 {
+		if kind != sofab.ArraySigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.I8 = make([]int8, 0, count)
 	case 2:
-		if kind == sofab.ArrayUnsigned && count > 5 {
+		if kind != sofab.ArrayUnsigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.U16 = make([]uint16, 0, count)
 	case 3:
-		if kind == sofab.ArraySigned && count > 5 {
+		if kind != sofab.ArraySigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.I16 = make([]int16, 0, count)
 	case 4:
-		if kind == sofab.ArrayUnsigned && count > 5 {
+		if kind != sofab.ArrayUnsigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.U32 = make([]uint32, 0, count)
 	case 5:
-		if kind == sofab.ArraySigned && count > 5 {
+		if kind != sofab.ArraySigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.I32 = make([]int32, 0, count)
 	case 6:
-		if kind == sofab.ArrayUnsigned && count > 5 {
+		if kind != sofab.ArrayUnsigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.U64 = make([]uint64, 0, count)
 	case 7:
-		if kind == sofab.ArraySigned && count > 5 {
+		if kind != sofab.ArraySigned {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.I64 = make([]int64, 0, count)
 	}
 	return nil
 }
 
-func (m *ExampleArrays) FixlenHeader(id sofab.ID, subtype int, length int) error {
-	switch id {
-	}
-	return nil
-}
-
-func (m *ExampleArrays) ArrayElemBound(id sofab.ID, kind sofab.ArrayKind) (int64, int64, bool) {
+func (m *ExampleArrays) ArrayUnsigned(id sofab.ID, _ int, v uint64) error {
 	switch id {
 	case 0:
-		if kind == sofab.ArrayUnsigned {
-			return 0, 255, true
+		if v > 255 {
+			return sofab.ErrInvalidMsg
 		}
-	case 1:
-		if kind == sofab.ArraySigned {
-			return -128, 127, true
-		}
+		m.U8 = append(m.U8, uint8(v))
 	case 2:
-		if kind == sofab.ArrayUnsigned {
-			return 0, 65535, true
+		if v > 65535 {
+			return sofab.ErrInvalidMsg
 		}
-	case 3:
-		if kind == sofab.ArraySigned {
-			return -32768, 32767, true
-		}
+		m.U16 = append(m.U16, uint16(v))
 	case 4:
-		if kind == sofab.ArrayUnsigned {
-			return 0, 4294967295, true
+		if v > 4294967295 {
+			return sofab.ErrInvalidMsg
 		}
-	case 5:
-		if kind == sofab.ArraySigned {
-			return -2147483648, 2147483647, true
-		}
+		m.U32 = append(m.U32, uint32(v))
+	case 6:
+		m.U64 = append(m.U64, v)
 	}
-	return 0, 0, false
+	return nil
+}
+
+func (m *ExampleArrays) ArraySigned(id sofab.ID, _ int, v int64) error {
+	switch id {
+	case 1:
+		if v < -128 || v > 127 {
+			return sofab.ErrInvalidMsg
+		}
+		m.I8 = append(m.I8, int8(v))
+	case 3:
+		if v < -32768 || v > 32767 {
+			return sofab.ErrInvalidMsg
+		}
+		m.I16 = append(m.I16, int16(v))
+	case 5:
+		if v < -2147483648 || v > 2147483647 {
+			return sofab.ErrInvalidMsg
+		}
+		m.I32 = append(m.I32, int32(v))
+	case 7:
+		m.I64 = append(m.I64, v)
+	}
+	return nil
 }
 
 func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
@@ -281,44 +241,40 @@ func (m *ExampleArraysNested) isDefault() bool {
 	return true
 }
 
-func (m *ExampleArraysNested) Float32Array(id sofab.ID, v []float32) error {
-	switch id {
-	case 0:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		m.Fp32 = v
-	}
-	return nil
-}
-
-func (m *ExampleArraysNested) Float64Array(id sofab.ID, v []float64) error {
-	switch id {
-	case 1:
-		if len(v) > 5 {
-			return sofab.ErrInvalidMsg
-		}
-		m.Fp64 = v
-	}
-	return nil
-}
-
 func (m *ExampleArraysNested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	case 0:
-		if kind == sofab.ArrayFp32 && count > 5 {
+		if kind != sofab.ArrayFp32 {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.Fp32 = make([]float32, 0, count)
 	case 1:
-		if kind == sofab.ArrayFp64 && count > 5 {
+		if kind != sofab.ArrayFp64 {
+			return nil
+		}
+		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
+		m.Fp64 = make([]float64, 0, count)
 	}
 	return nil
 }
 
-func (m *ExampleArraysNested) FixlenHeader(id sofab.ID, subtype int, length int) error {
+func (m *ExampleArraysNested) ArrayFloat32(id sofab.ID, _ int, v float32) error {
 	switch id {
+	case 0:
+		m.Fp32 = append(m.Fp32, v)
+	}
+	return nil
+}
+
+func (m *ExampleArraysNested) ArrayFloat64(id sofab.ID, _ int, v float64) error {
+	switch id {
+	case 1:
+		m.Fp64 = append(m.Fp64, v)
 	}
 	return nil
 }
@@ -326,12 +282,16 @@ func (m *ExampleArraysNested) FixlenHeader(id sofab.ID, subtype int, length int)
 // ExampleNested is a generated SofaBuffers object.
 type ExampleNested struct {
 	sofab.VisitorBase
+	sofab.StringCheck
 	F64 float64 `json:"f64"`
 	// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
 	Str string `json:"str"`
 	// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
 	BytesField []byte  `json:"bytes_field"`
 	F32        float32 `json:"f32"`
+	// _acc assembles a string or blob payload the codec delivers in pieces
+	// (S6.6.3). Unexported, so it is not part of the object's JSON form.
+	_acc sofab.PayloadAcc
 }
 
 func (m *ExampleNested) Serialize(e *sofab.Encoder) {
@@ -381,47 +341,49 @@ func (m *ExampleNested) Float64(id sofab.ID, v float64) error {
 	return nil
 }
 
-func (m *ExampleNested) String(id sofab.ID, v string) error {
+func (m *ExampleNested) FixlenBegin(id sofab.ID, sub sofab.FixlenSubtype, total int) error {
 	switch id {
 	case 2:
-		if len(v) > 32 {
-			return sofab.ErrInvalidMsg
+		if sub != sofab.FixlenStr {
+			return nil
 		}
-		if !sofab.UTF8Valid([]byte(v)) {
-			return sofab.ErrInvalidMsg
-		}
-		m.Str = v
-	}
-	return nil
-}
-
-func (m *ExampleNested) Bytes(id sofab.ID, v []byte) error {
-	switch id {
-	case 3:
-		if len(v) > 4 {
-			return sofab.ErrInvalidMsg
-		}
-		m.BytesField = append([]byte(nil), v...)
-	}
-	return nil
-}
-
-func (m *ExampleNested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
-	switch id {
-	}
-	return nil
-}
-
-func (m *ExampleNested) FixlenHeader(id sofab.ID, subtype int, length int) error {
-	switch id {
-	case 2:
-		if subtype == 2 && length > 32 {
+		if total > 32 {
 			return sofab.ErrInvalidMsg
 		}
 	case 3:
-		if subtype == 3 && length > 4 {
+		if sub != sofab.FixlenBlob {
+			return nil
+		}
+		if total > 4 {
 			return sofab.ErrInvalidMsg
 		}
+	}
+	return nil
+}
+
+func (m *ExampleNested) String(id sofab.ID, total, offset int, chunk []byte) error {
+	switch id {
+	case 2:
+		_b, _done := m._acc.Take(total, offset, chunk)
+		if !_done {
+			return nil
+		}
+		if !m.UTF8Valid(_b) {
+			return sofab.ErrInvalidMsg
+		}
+		m.Str = string(_b)
+	}
+	return nil
+}
+
+func (m *ExampleNested) Bytes(id sofab.ID, total, offset int, chunk []byte) error {
+	switch id {
+	case 3:
+		_b, _done := m._acc.Take(total, offset, chunk)
+		if !_done {
+			return nil
+		}
+		m.BytesField = append([]byte(nil), _b...)
 	}
 	return nil
 }

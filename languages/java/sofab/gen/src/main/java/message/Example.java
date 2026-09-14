@@ -92,8 +92,7 @@ public class Example {
     public static DecodeStatus tryDecode(byte[] data, Example out) throws SofabException {
         out.reset();
         IStream is = new IStream();
-        is.feed(data, new ExampleVisitor(out));
-        return is.status();
+        return is.feed(data, new ExampleVisitor(out));
     }
     /**
      * An incremental decoder for this message: hold it and feed chunks as
@@ -119,6 +118,13 @@ public class Example {
         private final Example m = new Example();
         private final IStream is = new IStream();
         private final ExampleVisitor v = new ExampleVisitor(m);
+        // What the last feed answered. The stream publishes its outcome once,
+        // as feed's return value, and offers no accessor to ask a second time,
+        // so the caller is the one that remembers -- and this decoder is the
+        // caller. COMPLETE before the first feed: an all-default message is
+        // zero bytes, so a stream that has been fed nothing ended on a field
+        // boundary.
+        private DecodeStatus st = DecodeStatus.COMPLETE;
 
         /**
          * Feed the next chunk, of any size. Returns {@code COMPLETE} if it
@@ -128,18 +134,56 @@ public class Example {
          * @throws SofabException the bytes are malformed (INVALID); terminal.
          */
         public DecodeStatus feed(byte[] chunk) throws SofabException {
-            is.feed(chunk, v);
-            return is.status();
+            return feed(chunk, 0, chunk.length);
         }
 
         /** As {@link #feed(byte[])}, over a slice of {@code chunk}. */
         public DecodeStatus feed(byte[] chunk, int off, int len) throws SofabException {
-            is.feed(chunk, off, len, v);
-            return is.status();
+            try {
+                return st = is.feed(chunk, off, len, v);
+            } catch (SofabException e) {
+                // A refusal is terminal and never comes back as a status, so
+                // record what it means for the stream before rethrowing.
+                // Malformed bytes make the message INVALID; a receiver limit
+                // is this side's policy, so it leaves the message unfinished
+                // rather than wrong.
+                //
+                // Anything else leaves the memory alone. ARGUMENT above all
+                // says the mistake is in the CALL and not in the bytes; a
+                // status is a verdict on the MESSAGE, so recording one for a
+                // caller fault would report something about the wire that is
+                // not true. This is the same three-way test IStream applies
+                // in its own isTerminal().
+                if (e.error() == SofabError.INVALID_MSG) {
+                    st = DecodeStatus.INVALID;
+                } else if (e.error() == SofabError.LIMIT_EXCEEDED) {
+                    st = DecodeStatus.INCOMPLETE;
+                }
+                throw e;
+            } catch (java.io.UncheckedIOException e) {
+                // A Visitor cannot declare a checked exception, so a bound
+                // this schema rejects, and a receiver limit this side
+                // refuses, both arrive wrapped instead -- and so does an
+                // ARGUMENT fault raised from inside a callback, which is why
+                // this arm applies the same three-way test as the bare one
+                // rather than sending everything unrecognized to INCOMPLETE.
+                if (e.getCause() instanceof SofabException cause) {
+                    if (cause.error() == SofabError.INVALID_MSG) {
+                        st = DecodeStatus.INVALID;
+                    } else if (cause.error() == SofabError.LIMIT_EXCEEDED) {
+                        st = DecodeStatus.INCOMPLETE;
+                    }
+                }
+                throw e;
+            }
         }
 
-        /** The outcome for everything fed so far, without feeding more. */
-        public DecodeStatus status() { return is.status(); }
+        /**
+         * The outcome for everything fed so far: what the last {@link
+         * #feed(byte[])} returned, remembered here. The stream itself answers
+         * only through that return value.
+         */
+        public DecodeStatus status() { return st; }
 
         /** The destination, holding whatever has been decoded so far. */
         public Example message() { return m; }
@@ -157,9 +201,9 @@ public class Example {
          * @throws IllegalStateException the message ended inside a field or an open sequence.
          */
         public Example finish() {
-            if (is.status() != DecodeStatus.COMPLETE) {
+            if (st != DecodeStatus.COMPLETE) {
                 throw new IllegalStateException(
-                    "Example: stream ended mid-field (" + is.status() + ")");
+                    "Example: stream ended mid-field (" + st + ")");
             }
             return m;
         }
@@ -175,7 +219,6 @@ class ExampleVisitor implements Visitor {
     private int afill = 0;              // elements still expected by an armed native-array fill (S7.3)
     private int atgt = 0;               // which destination the armed fill writes into
     private Object abulk;               // destination offered to Visitor.arrayBulk, null when not offered
-    private int acap = 0;               // declared element count = growth ceiling for the array being filled
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
     private int sp = 0;
     private final PayloadAcc acc = new PayloadAcc();
@@ -188,10 +231,10 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (value < 0 || value > 255L) throw Sofab.invalid("u8 element: value outside declared width u8"); if (ai >= m.arrays.u8.length) m.arrays.u8 = Seq.ensureCap(m.arrays.u8, ai, acap); m.arrays.u8[ai++] = (byte) value; return;
-            case 2: if (value < 0 || value > 65535L) throw Sofab.invalid("u16 element: value outside declared width u16"); if (ai >= m.arrays.u16.length) m.arrays.u16 = Seq.ensureCap(m.arrays.u16, ai, acap); m.arrays.u16[ai++] = (short) value; return;
-            case 3: if (value < 0 || value > 4294967295L) throw Sofab.invalid("u32 element: value outside declared width u32"); if (ai >= m.arrays.u32.length) m.arrays.u32 = Seq.ensureCap(m.arrays.u32, ai, acap); m.arrays.u32[ai++] = (int) value; return;
-            case 4: if (ai >= m.arrays.u64.length) m.arrays.u64 = Seq.ensureCap(m.arrays.u64, ai, acap); m.arrays.u64[ai++] = value; return;
+            case 1: if (value < 0 || value > 255L) throw Sofab.invalid("u8 element: value outside declared width u8"); m.arrays.u8[ai++] = (byte) value; return;
+            case 2: if (value < 0 || value > 65535L) throw Sofab.invalid("u16 element: value outside declared width u16"); m.arrays.u16[ai++] = (short) value; return;
+            case 3: if (value < 0 || value > 4294967295L) throw Sofab.invalid("u32 element: value outside declared width u32"); m.arrays.u32[ai++] = (int) value; return;
+            case 4: m.arrays.u64[ai++] = value; return;
             }
             return;
         }
@@ -214,10 +257,10 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (value < -128L || value > 127L) throw Sofab.invalid("i8 element: value outside declared width i8"); if (ai >= m.arrays.i8.length) m.arrays.i8 = Seq.ensureCap(m.arrays.i8, ai, acap); m.arrays.i8[ai++] = (byte) value; return;
-            case 2: if (value < -32768L || value > 32767L) throw Sofab.invalid("i16 element: value outside declared width i16"); if (ai >= m.arrays.i16.length) m.arrays.i16 = Seq.ensureCap(m.arrays.i16, ai, acap); m.arrays.i16[ai++] = (short) value; return;
-            case 3: if (value < -2147483648L || value > 2147483647L) throw Sofab.invalid("i32 element: value outside declared width i32"); if (ai >= m.arrays.i32.length) m.arrays.i32 = Seq.ensureCap(m.arrays.i32, ai, acap); m.arrays.i32[ai++] = (int) value; return;
-            case 4: if (ai >= m.arrays.i64.length) m.arrays.i64 = Seq.ensureCap(m.arrays.i64, ai, acap); m.arrays.i64[ai++] = value; return;
+            case 1: if (value < -128L || value > 127L) throw Sofab.invalid("i8 element: value outside declared width i8"); m.arrays.i8[ai++] = (byte) value; return;
+            case 2: if (value < -32768L || value > 32767L) throw Sofab.invalid("i16 element: value outside declared width i16"); m.arrays.i16[ai++] = (short) value; return;
+            case 3: if (value < -2147483648L || value > 2147483647L) throw Sofab.invalid("i32 element: value outside declared width i32"); m.arrays.i32[ai++] = (int) value; return;
+            case 4: m.arrays.i64[ai++] = value; return;
             }
             return;
         }
@@ -240,7 +283,7 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (ai >= m.arrays.nested.fp32.length) m.arrays.nested.fp32 = Seq.ensureCap(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai++] = value; return;
+            case 1: m.arrays.nested.fp32[ai++] = value; return;
             }
             return;
         }
@@ -260,7 +303,7 @@ class ExampleVisitor implements Visitor {
         if (afill != 0) {
             afill--;
             switch (atgt) {
-            case 1: if (ai >= m.arrays.nested.fp64.length) m.arrays.nested.fp64 = Seq.ensureCap(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai++] = value; return;
+            case 1: m.arrays.nested.fp64[ai++] = value; return;
             }
             return;
         }
@@ -275,10 +318,15 @@ class ExampleVisitor implements Visitor {
     }
     @Override
     public void fixlenBegin(int id, FixlenType subtype, int total) {
-        // Decided at the LENGTH WORD, not once payload bytes arrive: S5.2 makes
-        // INVALID dominate INCOMPLETE, so truncating right after this word must
-        // not downgrade the verdict. The subtype test is S7.3 -- a contradicting
-        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        // Decided at the LENGTH WORD, not once payload bytes arrive: a message
+        // that ends right after this word reaches no payload callback at all, and
+        // both verdicts outrank the INCOMPLETE it would otherwise report -- a
+        // schema maxlen because S5.2 makes INVALID dominate, a receiver cap
+        // because S6.2.1 puts it "at the count/length header, before the
+        // allocation it is meant to prevent" and S6.3 makes the refusal terminal.
+        // The subtype test is S7.3 -- a contradicting fixlen kind at this id is a
+        // SKIPPED field, not this field's length, and a skipped field is never
+        // capped.
         if (subtype == FixlenType.STRING) {
             switch (cur) {
             case 1: switch (id) { case 2: if (total > 32) throw Sofab.invalid("str: string length above schema maxlen 32"); break; default: break; } break;
@@ -311,7 +359,7 @@ class ExampleVisitor implements Visitor {
         } break;
         case 4: if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
         }
-        String _s = acc.string(total, offset, data, chunkOffset, chunkLength);
+        String _s = acc.string(total, offset, data, chunkOffset, chunkLength, Bound.SCHEMA_BOUNDED);
         if (_s == null) return;
         switch (cur) {
         case 1: switch (id) {
@@ -321,6 +369,13 @@ class ExampleVisitor implements Visitor {
         }
     }
     public void blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        // A payload this scope does not declare is skipped: its bytes are jumped
+        // over, never inspected. Resolve the destination first and leave before a
+        // byte is buffered, decoded or checked.
+        switch (cur) {
+        case 1: switch (id) { case 3: break; default: return; } break;
+        default: return;
+        }
         // Bounded fields (schema maxlen): a wire byte length above the
         // declared maxlen is malformed input, INVALID before any byte is
         // accumulated -- never a truncation.
@@ -329,7 +384,7 @@ class ExampleVisitor implements Visitor {
             case 3: if (total > 4) throw Sofab.invalid("bytes_field: blob length above schema maxlen 4"); break;
         } break;
         }
-        byte[] _b = acc.blob(total, offset, data, chunkOffset, chunkLength);
+        byte[] _b = acc.blob(total, offset, data, chunkOffset, chunkLength, Bound.SCHEMA_BOUNDED);
         if (_b == null) return;
         switch (cur) {
         case 1: switch (id) {
@@ -339,7 +394,6 @@ class ExampleVisitor implements Visitor {
     }
     public void arrayBegin(int id, ArrayKind kind, int count) {
         ai = 0;
-        acap = count;
         // An array delivered at an id that does not declare one of the SAME
         // array kind is a wire-type contradiction: drop exactly `count` elements
         // and leave the declared field untouched (S7.3). Every arm below that

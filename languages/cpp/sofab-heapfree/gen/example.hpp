@@ -3,9 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include <array>
 #include <span>
-#include <cstring>
 #include <cstddef>
 #include "sofab/sofab.hpp"
 
@@ -89,19 +87,19 @@ struct ExampleNested : sofab::Message {
      * @param is Stream delivering the field.
      * @param id Field identifier.
      */
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
         switch (id) {
         case 0:
-            is.read(f32);
+            sofab::read(is, f32);
             break;
         case 1:
-            is.read(f64);
+            sofab::read(is, f64);
             break;
         case 2:
-            is.readString(str, 32);
+            sofab::readString(is, str, 32);
             break;
         case 3:
-            is.readBlob(bytes_field, 4);
+            sofab::readBlob(is, bytes_field, 4);
             break;
         default: break;
         }
@@ -179,13 +177,13 @@ struct ExampleArraysNested : sofab::Message {
      * @param is Stream delivering the field.
      * @param id Field identifier.
      */
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
         switch (id) {
         case 0:
-            is.readArray(fp32, 5);
+            sofab::readArray(is, fp32, 5);
             break;
         case 1:
-            is.readArray(fp64, 5);
+            sofab::readArray(is, fp64, 5);
             break;
         default: break;
         }
@@ -309,34 +307,34 @@ struct ExampleArrays : sofab::Message {
      * @param is Stream delivering the field.
      * @param id Field identifier.
      */
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
         switch (id) {
         case 0:
-            is.readArray(u8, 5, -1, sofab::ElemBound::of<std::uint8_t>());
+            sofab::readArray(is, u8, 5, sofab::ElemBound::of<std::uint8_t>());
             break;
         case 1:
-            is.readArray(i8, 5, -1, sofab::ElemBound::of<std::int8_t>());
+            sofab::readArray(is, i8, 5, sofab::ElemBound::of<std::int8_t>());
             break;
         case 2:
-            is.readArray(u16, 5, -1, sofab::ElemBound::of<std::uint16_t>());
+            sofab::readArray(is, u16, 5, sofab::ElemBound::of<std::uint16_t>());
             break;
         case 3:
-            is.readArray(i16, 5, -1, sofab::ElemBound::of<std::int16_t>());
+            sofab::readArray(is, i16, 5, sofab::ElemBound::of<std::int16_t>());
             break;
         case 4:
-            is.readArray(u32, 5, -1, sofab::ElemBound::of<std::uint32_t>());
+            sofab::readArray(is, u32, 5, sofab::ElemBound::of<std::uint32_t>());
             break;
         case 5:
-            is.readArray(i32, 5, -1, sofab::ElemBound::of<std::int32_t>());
+            sofab::readArray(is, i32, 5, sofab::ElemBound::of<std::int32_t>());
             break;
         case 6:
-            is.readArray(u64, 5, -1, sofab::ElemBound::of<std::uint64_t>());
+            sofab::readArray(is, u64, 5, sofab::ElemBound::of<std::uint64_t>());
             break;
         case 7:
-            is.readArray(i64, 5, -1, sofab::ElemBound::of<std::int64_t>());
+            sofab::readArray(is, i64, 5, sofab::ElemBound::of<std::int64_t>());
             break;
         case 10:
-            is.read(nested);
+            sofab::read(is, nested);
             break;
         default: break;
         }
@@ -428,7 +426,7 @@ struct Example : sofab::Message {
      * @return The decoded message.
      */
     static Example decode(const std::uint8_t *data, std::size_t len) {
-        sofab::IStreamObject<Example> in;
+        sofab::IStreamObject<Example> in{sofab::Limits{SIZE_MAX}};
         in.feed(data, len);
         return *in;
     }
@@ -452,7 +450,7 @@ struct Example : sofab::Message {
         sofab::IStreamInline *_isp = nullptr;
         sofab::IStreamInline _is{[&out, &_isp](sofab::id _id, std::size_t _size, std::size_t _count) {
             out.deserialize(*_isp, _id, _size, _count);
-        }};
+        }, sofab::Limits{SIZE_MAX}};
         _isp = &_is;
         return _is.feed(data, len);
     }
@@ -537,19 +535,19 @@ struct Example : sofab::Message {
             { std::int64_t _v; if (is.read(_v)) { if (_v < -2147483648 || _v > 2147483647) { is.invalidate(); return; } i32 = static_cast<std::int32_t>(_v); } }
             break;
         case 6:
-            is.read(u64);
+            sofab::read(is, u64);
             break;
         case 7:
-            is.read(i64);
+            sofab::read(is, i64);
             break;
         case 10:
-            is.read(nested);
+            sofab::read(is, nested);
             break;
         case 100:
-            is.read(arrays);
+            sofab::read(is, arrays);
             break;
         case 200:
-            { sofab::StringSeq _r0{string_array, 5, 64}; is.read(_r0); }
+            { sofab::StringSeq _r0{string_array, 5, 64, -1, -1}; sofab::read(is, _r0); }
             break;
         default: break;
         }

@@ -5,6 +5,10 @@ const MESSAGES: Record<string, { fromJSON(d: Record<string, unknown>): { encode(
   "example": M.Example,
 };
 
+const DECODERS: Record<string, { new (): { feed(chunk: Uint8Array): import("@sofa-buffers/corelib").DecodeStatus; readonly status: import("@sofa-buffers/corelib").DecodeStatus; finish(): { toJSON(): Record<string, unknown> } } }> = {
+  "example": M.ExampleDecoder,
+};
+
 // benchMain - see tests/bench/README.md.
 //
 // V8 JIT-compiles the hot path at runtime, so there is no native symbol to
@@ -66,6 +70,25 @@ async function main(): Promise<number> {
     process.stdout.write(obj.encode());
   } else if (mode === "decode") {
     const obj = cls.decode(new Uint8Array(input));
+    process.stdout.write(JSON.stringify(obj.toJSON()) + "\n");
+  } else if (mode === "streamdecode") {
+    const dec = new DECODERS[name]();
+    const one = new Uint8Array(1);
+    let obj;
+    try {
+      for (const b of input) {
+        one[0] = b;
+        const fed = dec.feed(one);
+        if (dec.status !== fed) {
+          throw new Error(`status ${dec.status} disagrees with the feed that set it (${fed})`);
+        }
+      }
+      obj = dec.finish();
+    } catch (e) {
+      process.stderr.write(
+        `decode error: ${String(e)} [status=${dec.status}]\n`);
+      return 1;
+    }
     process.stdout.write(JSON.stringify(obj.toJSON()) + "\n");
   } else if (mode === "recode") {
     const obj = cls.decode(new Uint8Array(input));

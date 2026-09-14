@@ -3,6 +3,42 @@
 use sofab::{OStream, IStream, Visitor, Id, Unsigned, Signed};
 use serde::{Serialize, Deserialize};
 
+/// Why a whole-buffer decode was refused: the error half of a message's
+/// `try_decode` and of `Decoder::finish`.
+///
+/// `sofab::Error` has no INCOMPLETE variant on purpose: running out of
+/// bytes mid-field is an outcome rather than a failure, so `IStream::feed`
+/// hands it back as `Ok(Status::Incomplete)` -- only the caller's framing
+/// can say whether more bytes are still coming. The two entry points above
+/// ARE that framing, so for them a trailing INCOMPLETE is truncation. It
+/// stays distinct from `InvalidMsg`: a truncated message is unfinished,
+/// not malformed, and more bytes would complete it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecodeError {
+    /// The bytes ended inside a field, or with a sequence still open, and
+    /// there are no more: `Status::Incomplete` where that is final.
+    Incomplete,
+    /// Whatever the decode itself refused, in the corelib's own vocabulary:
+    /// malformed bytes, a receiver-side cap (S6.2.1/S6.3), an overflowed
+    /// fixed-capacity field.
+    Sofab(sofab::Error),
+}
+
+impl From<sofab::Error> for DecodeError {
+    fn from(e: sofab::Error) -> Self { DecodeError::Sofab(e) }
+}
+
+impl core::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DecodeError::Incomplete => f.write_str("incomplete message"),
+            DecodeError::Sofab(e) => write!(f, "{:?}", e),
+        }
+    }
+}
+
+impl std::error::Error for DecodeError {}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArrays {
@@ -194,7 +230,10 @@ impl Example {
     pub fn decode(data: &[u8]) -> Self {
         example_dec::decode(data)
     }
-    pub fn try_decode(data: &[u8]) -> Result<Self, sofab::Error> {
+    /// Decode a whole buffer, surfacing the accept/reject verdict --
+    /// a truncated tail included, which is `DecodeError::Incomplete` and
+    /// not a half-filled value.
+    pub fn try_decode(data: &[u8]) -> Result<Self, DecodeError> {
         example_dec::try_decode(data)
     }
     /// An incremental decoder for this message: hold it and feed chunks as
@@ -219,7 +258,7 @@ mod example_dec {
         m
     }
 
-    pub fn try_decode(data: &[u8]) -> Result<Example, sofab::Error> {
+    pub fn try_decode(data: &[u8]) -> Result<Example, DecodeError> {
         let mut m = Example::default();
         let overflow;
         let invalid;
@@ -234,13 +273,17 @@ mod example_dec {
         // A scalar array carried more elements than its schema `count`, an
         // invalid-UTF-8 string, an over-length string/blob, or an over-index
         // wrapper element: INVALID, and it dominates a truncated tail (S5.2).
-        if invalid { return Err(sofab::Error::InvalidMsg); }
-        // No INVALID flag: now surface feed's own verdict (a clean Incomplete
-        // on a truncated-but-otherwise-valid message, or a structural InvalidMsg).
-        fed?;
+        if invalid { return Err(DecodeError::Sofab(sofab::Error::InvalidMsg)); }
+        // Nothing refused above: now surface feed's own verdict. A structural
+        // InvalidMsg rides `?`; Status::Incomplete does NOT -- the corelib leaves
+        // the end-of-input judgement to the caller (S5.2.4) because only the
+        // caller's framing knows whether more bytes come, and this entry point IS
+        // that framing: it was handed the whole buffer, so an Incomplete here is
+        // a truncated message and is rejected, not returned half-filled (S7).
+        if fed? == sofab::Status::Incomplete { return Err(DecodeError::Incomplete); }
         // A fixed-capacity field overflowed during the fill:
         // report it rather than return a silently-truncated value.
-        if overflow { return Err(sofab::Error::BufferFull); }
+        if overflow { return Err(DecodeError::Sofab(sofab::Error::BufferFull)); }
         Ok(m)
     }
 
@@ -249,13 +292,16 @@ mod example_dec {
     /// The wire format has no end marker at the top level -- a message ends
     /// where its bytes end -- so `feed` cannot tell you the message is
     /// complete, and does not try to. Its verdict is about the bytes handed
-    /// in: `Ok(())` means they ended on a clean field boundary (the message
-    /// COULD end here), `Err(Incomplete)` means they ended mid-field. Neither
-    /// is a failure mid-stream. The caller's own framing -- a length prefix, a
-    /// datagram boundary, a closed socket -- decides when to stop; `finish`
-    /// then gives the verdict for the message as a whole.
+    /// in, and it is a `Status`, not an error: `Status::Complete` means they
+    /// ended on a clean field boundary (the message COULD end here),
+    /// `Status::Incomplete` means they ended mid-field. Neither is a failure
+    /// mid-stream, which is why both live in the success arm (S5.2.1). The
+    /// caller's own framing -- a length prefix, a datagram boundary, a closed
+    /// socket -- decides when to stop; `finish` then gives the verdict for the
+    /// message as a whole, and is the only place a trailing `Status::Incomplete`
+    /// becomes the rejection `DecodeError::Incomplete`.
     ///
-    /// Any error other than `Incomplete` is terminal: discard the decoder.
+    /// Every `Err` from `feed` is terminal: discard the decoder.
     pub struct Decoder {
         m: Example,
         is: IStream,
@@ -274,10 +320,11 @@ mod example_dec {
             Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 }
         }
 
-        /// Feed the next chunk. `Ok(())` if it ended on a field boundary,
-        /// `Err(Incomplete)` if it ended mid-field -- see the type docs: neither
-        /// answers whether the MESSAGE is done, only whether these bytes were.
-        pub fn feed(&mut self, chunk: &[u8]) -> Result<(), sofab::Error> {
+        /// Feed the next chunk. `Ok(Status::Complete)` if it ended on a field
+        /// boundary, `Ok(Status::Incomplete)` if it ended mid-field -- see the
+        /// type docs: neither answers whether the MESSAGE is done, only whether
+        /// these bytes were. `Err` is a refusal, and it is terminal.
+        pub fn feed(&mut self, chunk: &[u8]) -> Result<sofab::Status, sofab::Error> {
             let fed = {
                 let mut v = V { m: &mut self.m, stack: core::mem::take(&mut self.stack), cur: self.cur, dead: self.dead, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill };
                 let r = self.is.feed(chunk, &mut v);
@@ -303,13 +350,16 @@ mod example_dec {
         /// is over. Applies the same checks as try_decode, including that the
         /// stream actually ended at a clean boundary -- a truncated message
         /// must be rejected, not returned half-filled.
-        pub fn finish(mut self) -> Result<Example, sofab::Error> {
-            if self.inv { return Err(sofab::Error::InvalidMsg); }
-            // An empty chunk probes end-of-input without supplying any: Ok only
-            // when nothing is half-read. This is what makes a truncated stream
-            // an error here rather than a silently partial value.
-            self.feed(&[])?;
-            if self.err { return Err(sofab::Error::BufferFull); }
+        pub fn finish(mut self) -> Result<Example, DecodeError> {
+            if self.inv { return Err(DecodeError::Sofab(sofab::Error::InvalidMsg)); }
+            // An empty chunk probes end-of-input without supplying any: Complete
+            // only when nothing is half-read. The caller's framing has said the
+            // input is over, so an Incomplete here is truncation -- rejected,
+            // never handed back as a silently partial value (S7).
+            if self.feed(&[])? == sofab::Status::Incomplete {
+                return Err(DecodeError::Incomplete);
+            }
+            if self.err { return Err(DecodeError::Sofab(sofab::Error::BufferFull)); }
             Ok(self.m)
         }
     }
@@ -348,9 +398,9 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 2) => { if value > 65535 { self.inv = true; return; } self.m.u16 = value as u16 },
             (_Loc::Root, 4) => { if value > 4294967295 { self.inv = true; return; } self.m.u32 = value as u32 },
             (_Loc::Root, 6) => { self.m.u64 = value as u64 },
-            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if value > 255 { self.inv = true; return; } { let _ = self.m.arrays.u8.push(value as u8); }; },
-            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if value > 65535 { self.inv = true; return; } { let _ = self.m.arrays.u16.push(value as u16); }; },
-            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if value > 4294967295 { self.inv = true; return; } { let _ = self.m.arrays.u32.push(value as u32); }; },
+            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if value > 255 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.u8.push(value as u8); }; },
+            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if value > 65535 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.u16.push(value as u16); }; },
+            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if value > 4294967295 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.u32.push(value as u32); }; },
             (_Loc::Root_arrays, 6) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.u64.push(value as u64); }; },
             _ => {}
         }
@@ -362,9 +412,9 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 3) => { if value < -32768 || value > 32767 { self.inv = true; return; } self.m.i16 = value as i16 },
             (_Loc::Root, 5) => { if value < -2147483648 || value > 2147483647 { self.inv = true; return; } self.m.i32 = value as i32 },
             (_Loc::Root, 7) => { self.m.i64 = value as i64 },
-            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if value < -128 || value > 127 { self.inv = true; return; } { let _ = self.m.arrays.i8.push(value as i8); }; },
-            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if value < -32768 || value > 32767 { self.inv = true; return; } { let _ = self.m.arrays.i16.push(value as i16); }; },
-            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if value < -2147483648 || value > 2147483647 { self.inv = true; return; } { let _ = self.m.arrays.i32.push(value as i32); }; },
+            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if value < -128 || value > 127 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.i8.push(value as i8); }; },
+            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if value < -32768 || value > 32767 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.i16.push(value as i16); }; },
+            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if value < -2147483648 || value > 2147483647 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.i32.push(value as i32); }; },
             (_Loc::Root_arrays, 7) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.i64.push(value as i64); }; },
             _ => {}
         }
@@ -387,10 +437,14 @@ impl<'a> Visitor for V<'a> {
     }
     fn fixlen_begin(&mut self, id: Id, subtype: FixlenType, total: usize) {
         // Every bound below is fully established by the LENGTH WORD, so it is
-        // decided here rather than once payload bytes arrive: S5.2 makes INVALID
-        // dominate INCOMPLETE, so truncating right after this word must not
-        // downgrade the verdict. The subtype match is S7.3 -- a contradicting
-        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        // decided here rather than once payload bytes arrive: a message that ends
+        // right after this word reaches no payload callback at all, and both
+        // verdicts outrank the INCOMPLETE it would otherwise report -- INVALID by
+        // S5.2, an over-cap length by S6.2.1 ("at the count/length header, before
+        // the allocation it is meant to prevent") and S6.3, which makes the
+        // refusal terminal. The subtype match is S7.3 -- a contradicting fixlen
+        // kind at this id is a SKIPPED field, not this field's length, and a
+        // skipped field is never capped.
         match subtype {
             FixlenType::Str => match (self.cur, id) {
                 (_Loc::Root_nested, 2) => if total > 32 { self.inv = true; return; },
@@ -434,6 +488,13 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn blob(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // A payload this scope does not declare is skipped: its bytes are jumped
+        // over, never inspected. Resolve the destination first and leave before a
+        // byte is buffered, decoded or checked.
+        match (self.cur, id) {
+            (_Loc::Root_nested, 3) => {},
+            _ => return,
+        }
         // Bounded fields: a wire byte length above the schema maxlen is
         // malformed input, INVALID before any bytes accumulate (never truncated).
         match (self.cur, id) {
@@ -496,16 +557,16 @@ impl<'a> Visitor for V<'a> {
             },
         };
         match (kind, self.cur, id) {
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.u8.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.i8.clear() },
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; } self.m.arrays.u16.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; } self.m.arrays.i16.clear() },
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; } self.m.arrays.u32.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; } self.m.arrays.i32.clear() },
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; } self.m.arrays.u64.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; } self.m.arrays.i64.clear() },
-            (ArrayKind::Fp32, _Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp32.clear() },
-            (ArrayKind::Fp64, _Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp64.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u8.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i8.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u16.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i16.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u32.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i32.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u64.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i64.clear() },
+            (ArrayKind::Fp32, _Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.nested.fp32.clear() },
+            (ArrayKind::Fp64, _Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.nested.fp64.clear() },
             _ => {}
         }
     }
