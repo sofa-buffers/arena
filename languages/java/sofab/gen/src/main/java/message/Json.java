@@ -62,7 +62,7 @@ final class Json {
         b.append('{');
         b.append("\"u8\":");
         { b.append('['); for (int _i0 = 0; _i0 < o.u8.length; _i0++) { if (_i0>0) b.append(',');
-            b.append(Long.toUnsignedString(o.u8[_i0]));
+            b.append(Long.toUnsignedString((o.u8[_i0] & 0xFFL)));
         } b.append(']'); }
         b.append(',');
         b.append("\"i8\":");
@@ -72,7 +72,7 @@ final class Json {
         b.append(',');
         b.append("\"u16\":");
         { b.append('['); for (int _i0 = 0; _i0 < o.u16.length; _i0++) { if (_i0>0) b.append(',');
-            b.append(Long.toUnsignedString(o.u16[_i0]));
+            b.append(Long.toUnsignedString((o.u16[_i0] & 0xFFFFL)));
         } b.append(']'); }
         b.append(',');
         b.append("\"i16\":");
@@ -82,7 +82,7 @@ final class Json {
         b.append(',');
         b.append("\"u32\":");
         { b.append('['); for (int _i0 = 0; _i0 < o.u32.length; _i0++) { if (_i0>0) b.append(',');
-            b.append(Long.toUnsignedString(o.u32[_i0]));
+            b.append(Long.toUnsignedString((o.u32[_i0] & 0xFFFFFFFFL)));
         } b.append(']'); }
         b.append(',');
         b.append("\"i32\":");
@@ -107,28 +107,28 @@ final class Json {
     static void from(JsonObject j, ExampleArrays o) {
         JsonElement e;
         e = j.get("u8"); if (e != null && !e.isJsonNull()) {
-            JsonArray _a0 = e.getAsJsonArray(); o.u8 = new long[_a0.size()];
-            for (int _k0 = 0; _k0 < o.u8.length; _k0++) o.u8[_k0] = _a0.get(_k0).getAsLong();
+            JsonArray _a0 = e.getAsJsonArray(); o.u8 = new byte[_a0.size()];
+            for (int _k0 = 0; _k0 < o.u8.length; _k0++) o.u8[_k0] = (byte) _a0.get(_k0).getAsLong();
         }
         e = j.get("i8"); if (e != null && !e.isJsonNull()) {
-            JsonArray _a0 = e.getAsJsonArray(); o.i8 = new long[_a0.size()];
-            for (int _k0 = 0; _k0 < o.i8.length; _k0++) o.i8[_k0] = _a0.get(_k0).getAsLong();
+            JsonArray _a0 = e.getAsJsonArray(); o.i8 = new byte[_a0.size()];
+            for (int _k0 = 0; _k0 < o.i8.length; _k0++) o.i8[_k0] = (byte) _a0.get(_k0).getAsLong();
         }
         e = j.get("u16"); if (e != null && !e.isJsonNull()) {
-            JsonArray _a0 = e.getAsJsonArray(); o.u16 = new long[_a0.size()];
-            for (int _k0 = 0; _k0 < o.u16.length; _k0++) o.u16[_k0] = _a0.get(_k0).getAsLong();
+            JsonArray _a0 = e.getAsJsonArray(); o.u16 = new short[_a0.size()];
+            for (int _k0 = 0; _k0 < o.u16.length; _k0++) o.u16[_k0] = (short) _a0.get(_k0).getAsLong();
         }
         e = j.get("i16"); if (e != null && !e.isJsonNull()) {
-            JsonArray _a0 = e.getAsJsonArray(); o.i16 = new long[_a0.size()];
-            for (int _k0 = 0; _k0 < o.i16.length; _k0++) o.i16[_k0] = _a0.get(_k0).getAsLong();
+            JsonArray _a0 = e.getAsJsonArray(); o.i16 = new short[_a0.size()];
+            for (int _k0 = 0; _k0 < o.i16.length; _k0++) o.i16[_k0] = (short) _a0.get(_k0).getAsLong();
         }
         e = j.get("u32"); if (e != null && !e.isJsonNull()) {
-            JsonArray _a0 = e.getAsJsonArray(); o.u32 = new long[_a0.size()];
-            for (int _k0 = 0; _k0 < o.u32.length; _k0++) o.u32[_k0] = _a0.get(_k0).getAsLong();
+            JsonArray _a0 = e.getAsJsonArray(); o.u32 = new int[_a0.size()];
+            for (int _k0 = 0; _k0 < o.u32.length; _k0++) o.u32[_k0] = (int) _a0.get(_k0).getAsLong();
         }
         e = j.get("i32"); if (e != null && !e.isJsonNull()) {
-            JsonArray _a0 = e.getAsJsonArray(); o.i32 = new long[_a0.size()];
-            for (int _k0 = 0; _k0 < o.i32.length; _k0++) o.i32[_k0] = _a0.get(_k0).getAsLong();
+            JsonArray _a0 = e.getAsJsonArray(); o.i32 = new int[_a0.size()];
+            for (int _k0 = 0; _k0 < o.i32.length; _k0++) o.i32[_k0] = (int) _a0.get(_k0).getAsLong();
         }
         e = j.get("u64"); if (e != null && !e.isJsonNull()) {
             JsonArray _a0 = e.getAsJsonArray(); o.u64 = new long[_a0.size()];

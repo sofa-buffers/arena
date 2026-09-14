@@ -3,16 +3,60 @@
 use sofab::{OStream, IStream, Visitor, Id, Unsigned, Signed};
 use serde::{Serialize, Deserialize};
 
+/// Why a whole-buffer decode was refused: the error half of a message's
+/// `try_decode` and of `Decoder::finish`.
+///
+/// `sofab::Error` has no INCOMPLETE variant on purpose: running out of
+/// bytes mid-field is an outcome rather than a failure, so `IStream::feed`
+/// hands it back as `Ok(Status::Incomplete)` -- only the caller's framing
+/// can say whether more bytes are still coming. The two entry points above
+/// ARE that framing, so for them a trailing INCOMPLETE is truncation. It
+/// stays distinct from `InvalidMsg`: a truncated message is unfinished,
+/// not malformed, and more bytes would complete it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecodeError {
+    /// The bytes ended inside a field, or with a sequence still open, and
+    /// there are no more: `Status::Incomplete` where that is final.
+    Incomplete,
+    /// Whatever the decode itself refused, in the corelib's own vocabulary:
+    /// malformed bytes, a receiver-side cap (S6.2.1/S6.3), an overflowed
+    /// fixed-capacity field.
+    Sofab(sofab::Error),
+}
+
+impl From<sofab::Error> for DecodeError {
+    fn from(e: sofab::Error) -> Self { DecodeError::Sofab(e) }
+}
+
+impl core::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DecodeError::Incomplete => f.write_str("incomplete message"),
+            DecodeError::Sofab(e) => write!(f, "{:?}", e),
+        }
+    }
+}
+
+impl std::error::Error for DecodeError {}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArrays {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u8: heapless::Vec<u8, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i8: heapless::Vec<i8, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u16: heapless::Vec<u16, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i16: heapless::Vec<i16, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u32: heapless::Vec<u32, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i32: heapless::Vec<i32, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub u64: heapless::Vec<u64, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub i64: heapless::Vec<i64, 5>,
     pub nested: ExampleArraysNested,
 }
@@ -66,7 +110,9 @@ impl ExampleArrays {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExampleArraysNested {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub fp32: heapless::Vec<f32, 5>,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     pub fp64: heapless::Vec<f64, 5>,
 }
 
@@ -95,7 +141,9 @@ impl ExampleArraysNested {
 pub struct ExampleNested {
     pub f32: f32,
     pub f64: f64,
+    /// Schema bound: maxlen 32 -- the capacity is in the type; a longer value is INVALID, never truncated.
     pub str: heapless::String<32>,
+    /// Schema bound: maxlen 4 -- the capacity is in the type; a longer value is INVALID, never truncated.
     pub bytes_field: heapless::Vec<u8, 4>,
 }
 
@@ -133,6 +181,7 @@ pub struct Example {
     pub i64: i64,
     pub nested: ExampleNested,
     pub arrays: ExampleArrays,
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire. Element maxlen 64, same rule.
     pub string_array: heapless::Vec<heapless::String<64>, 5>,
 }
 
@@ -181,7 +230,10 @@ impl Example {
     pub fn decode(data: &[u8]) -> Self {
         example_dec::decode(data)
     }
-    pub fn try_decode(data: &[u8]) -> Result<Self, sofab::Error> {
+    /// Decode a whole buffer, surfacing the accept/reject verdict --
+    /// a truncated tail included, which is `DecodeError::Incomplete` and
+    /// not a half-filled value.
+    pub fn try_decode(data: &[u8]) -> Result<Self, DecodeError> {
         example_dec::try_decode(data)
     }
     /// An incremental decoder for this message: hold it and feed chunks as
@@ -194,25 +246,25 @@ impl Example {
 pub use example_dec::Decoder as ExampleDecoder;
 mod example_dec {
     use super::*;
-    use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind};
+    use sofab::{IStream, Visitor, Id, Unsigned, Signed, ArrayKind, FixlenType};
 
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             let _ = is.feed(data, &mut v);
         }
         m
     }
 
-    pub fn try_decode(data: &[u8]) -> Result<Example, sofab::Error> {
+    pub fn try_decode(data: &[u8]) -> Result<Example, DecodeError> {
         let mut m = Example::default();
         let overflow;
         let invalid;
         let fed;
         {
-            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = V { m: &mut m, stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
             let mut is = IStream::new();
             fed = is.feed(data, &mut v);
             overflow = v.err;
@@ -221,13 +273,17 @@ mod example_dec {
         // A scalar array carried more elements than its schema `count`, an
         // invalid-UTF-8 string, an over-length string/blob, or an over-index
         // wrapper element: INVALID, and it dominates a truncated tail (S5.2).
-        if invalid { return Err(sofab::Error::InvalidMsg); }
-        // No INVALID flag: now surface feed's own verdict (a clean Incomplete
-        // on a truncated-but-otherwise-valid message, or a structural InvalidMsg).
-        fed?;
+        if invalid { return Err(DecodeError::Sofab(sofab::Error::InvalidMsg)); }
+        // Nothing refused above: now surface feed's own verdict. A structural
+        // InvalidMsg rides `?`; Status::Incomplete does NOT -- the corelib leaves
+        // the end-of-input judgement to the caller (S5.2.4) because only the
+        // caller's framing knows whether more bytes come, and this entry point IS
+        // that framing: it was handed the whole buffer, so an Incomplete here is
+        // a truncated message and is rejected, not returned half-filled (S7).
+        if fed? == sofab::Status::Incomplete { return Err(DecodeError::Incomplete); }
         // A fixed-capacity field overflowed during the fill:
         // report it rather than return a silently-truncated value.
-        if overflow { return Err(sofab::Error::BufferFull); }
+        if overflow { return Err(DecodeError::Sofab(sofab::Error::BufferFull)); }
         Ok(m)
     }
 
@@ -236,20 +292,23 @@ mod example_dec {
     /// The wire format has no end marker at the top level -- a message ends
     /// where its bytes end -- so `feed` cannot tell you the message is
     /// complete, and does not try to. Its verdict is about the bytes handed
-    /// in: `Ok(())` means they ended on a clean field boundary (the message
-    /// COULD end here), `Err(Incomplete)` means they ended mid-field. Neither
-    /// is a failure mid-stream. The caller's own framing -- a length prefix, a
-    /// datagram boundary, a closed socket -- decides when to stop; `finish`
-    /// then gives the verdict for the message as a whole.
+    /// in, and it is a `Status`, not an error: `Status::Complete` means they
+    /// ended on a clean field boundary (the message COULD end here),
+    /// `Status::Incomplete` means they ended mid-field. Neither is a failure
+    /// mid-stream, which is why both live in the success arm (S5.2.1). The
+    /// caller's own framing -- a length prefix, a datagram boundary, a closed
+    /// socket -- decides when to stop; `finish` then gives the verdict for the
+    /// message as a whole, and is the only place a trailing `Status::Incomplete`
+    /// becomes the rejection `DecodeError::Incomplete`.
     ///
-    /// Any error other than `Incomplete` is terminal: discard the decoder.
+    /// Every `Err` from `feed` is terminal: discard the decoder.
     pub struct Decoder {
         m: Example,
         is: IStream,
         stack: Vec<_Loc>,
         cur: _Loc,
         dead: u16,
-        acc: Vec<u8>,
+        acc: sofab::PayloadAcc,
         err: bool,
         inv: bool,
         askip: usize,
@@ -258,13 +317,14 @@ mod example_dec {
 
     impl Decoder {
         pub fn new() -> Self {
-            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: Vec::new(), err: false, inv: false, askip: 0, afill: 0 }
+            Self { m: Example::default(), is: IStream::new(), stack: Vec::new(), cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 }
         }
 
-        /// Feed the next chunk. `Ok(())` if it ended on a field boundary,
-        /// `Err(Incomplete)` if it ended mid-field -- see the type docs: neither
-        /// answers whether the MESSAGE is done, only whether these bytes were.
-        pub fn feed(&mut self, chunk: &[u8]) -> Result<(), sofab::Error> {
+        /// Feed the next chunk. `Ok(Status::Complete)` if it ended on a field
+        /// boundary, `Ok(Status::Incomplete)` if it ended mid-field -- see the
+        /// type docs: neither answers whether the MESSAGE is done, only whether
+        /// these bytes were. `Err` is a refusal, and it is terminal.
+        pub fn feed(&mut self, chunk: &[u8]) -> Result<sofab::Status, sofab::Error> {
             let fed = {
                 let mut v = V { m: &mut self.m, stack: core::mem::take(&mut self.stack), cur: self.cur, dead: self.dead, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill };
                 let r = self.is.feed(chunk, &mut v);
@@ -290,13 +350,16 @@ mod example_dec {
         /// is over. Applies the same checks as try_decode, including that the
         /// stream actually ended at a clean boundary -- a truncated message
         /// must be rejected, not returned half-filled.
-        pub fn finish(mut self) -> Result<Example, sofab::Error> {
-            if self.inv { return Err(sofab::Error::InvalidMsg); }
-            // An empty chunk probes end-of-input without supplying any: Ok only
-            // when nothing is half-read. This is what makes a truncated stream
-            // an error here rather than a silently partial value.
-            self.feed(&[])?;
-            if self.err { return Err(sofab::Error::BufferFull); }
+        pub fn finish(mut self) -> Result<Example, DecodeError> {
+            if self.inv { return Err(DecodeError::Sofab(sofab::Error::InvalidMsg)); }
+            // An empty chunk probes end-of-input without supplying any: Complete
+            // only when nothing is half-read. The caller's framing has said the
+            // input is over, so an Incomplete here is truncation -- rejected,
+            // never handed back as a silently partial value (S7).
+            if self.feed(&[])? == sofab::Status::Incomplete {
+                return Err(DecodeError::Incomplete);
+            }
+            if self.err { return Err(DecodeError::Sofab(sofab::Error::BufferFull)); }
             Ok(self.m)
         }
     }
@@ -320,7 +383,7 @@ struct V<'a> {
     stack: Vec<_Loc>,
     cur: _Loc,
     dead: u16, // depth of the skipped subtree cur sits in (see sequence_begin)
-    acc: Vec<u8>,
+    acc: sofab::PayloadAcc,
     err: bool,
     inv: bool,
     askip: usize, // elements left to discard from a wire-type-contradictory array
@@ -335,9 +398,9 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 2) => { if value > 65535 { self.inv = true; return; } self.m.u16 = value as u16 },
             (_Loc::Root, 4) => { if value > 4294967295 { self.inv = true; return; } self.m.u32 = value as u32 },
             (_Loc::Root, 6) => { self.m.u64 = value as u64 },
-            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if value > 255 { self.inv = true; return; } { let _ = self.m.arrays.u8.push(value as u8); }; },
-            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if value > 65535 { self.inv = true; return; } { let _ = self.m.arrays.u16.push(value as u16); }; },
-            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if value > 4294967295 { self.inv = true; return; } { let _ = self.m.arrays.u32.push(value as u32); }; },
+            (_Loc::Root_arrays, 0) => { if self.afill == 0 { return; } self.afill -= 1; if value > 255 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.u8.push(value as u8); }; },
+            (_Loc::Root_arrays, 2) => { if self.afill == 0 { return; } self.afill -= 1; if value > 65535 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.u16.push(value as u16); }; },
+            (_Loc::Root_arrays, 4) => { if self.afill == 0 { return; } self.afill -= 1; if value > 4294967295 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.u32.push(value as u32); }; },
             (_Loc::Root_arrays, 6) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.u64.push(value as u64); }; },
             _ => {}
         }
@@ -349,9 +412,9 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root, 3) => { if value < -32768 || value > 32767 { self.inv = true; return; } self.m.i16 = value as i16 },
             (_Loc::Root, 5) => { if value < -2147483648 || value > 2147483647 { self.inv = true; return; } self.m.i32 = value as i32 },
             (_Loc::Root, 7) => { self.m.i64 = value as i64 },
-            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if value < -128 || value > 127 { self.inv = true; return; } { let _ = self.m.arrays.i8.push(value as i8); }; },
-            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if value < -32768 || value > 32767 { self.inv = true; return; } { let _ = self.m.arrays.i16.push(value as i16); }; },
-            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if value < -2147483648 || value > 2147483647 { self.inv = true; return; } { let _ = self.m.arrays.i32.push(value as i32); }; },
+            (_Loc::Root_arrays, 1) => { if self.afill == 0 { return; } self.afill -= 1; if value < -128 || value > 127 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.i8.push(value as i8); }; },
+            (_Loc::Root_arrays, 3) => { if self.afill == 0 { return; } self.afill -= 1; if value < -32768 || value > 32767 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.i16.push(value as i16); }; },
+            (_Loc::Root_arrays, 5) => { if self.afill == 0 { return; } self.afill -= 1; if value < -2147483648 || value > 2147483647 { self.inv = true; self.afill = 0; return; } { let _ = self.m.arrays.i32.push(value as i32); }; },
             (_Loc::Root_arrays, 7) => { if self.afill == 0 { return; } self.afill -= 1; { let _ = self.m.arrays.i64.push(value as i64); }; },
             _ => {}
         }
@@ -372,6 +435,29 @@ impl<'a> Visitor for V<'a> {
             _ => {}
         }
     }
+    fn fixlen_begin(&mut self, id: Id, subtype: FixlenType, total: usize) {
+        // Every bound below is fully established by the LENGTH WORD, so it is
+        // decided here rather than once payload bytes arrive: a message that ends
+        // right after this word reaches no payload callback at all, and both
+        // verdicts outrank the INCOMPLETE it would otherwise report -- INVALID by
+        // S5.2, an over-cap length by S6.2.1 ("at the count/length header, before
+        // the allocation it is meant to prevent") and S6.3, which makes the
+        // refusal terminal. The subtype match is S7.3 -- a contradicting fixlen
+        // kind at this id is a SKIPPED field, not this field's length, and a
+        // skipped field is never capped.
+        match subtype {
+            FixlenType::Str => match (self.cur, id) {
+                (_Loc::Root_nested, 2) => if total > 32 { self.inv = true; return; },
+                (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } if total > 64 { self.inv = true; return; } },
+                _ => {}
+            },
+            FixlenType::Blob => match (self.cur, id) {
+                (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
+                _ => {}
+            },
+            _ => {}
+        }
+    }
     fn string(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
         // A payload this scope does not declare is skipped: its bytes are jumped
         // over, never inspected. Resolve the destination first and leave before a
@@ -388,14 +474,13 @@ impl<'a> Visitor for V<'a> {
             (_Loc::Root_string_array, _) => if total > 64 { self.inv = true; return; },
             _ => {}
         }
-        if offset == 0 { self.acc.clear(); }
-        let _s = if offset == 0 && chunk.len() >= total {
-            match core::str::from_utf8(&chunk[..total]) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } }
-        } else {
-            let _ = self.acc.extend_from_slice(chunk);
-            if self.acc.len() < total { return; }
-            match core::str::from_utf8(&self.acc[..total]) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } }
-        };
+        // A Rust string type is Unicode, so a string is always strict. Invalid
+        // UTF-8 is the INVALID decode outcome (self.inv -> Error::InvalidMsg),
+        // never a lossy U+FFFD and never empty; the two Rust profiles agree
+        // (subsumes #80). The verdict is passed on the ASSEMBLED payload, which
+        // is why it sits after the feed and not per chunk.
+        let _p = match self.acc.feed(total, offset, chunk) { Some(_v) => _v, None => return };
+        let _s = match core::str::from_utf8(_p) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }
             (_Loc::Root_string_array, _) => { if id as usize >= 5 { self.inv = true; return; } while self.m.string_array.len() <= id as usize { let _n = self.m.string_array.len(); let _ = self.m.string_array.push(Default::default()); if self.m.string_array.len() == _n { break; } } if let Some(_e) = self.m.string_array.get_mut(id as usize) { _e.clear(); let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } }
@@ -403,20 +488,20 @@ impl<'a> Visitor for V<'a> {
         }
     }
     fn blob(&mut self, id: Id, total: usize, offset: usize, chunk: &[u8]) {
+        // A payload this scope does not declare is skipped: its bytes are jumped
+        // over, never inspected. Resolve the destination first and leave before a
+        // byte is buffered, decoded or checked.
+        match (self.cur, id) {
+            (_Loc::Root_nested, 3) => {},
+            _ => return,
+        }
         // Bounded fields: a wire byte length above the schema maxlen is
         // malformed input, INVALID before any bytes accumulate (never truncated).
         match (self.cur, id) {
             (_Loc::Root_nested, 3) => if total > 4 { self.inv = true; return; },
             _ => {}
         }
-        if offset == 0 { self.acc.clear(); }
-        let _b: &[u8] = if offset == 0 && chunk.len() >= total {
-            &chunk[..total]
-        } else {
-            let _ = self.acc.extend_from_slice(chunk);
-            if self.acc.len() < total { return; }
-            &self.acc[..total]
-        };
+        let _b = match self.acc.feed(total, offset, chunk) { Some(_v) => _v, None => return };
         match (self.cur, id) {
             (_Loc::Root_nested, 3) => { self.m.nested.bytes_field.clear(); let _ = self.m.nested.bytes_field.extend_from_slice(_b); if self.m.nested.bytes_field.len() != total { self.err = true; } }
             _ => {}
@@ -472,16 +557,16 @@ impl<'a> Visitor for V<'a> {
             },
         };
         match (kind, self.cur, id) {
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.u8.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.i8.clear() },
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; return; } self.m.arrays.u16.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; return; } self.m.arrays.i16.clear() },
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; return; } self.m.arrays.u32.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; return; } self.m.arrays.i32.clear() },
-            (ArrayKind::Unsigned, _Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; return; } self.m.arrays.u64.clear() },
-            (ArrayKind::Signed, _Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; return; } self.m.arrays.i64.clear() },
-            (ArrayKind::Fp32, _Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp32.clear() },
-            (ArrayKind::Fp64, _Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; return; } self.m.arrays.nested.fp64.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 0) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u8.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 1) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i8.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 2) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u16.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 3) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i16.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 4) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u32.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 5) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i32.clear() },
+            (ArrayKind::Unsigned, _Loc::Root_arrays, 6) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.u64.clear() },
+            (ArrayKind::Signed, _Loc::Root_arrays, 7) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.i64.clear() },
+            (ArrayKind::Fp32, _Loc::Root_arrays_nested, 0) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.nested.fp32.clear() },
+            (ArrayKind::Fp64, _Loc::Root_arrays_nested, 1) => { if count > 5 { self.inv = true; self.afill = 0; return; } self.m.arrays.nested.fp64.clear() },
             _ => {}
         }
     }

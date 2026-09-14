@@ -137,65 +137,73 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
     };
     if (obj.get("u8")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]u8 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u8.items[k0] = @intCast(jsonU64(it0));
-            o.u8.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @intCast(jsonU64(it0));
+            o.u8.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("i8")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]i8 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i8.items[k0] = @intCast(jsonI64(it0));
-            o.i8.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @intCast(jsonI64(it0));
+            o.i8.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("u16")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]u16 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u16.items[k0] = @intCast(jsonU64(it0));
-            o.u16.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @intCast(jsonU64(it0));
+            o.u16.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("i16")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]i16 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i16.items[k0] = @intCast(jsonI64(it0));
-            o.i16.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @intCast(jsonI64(it0));
+            o.i16.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("u32")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]u32 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u32.items[k0] = @intCast(jsonU64(it0));
-            o.u32.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @intCast(jsonU64(it0));
+            o.u32.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("i32")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]i32 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i32.items[k0] = @intCast(jsonI64(it0));
-            o.i32.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @intCast(jsonI64(it0));
+            o.i32.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("u64")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]u64 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.u64.items[k0] = jsonU64(it0);
-            o.u64.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = jsonU64(it0);
+            o.u64.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("i64")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]i64 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.i64.items[k0] = jsonI64(it0);
-            o.i64.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = jsonI64(it0);
+            o.i64.set(t0[0..n0]);
         },
         else => {},
     };
@@ -231,17 +239,19 @@ fn fromJson_ExampleArraysNested(alloc: std.mem.Allocator, v: std.json.Value) mes
     _ = alloc;
     if (obj.get("fp32")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]f32 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.fp32.items[k0] = @floatCast(jsonF64(it0));
-            o.fp32.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = @floatCast(jsonF64(it0));
+            o.fp32.set(t0[0..n0]);
         },
         else => {},
     };
     if (obj.get("fp64")) |x| switch (x) {
         .array => |a0| {
+            var t0: [5]f64 = undefined;
             const n0 = @min(a0.items.len, 5);
-            for (a0.items[0..n0], 0..) |it0, k0| o.fp64.items[k0] = jsonF64(it0);
-            o.fp64.len = n0;
+            for (a0.items[0..n0], 0..) |it0, k0| t0[k0] = jsonF64(it0);
+            o.fp64.set(t0[0..n0]);
         },
         else => {},
     };
@@ -393,6 +403,24 @@ pub fn main(init: std.process.Init) !void {
             try out.writeAll(try obj.encode(alloc));
         } else if (std.mem.eql(u8, mode, "decode")) {
             const obj = try message.Example.decode(alloc, input);
+            try toJson_Example(&obj, out);
+            try out.writeByte('\n');
+        } else if (std.mem.eql(u8, mode, "streamdecode")) {
+            var obj: message.Example = .{};
+            var dec = message.Example.decoder(&obj, alloc);
+            for (input) |b| {
+                const fed = dec.feed(&[_]u8{b}) catch |e| {
+                    std.debug.print("decode error: {s} [status={s}]\n",
+                                    .{ @errorName(e), @tagName(dec.status()) });
+                    std.process.exit(1);
+                };
+                if (dec.status() != fed) return error.StatusDisagreesWithFeed;
+            }
+            dec.finish() catch |e| {
+                std.debug.print("decode error: {s} [status={s}]\n",
+                                .{ @errorName(e), @tagName(dec.status()) });
+                std.process.exit(1);
+            };
             try toJson_Example(&obj, out);
             try out.writeByte('\n');
         } else {

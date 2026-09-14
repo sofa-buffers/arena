@@ -3,88 +3,25 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include <array>
 #include <span>
-#include <cstring>
 #include <cstddef>
-#include <type_traits>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
     "SofaBuffers: generated against C++ API v1, but the linked corelib differs.");
 
-#ifndef SOFABGEN_WRAPPER_SEQ_HELPERS
-#define SOFABGEN_WRAPPER_SEQ_HELPERS
-/// Wrapper-array element helpers shared by every sofabgen-generated header.
-namespace sofabgen {
-
-/**
- * @brief Collects an array of strings, blobs, structs, unions or rows, placing
- *        each element at the index its own id names.
- *
- * Such an array travels as a sequence whose child id IS the element's index, so
- * an element is stored at `dest[id]` -- never appended. The ids may have gaps:
- * an INTERIOR element equal to the element default is left off the wire, and the
- * gap it leaves is filled with that default. Appending instead would shorten the
- * array by the size of every gap, and would turn a repeated element id into a
- * second element instead of continuing the first one. The array's LAST element
- * is always on the wire, so the decoded length -- highest present id + 1 -- is
- * exact.
- *
- * The schema `count` N is a CAPACITY, not a length: it bounds the array -- an
- * index at or past N is rejected as a malformed message, before the container
- * grows, which also bounds the gap fill against an over-index amplification --
- * but it never adds an element the wire did not carry.
- *
- * @tparam Container Destination container; its `value_type` is the element type.
- */
-template <typename Container>
-struct WrapperSeq : sofab::IStreamMessage {
-    using Elem = typename Container::value_type;
-    Container *out = nullptr;  ///< Destination, bound by the generated read.
-    long cap = -1;             ///< Schema `count`, or -1 when the array has none.
-
-    /**
-     * @brief Empty the destination before collecting into it.
-     *
-     * The sequence IS the array's value, so a field id occurring twice replaces
-     * the array rather than extending it. This runs only once the field is known
-     * to be a sequence, so an occurrence skipped for a contradicting wire type
-     * cannot wipe a valid earlier one.
-     */
-    void prepare() noexcept { if (out != nullptr) { out->clear(); } }
-
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t count) noexcept override {
-        /* The two corelibs put the wire tag enum in different scopes; decltype
-         * names neither. */
-        using Tag = decltype(is.wire());
-        if constexpr (std::is_base_of_v<sofab::IStreamMessage, Elem>) {
-            /* An element whose wire type contradicts the declared one is skipped
-             * exactly like an unknown id -- which means it must leave the
-             * container untouched, so the decision comes before the fill below. */
-            if (is.wire() != Tag::SequenceStart) { return; }
-        }
-        if (cap >= 0 && static_cast<long>(id) >= cap) { is.invalidate(); return; }
-        while (out->size() <= static_cast<std::size_t>(id)) { (void)out->emplace_back(); }
-        Elem &row = (*out)[static_cast<std::size_t>(id)];
-        /* A row that is itself a count-less array is filled only up to its
-         * current size, so size it to the row's element count first. Struct,
-         * union and fixed-length rows have no resize(). */
-        if constexpr (requires { row.resize(count); } && !std::is_base_of_v<sofab::IStreamMessage, Elem>) {
-            row.resize(count);
-        }
-        is.read(row);
-    }
-};
-
-} // namespace sofabgen
-#endif // SOFABGEN_WRAPPER_SEQ_HELPERS
+/* --- value-width guard: field ids must fit the corelib's id ceiling --- */
+#if 200 > SOFAB_ID_MAX
+# error "SofaBuffers: field ids in example exceed SOFAB_ID_MAX for this value width (see SOFAB_DISABLE_INT64_SUPPORT)."
+#endif
 
 namespace fullscale {
 
 struct ExampleNested : sofab::Message {
     double f64 = 0.0;
+    /// Schema bound: maxlen 32 -- the capacity is in the type; a longer value is INVALID, never truncated.
     sofab::FixedString<32> str = "";
+    /// Schema bound: maxlen 4 -- the capacity is in the type; a longer value is INVALID, never truncated.
     sofab::FixedBytes<4> bytes_field = {};
     float f32 = 0.0f;
 
@@ -175,7 +112,9 @@ struct ExampleNested : sofab::Message {
 };
 
 struct ExampleArraysNested : sofab::Message {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<float, 5> fp32 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<double, 5> fp64 = {};
 
     /**
@@ -257,13 +196,21 @@ struct ExampleArraysNested : sofab::Message {
 };
 
 struct ExampleArrays : sofab::Message {
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::uint8_t, 5> u8 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::int8_t, 5> i8 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::uint16_t, 5> u16 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::int16_t, 5> i16 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::uint32_t, 5> u32 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::int32_t, 5> i32 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::uint64_t, 5> u64 = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     sofab::InlineVector<std::int64_t, 5> i64 = {};
     ExampleArraysNested nested = {};
 
@@ -405,6 +352,7 @@ struct Example : sofab::Message {
     std::int64_t i64 = 0;
     ExampleNested nested = {};
     ExampleArrays arrays = {};
+    /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire. Element maxlen 64, same rule.
     sofab::InlineVector<sofab::FixedString<64>, 5> string_array = {};
     std::uint32_t u32 = 0;
     std::int32_t i32 = 0;
@@ -447,12 +395,15 @@ struct Example : sofab::Message {
 
     /**
      * @brief Encode this message into a new byte vector.
-     * @return The encoded bytes (empty if the message encodes to nothing).
+     * @return The encoded bytes. Empty if the message encodes to nothing,
+     *         and also empty if the encode was refused -- use encodeTo() when
+     *         the two need telling apart.
      */
     std::vector<std::uint8_t> encode() const {
         std::vector<std::uint8_t> out(_maxSize);
         sofab::OStreamView os{out.data(), out.size()};
         serialize(os);
+        if (!os.ok()) { return {}; }
         out.resize(os.bytesUsed());
         return out;
     }

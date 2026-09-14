@@ -23,9 +23,10 @@ function parseStatePreserveBigInts(text: string): Record<string, unknown> {
 }
 
 function encode(src: Example): Uint8Array {
-  const os = new OStream();
-  src.serialize(os);
-  return os.bytes();
+  // The generated encode() sizes its own buffer from the schema's worst case
+  // (Example.MAX_SIZE) — corelib-ts has no self-growing OStream: an OStream
+  // always writes into a buffer its caller owns.
+  return src.encode();
 }
 
 function main(): number {
@@ -50,9 +51,11 @@ function main(): number {
   const iters = parseInt(process.env.BENCH_ITERS ?? "500000", 10);
 
   // Pool a single OStream across encodes via reset() (corelib-ts) — the buffer
-  // is hoisted out of the timed region, matching the bench contract and how
-  // protobufjs internally reuses its writer.
-  const os = new OStream();
+  // it writes into is allocated here, outside the timed region, matching the
+  // bench contract and how protobufjs internally reuses its writer. One
+  // MAX_SIZE buffer is what the generated encode() allocates per call; hoisting
+  // it out is the pooled form of exactly that.
+  const os = new OStream(new Uint8Array(Example.MAX_SIZE));
 
   // Warm the JIT (same chained shape as the timed loop).
   for (let i = 0; i < 10000; i++) {

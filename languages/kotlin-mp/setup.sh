@@ -14,9 +14,15 @@ CORELIB="$ROOT/vendor/corelib-kotlin-mp"
 # file — so every Gradle invocation here runs on the JDK 21 the devcontainer
 # installs alongside it. Only the BUILD is pinned to 21: bench.sh runs the
 # harnesses on the default JVM, the same one the java target is measured on.
-GRADLE_JAVA_HOME="${GRADLE_JAVA_HOME:-$(ls -d /usr/lib/jvm/java-21-openjdk-* 2>/dev/null | head -1)}"
+# `|| true`: with no match `ls` exits non-zero, and under `set -e` + `pipefail`
+# that aborts the whole script AT THE ASSIGNMENT — silently, before the
+# diagnostic below ever runs (the runner then logs an empty setup log and a bare
+# exit 2). Let the assignment succeed empty and let the check do the talking.
+GRADLE_JAVA_HOME="${GRADLE_JAVA_HOME:-$(ls -d /usr/lib/jvm/java-21-openjdk-* 2>/dev/null | head -1 || true)}"
 if [ ! -x "${GRADLE_JAVA_HOME:-}/bin/java" ]; then
-    echo "kotlin-mp: no JDK <= 24 found for Gradle; set GRADLE_JAVA_HOME" >&2
+    echo "kotlin-mp: no JDK <= 24 found for Gradle (looked for" \
+         "/usr/lib/jvm/java-21-openjdk-*); install openjdk-21-jdk-headless as" \
+         ".devcontainer/Dockerfile does, or set GRADLE_JAVA_HOME" >&2
     exit 1
 fi
 export JAVA_HOME="$GRADLE_JAVA_HOME"

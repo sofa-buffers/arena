@@ -111,25 +111,52 @@ public class Example {
         private val m = Example()
         private val ist = IStream()
         private val v = ExampleVisitor(m)
+        // What the last feed answered. The stream publishes its outcome once, as
+        // feed's return value, and offers no accessor to ask a second time, so the
+        // caller is the one that remembers -- and this decoder is the caller.
+        // COMPLETE before the first feed: an all-default message is zero bytes, so
+        // a stream that has been fed nothing ended on a field boundary.
+        private var st: DecodeStatus = DecodeStatus.COMPLETE
 
         /**
          * Feed the next chunk, of any size.
          *
          * @throws SofabException the bytes are malformed (INVALID); terminal.
          */
-        public fun feed(chunk: ByteArray): DecodeStatus {
-            ist.feed(chunk, v)
-            return ist.status
-        }
+        public fun feed(chunk: ByteArray): DecodeStatus = feed(chunk, 0, chunk.size)
 
         /** As [feed], over a slice of [chunk]. */
         public fun feed(chunk: ByteArray, off: Int, len: Int): DecodeStatus {
-            ist.feed(chunk, off, len, v)
-            return ist.status
+            try {
+                st = ist.feed(chunk, off, len, v)
+            } catch (e: SofabException) {
+                // A refusal is terminal and never comes back as a status, so
+                // record what it means for the stream before rethrowing.
+                // Malformed bytes make the message INVALID; a receiver limit is
+                // this side's policy, so it leaves the message unfinished
+                // rather than wrong -- the two are never folded together.
+                //
+                // Anything else leaves the memory alone. ARGUMENT says the mistake
+                // is in the CALL and not in the bytes, and a status is a verdict on
+                // the MESSAGE, so recording one for a caller fault would report
+                // something about the wire that is not true. This is the same
+                // three-way test IStream applies to its own latches.
+                when (e.error) {
+                    SofabError.INVALID_MSG -> st = DecodeStatus.INVALID
+                    SofabError.LIMIT_EXCEEDED -> st = DecodeStatus.INCOMPLETE
+                    else -> Unit
+                }
+                throw e
+            }
+            return st
         }
 
-        /** The outcome for everything fed so far, without feeding more. */
-        public val status: DecodeStatus get() = ist.status
+        /**
+         * The outcome for everything fed so far, without feeding more: what the
+         * last [feed] returned, remembered here. The stream itself answers only
+         * through that return value.
+         */
+        public val status: DecodeStatus get() = st
 
         /** The destination, holding whatever has been decoded so far. */
         public val message: Example get() = m
@@ -144,7 +171,7 @@ public class Example {
          *   SofabException.
          */
         public fun finish(): Example {
-            check(ist.status == DecodeStatus.COMPLETE) { "Example: stream ended mid-field (" + ist.status + ")" }
+            check(st == DecodeStatus.COMPLETE) { "Example: stream ended mid-field (" + st + ")" }
             return m
         }
     }
@@ -165,13 +192,14 @@ public class Example {
         public fun decode(data: ByteArray): Example {
             val m = Example()
             val ist = IStream()
-            ist.feed(data, ExampleVisitor(m))
-            check(ist.status == DecodeStatus.COMPLETE) { "Example: stream ended mid-field (" + ist.status + ")" }
+            val st = ist.feed(data, ExampleVisitor(m))
+            check(st == DecodeStatus.COMPLETE) { "Example: stream ended mid-field (" + st + ")" }
             return m
         }
 
         /**
-         * Decode into [out] and return the corelib's terminal status.
+         * Decode into [out] and return what the feed answered: COMPLETE, or
+         * INCOMPLETE if the bytes ran out mid-field.
          *
          * [out] is reset first: absence IS the encoding of an all-default field
          * and fires no callback, so a reused destination has to be re-armed
@@ -183,8 +211,7 @@ public class Example {
         public fun tryDecode(data: ByteArray, out: Example): DecodeStatus {
             out.reset()
             val ist = IStream()
-            ist.feed(data, ExampleVisitor(out))
-            return ist.status
+            return ist.feed(data, ExampleVisitor(out))
         }
 
         /**
@@ -211,14 +238,28 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
     private var afill = 0               // elements still expected by an armed native-array fill (S7.3)
     private var atgt = 0                // which destination the armed fill writes into
     private var abulk: Any? = null      // destination offered to Visitor.arrayBulk, null when not offered
-    private var acap = 0                // declared element count = growth ceiling for the array being filled
     private var stk = IntArray(16)      // sequence scope stack
     private var sp = 0
-    private val acc = Sbuf.Acc()        // reassembly of a string/blob payload split across chunks
+    private val acc = PayloadAcc()      // reassembly of a string/blob payload split across chunks
+    // Receiver-side decode limits, baked from the sofabgen config: caps on
+    // fields the schema left unbounded (no count / maxlen). Exceeding one
+    // fails the decode with SofabError.LIMIT_EXCEEDED at the wire
+    // count/length header, before any allocation or accumulation -- never a
+    // clamp. Schema-bounded fields are not governed by these caps; they keep
+    // their own schema-capacity guard.
+    //
+    // Each number is compared exactly once, but not always here. A payload
+    // length goes to PayloadAcc.string/blob and a wrapper row index to
+    // Seq.reserveRow*, beside the schema bound they are exclusive with: the
+    // corelib call this visitor already makes is where the length or index is
+    // in hand before it is spent, so the check rides it instead of standing in
+    // front of it. The numbers stay this file's -- they are passed per call and
+    // the corelib retains, defaults and clamps to none of them.
 
     private companion object {
         private const val DEAD = -1     // the skipped-subtree scope: no arm below matches it
-        private const val ARRAY_INIT_CAP = 16  // bounded eager reservation; grow lazily
+        const val MAX_DYN_STRING_LEN = 262144
+        const val MAX_DYN_BLOB_LEN = 1048576
     }
 
     override fun unsigned(id: Int, value: Long) {
@@ -228,10 +269,10 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (value < 0L || value > 255L) throw SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8"); if (ai >= m.arrays.u8.size) m.arrays.u8 = Sbuf.ensureCapUByte(m.arrays.u8, ai, acap); m.arrays.u8[ai] = value.toUByte(); ai++ }
-                2 -> { if (value < 0L || value > 65535L) throw SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16"); if (ai >= m.arrays.u16.size) m.arrays.u16 = Sbuf.ensureCapUShort(m.arrays.u16, ai, acap); m.arrays.u16[ai] = value.toUShort(); ai++ }
-                3 -> { if (value < 0L || value > 4294967295L) throw SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32"); if (ai >= m.arrays.u32.size) m.arrays.u32 = Sbuf.ensureCapUInt(m.arrays.u32, ai, acap); m.arrays.u32[ai] = value.toUInt(); ai++ }
-                4 -> { if (ai >= m.arrays.u64.size) m.arrays.u64 = Sbuf.ensureCapULong(m.arrays.u64, ai, acap); m.arrays.u64[ai] = value.toULong(); ai++ }
+                1 -> { if (value < 0L || value > 255L) throw SofabException(SofabError.INVALID_MSG, "u8 element: value outside declared width u8"); m.arrays.u8[ai] = value.toUByte(); ai++ }
+                2 -> { if (value < 0L || value > 65535L) throw SofabException(SofabError.INVALID_MSG, "u16 element: value outside declared width u16"); m.arrays.u16[ai] = value.toUShort(); ai++ }
+                3 -> { if (value < 0L || value > 4294967295L) throw SofabException(SofabError.INVALID_MSG, "u32 element: value outside declared width u32"); m.arrays.u32[ai] = value.toUInt(); ai++ }
+                4 -> { m.arrays.u64[ai] = value.toULong(); ai++ }
             }
             return
         }
@@ -256,10 +297,10 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (value < -128L || value > 127L) throw SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8"); if (ai >= m.arrays.i8.size) m.arrays.i8 = Sbuf.ensureCapByte(m.arrays.i8, ai, acap); m.arrays.i8[ai] = value.toByte(); ai++ }
-                2 -> { if (value < -32768L || value > 32767L) throw SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16"); if (ai >= m.arrays.i16.size) m.arrays.i16 = Sbuf.ensureCapShort(m.arrays.i16, ai, acap); m.arrays.i16[ai] = value.toShort(); ai++ }
-                3 -> { if (value < -2147483648L || value > 2147483647L) throw SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32"); if (ai >= m.arrays.i32.size) m.arrays.i32 = Sbuf.ensureCapInt(m.arrays.i32, ai, acap); m.arrays.i32[ai] = value.toInt(); ai++ }
-                4 -> { if (ai >= m.arrays.i64.size) m.arrays.i64 = Sbuf.ensureCapLong(m.arrays.i64, ai, acap); m.arrays.i64[ai] = value; ai++ }
+                1 -> { if (value < -128L || value > 127L) throw SofabException(SofabError.INVALID_MSG, "i8 element: value outside declared width i8"); m.arrays.i8[ai] = value.toByte(); ai++ }
+                2 -> { if (value < -32768L || value > 32767L) throw SofabException(SofabError.INVALID_MSG, "i16 element: value outside declared width i16"); m.arrays.i16[ai] = value.toShort(); ai++ }
+                3 -> { if (value < -2147483648L || value > 2147483647L) throw SofabException(SofabError.INVALID_MSG, "i32 element: value outside declared width i32"); m.arrays.i32[ai] = value.toInt(); ai++ }
+                4 -> { m.arrays.i64[ai] = value; ai++ }
             }
             return
         }
@@ -284,7 +325,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (ai >= m.arrays.nested.fp32.size) m.arrays.nested.fp32 = Sbuf.ensureCapFloat(m.arrays.nested.fp32, ai, acap); m.arrays.nested.fp32[ai] = value; ai++ }
+                1 -> { m.arrays.nested.fp32[ai] = value; ai++ }
             }
             return
         }
@@ -306,7 +347,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { if (ai >= m.arrays.nested.fp64.size) m.arrays.nested.fp64 = Sbuf.ensureCapDouble(m.arrays.nested.fp64, ai, acap); m.arrays.nested.fp64[ai] = value; ai++ }
+                1 -> { m.arrays.nested.fp64[ai] = value; ai++ }
             }
             return
         }
@@ -321,16 +362,16 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         }
     }
 
-    private fun utf8(b: ByteArray, off: Int, len: Int): String {
-        if (!Utf8.valid(b, off, off + len)) throw SofabException(SofabError.INVALID_MSG, "string: invalid UTF-8")
-        return b.decodeToString(off, off + len)
-    }
-
     override fun fixlenBegin(id: Int, subtype: FixlenType, total: Int) {
-        // Decided at the LENGTH WORD, not once payload bytes arrive: S5.2 makes
-        // INVALID dominate INCOMPLETE, so truncating right after this word must
-        // not downgrade the verdict. The subtype test is S7.3 -- a contradicting
-        // fixlen kind at this id is a SKIPPED field, not this field's length.
+        // Decided at the LENGTH WORD, not once payload bytes arrive: a message
+        // that ends right after this word reaches no payload callback at all, and
+        // both verdicts outrank the INCOMPLETE it would otherwise report -- a
+        // schema maxlen because S5.2 makes INVALID dominate, a receiver cap
+        // because S6.2.1 puts it "at the count/length header, before the
+        // allocation it is meant to prevent" and S6.3 makes the refusal terminal.
+        // The subtype test is S7.3 -- a contradicting fixlen kind at this id is a
+        // SKIPPED field, not this field's length, and a skipped field is never
+        // capped.
         if (subtype == FixlenType.STRING) {
             when (cur) {
                 1 -> when (id) { 2 -> if (total > 32) throw SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32") }
@@ -355,25 +396,17 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
             4 -> {}
             else -> return
         }
-        // Bounded fields (schema maxlen): a wire byte length above the declared
-        // maxlen is malformed input, INVALID before any byte is accumulated --
-        // never a truncation.
-        when (cur) {
-            1 -> when (id) {
-                2 -> if (total > 32) throw SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32")
-            }
-            4 -> if (total > 64) throw SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64")
-            else -> {}
+        // The schema's own bound for this destination, or -1 where it declares
+        // none. The accumulator takes it beside the receiver cap and rejects an
+        // oversized `total` at the length header, before a byte is buffered: over
+        // a declared maxlen is INVALID (S7.1), over the cap is LIMIT_EXCEEDED, and
+        // the schema fact below is what decides which of the two can apply.
+        val maxlen = when (cur) {
+            1 -> when (id) { 2 -> 32; else -> -1 }
+            4 -> 64
+            else -> -1
         }
-        val s: String
-        if (offset == 0 && chunkLength >= total) {
-            s = utf8(data, chunkOffset, total)
-        } else {
-            acc.write(data, chunkOffset, chunkLength)
-            if (acc.size < total) return
-            s = utf8(acc.buf, 0, total)
-            acc.reset()
-        }
+        val s = acc.string(total, offset, data, chunkOffset, chunkLength, maxlen, MAX_DYN_STRING_LEN) ?: return
         when (cur) {
             1 -> when (id) {
                 2 -> m.nested.str = s
@@ -390,24 +423,16 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
             1 -> when (id) { 3 -> {}; else -> return }
             else -> return
         }
-        // Bounded fields (schema maxlen): a wire byte length above the declared
-        // maxlen is malformed input, INVALID before any byte is accumulated --
-        // never a truncation.
-        when (cur) {
-            1 -> when (id) {
-                3 -> if (total > 4) throw SofabException(SofabError.INVALID_MSG, "bytes_field: blob length above schema maxlen 4")
-            }
-            else -> {}
+        // The schema's own bound for this destination, or -1 where it declares
+        // none. The accumulator takes it beside the receiver cap and rejects an
+        // oversized `total` at the length header, before a byte is buffered: over
+        // a declared maxlen is INVALID (S7.1), over the cap is LIMIT_EXCEEDED, and
+        // the schema fact below is what decides which of the two can apply.
+        val maxlen = when (cur) {
+            1 -> when (id) { 3 -> 4; else -> -1 }
+            else -> -1
         }
-        val b: ByteArray
-        if (offset == 0 && chunkLength >= total) {
-            b = data.copyOfRange(chunkOffset, chunkOffset + total)
-        } else {
-            acc.write(data, chunkOffset, chunkLength)
-            if (acc.size < total) return
-            b = acc.buf.copyOf(total)
-            acc.reset()
-        }
+        val b = acc.blob(total, offset, data, chunkOffset, chunkLength, maxlen, MAX_DYN_BLOB_LEN) ?: return
         when (cur) {
             1 -> when (id) {
                 3 -> m.nested.bytes_field = b
@@ -417,7 +442,6 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
 
     override fun arrayBegin(id: Int, kind: ArrayKind, count: Int) {
         ai = 0
-        acap = count
         // An array delivered at an id that does not declare one of the SAME array
         // kind is a wire-type contradiction: drop exactly `count` elements and
         // leave the declared field untouched (S7.3). Every arm below that runs is

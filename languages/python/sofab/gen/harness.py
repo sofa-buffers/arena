@@ -28,7 +28,7 @@ def bench_main(w: str, reps: int, data: bytes) -> int:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        sys.stderr.write('usage: harness.py <encode|decode|bench> [Message|workload]\n')
+        sys.stderr.write('usage: harness.py <encode|decode|recode|streamdecode|bench> [Message|workload]\n')
         return 2
     mode = sys.argv[1]
     name = sys.argv[2] if len(sys.argv) > 2 else "example"
@@ -46,6 +46,27 @@ def main() -> int:
     elif mode == 'decode':
         obj = cls.decode(data)
         sys.stdout.write(json.dumps(obj.to_jsonable()))
+        sys.stdout.write('\n')
+    elif mode == 'recode':
+        obj = cls.decode(data)
+        sys.stdout.buffer.write(obj.encode())
+    elif mode == 'streamdecode':
+        csz = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+        step = csz if csz > 0 else max(len(data), 1)
+        dec = cls.decoder()
+        st = dec.status
+        try:
+            for off in range(0, len(data), step):
+                st = dec.feed(data[off:off + step])
+                if dec.status is not st:
+                    raise AssertionError('status %s disagrees with the feed that set it (%s)' % (dec.status, st))
+        except Exception as e:
+            sys.stderr.write('decode error: %s: %s\n' % (type(e).__name__, e))
+            return 1
+        if st != message.Status.COMPLETE:
+            sys.stderr.write('decode failed: %s\n' % (getattr(st, 'name', st),))
+            return 1
+        sys.stdout.write(json.dumps(dec.message.to_jsonable()))
         sys.stdout.write('\n')
     else:
         sys.stderr.write('unknown mode\n')

@@ -61,6 +61,19 @@ fn main() {
                     Err(e) => { eprintln!("decode error: {:?}", e); std::process::exit(1); }
                 };
                 println!("{}", serde_json::to_string(&obj).unwrap());
+            } else if mode == "streamdecode" {
+                let mut dec = Example::decoder();
+                for b in &input {
+                    match dec.feed(&[*b]) {
+                        Ok(_) => {}
+                        Err(e) => { eprintln!("decode error: {:?}", e); std::process::exit(1); }
+                    }
+                }
+                let obj = match dec.finish() {
+                    Ok(o) => o,
+                    Err(e) => { eprintln!("decode error: {:?}", e); std::process::exit(1); }
+                };
+                println!("{}", serde_json::to_string(&obj).unwrap());
             } else { eprintln!("unknown mode"); std::process::exit(2); }
         }
         _ => { eprintln!("unknown message"); std::process::exit(2); }

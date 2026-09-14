@@ -7,13 +7,37 @@ using sofab;
 namespace Sofabuffers;
 
 public sealed class ExampleArrays {
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public byte[] u8 = Array.Empty<byte>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public sbyte[] i8 = Array.Empty<sbyte>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public ushort[] u16 = Array.Empty<ushort>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public short[] i16 = Array.Empty<short>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public uint[] u32 = Array.Empty<uint>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public int[] i32 = Array.Empty<int>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public ulong[] u64 = Array.Empty<ulong>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public long[] i64 = Array.Empty<long>();
     public ExampleArraysNested nested = new();
 
@@ -59,7 +83,13 @@ public sealed class ExampleArrays {
 }
 
 public sealed class ExampleArraysNested {
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public float[] fp32 = Array.Empty<float>();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// </summary>
     public double[] fp64 = Array.Empty<double>();
 
     public void Serialize(OStream os) {
@@ -80,7 +110,13 @@ public sealed class ExampleArraysNested {
 public sealed class ExampleNested {
     public float f32;
     public double f64;
+    /// <summary>
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    /// </summary>
     public string str = "";
+    /// <summary>
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    /// </summary>
     public byte[] bytes_field = Array.Empty<byte>();
 
     public void Serialize(OStream os) {
@@ -112,6 +148,9 @@ public sealed class Example {
     public long i64;
     public ExampleNested nested = new();
     public ExampleArrays arrays = new();
+    /// <summary>
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    /// </summary>
     public List<string> string_array = new();
 
     public void Serialize(OStream os) {
@@ -194,6 +233,13 @@ public sealed class Example {
         private readonly Example _m = new Example();
         private readonly IStream _is = new IStream();
         private readonly ExampleVisitor _v;
+        // What the last Feed answered. The stream publishes its outcome once,
+        // as Feed's return value, and offers no accessor to ask a second time,
+        // so the caller is the one that remembers -- and this decoder is the
+        // caller. Complete before the first Feed: an all-default message is
+        // zero bytes, so a stream that has been fed nothing ended on a field
+        // boundary.
+        private DecodeStatus _st = DecodeStatus.Complete;
 
         public Decoder() { _v = new ExampleVisitor(_m); }
 
@@ -202,13 +248,39 @@ public sealed class Example {
         /// ended on a field boundary, <c>Incomplete</c> if it ended mid-field
         /// -- neither answers whether the MESSAGE is done.
         /// </summary>
-        public DecodeStatus Feed(byte[] chunk) => _is.Feed(chunk, 0, chunk.Length, _v);
+        public DecodeStatus Feed(byte[] chunk) => Feed(chunk, 0, chunk.Length);
 
         /// <summary>As <c>Feed</c>, over a slice of <paramref name="chunk"/>.</summary>
-        public DecodeStatus Feed(byte[] chunk, int off, int len) => _is.Feed(chunk, off, len, _v);
+        public DecodeStatus Feed(byte[] chunk, int off, int len) {
+            try {
+                return _st = _is.Feed(chunk, off, len, _v);
+            } catch (SofabException e) {
+                // A refusal is terminal and never comes back as a status, so
+                // record what it means for the stream before rethrowing.
+                // Malformed bytes make the message Invalid; a receiver limit
+                // is this side's policy, so it leaves the message unfinished
+                // rather than wrong.
+                //
+                // Anything else leaves the memory alone. <c>Argument</c>
+                // above all says the mistake is in the CALL and not in the
+                // bytes; a status is a verdict on the MESSAGE, so answering
+                // <c>Incomplete</c> for a caller fault would report
+                // something about the wire that is not true.
+                if (e.Error == SofabError.InvalidMessage) {
+                    _st = DecodeStatus.Invalid;
+                } else if (e.Error == SofabError.LimitExceeded) {
+                    _st = DecodeStatus.Incomplete;
+                }
+                throw;
+            }
+        }
 
-        /// <summary>The outcome for everything fed so far.</summary>
-        public DecodeStatus Status => _is.Status;
+        /// <summary>
+        /// The outcome for everything fed so far: what the last <c>Feed</c>
+        /// returned, remembered here. The stream itself answers only through
+        /// that return value.
+        /// </summary>
+        public DecodeStatus Status => _st;
 
         /// <summary>The destination, holding whatever has been decoded so far.</summary>
         public Example Message => _m;
@@ -226,9 +298,9 @@ public sealed class Example {
         /// declared end-of-input at a point they did not agree with.
         /// </remarks>
         public Example Finish() {
-            if (_is.Status != DecodeStatus.Complete) {
+            if (_st != DecodeStatus.Complete) {
                 throw new InvalidOperationException(
-                    $"Example: stream ended mid-field ({_is.Status})");
+                    $"Example: stream ended mid-field ({_st})");
             }
             return _m;
         }
@@ -244,7 +316,7 @@ internal sealed class ExampleVisitor : IVisitor {
     private int afill = 0;             // elements still expected by an armed native-array fill (S7.3)
     private int[] stk = new int[16];   // sequence scope stack (unboxed, was Stack<int>)
     private int sp = 0;
-    private List<byte> acc;            // lazy: only split string/blob payloads need it
+    private readonly PayloadAcc pay = new PayloadAcc(); // reassembles a string/blob payload split across feeds
     public ExampleVisitor(Example msg) { m = msg; }
     private const int Root = 0;
     private const int Root_nested = 1;
@@ -292,55 +364,61 @@ internal sealed class ExampleVisitor : IVisitor {
             case (Root_arrays_nested, 1): if (afill == 0) break; afill--; m.arrays.nested.fp64[ai++] = value; break;
         }
     }
-    private static readonly System.Text.UTF8Encoding _strictUtf8 = new System.Text.UTF8Encoding(false, true);
-    private static string _Utf8(byte[] b, int off, int len) {
-        try { return _strictUtf8.GetString(b, off, len); }
-        catch (System.Text.DecoderFallbackException) { throw new SofabException(SofabError.InvalidMessage, "string: invalid UTF-8"); }
+    public void FixlenBegin(int id, FixlenType subtype, int total) {
+        // Decided at the LENGTH WORD, not once payload bytes arrive: a message
+        // that ends right after this word reaches no payload callback at all, and
+        // both verdicts outrank the Incomplete it would otherwise report -- a
+        // schema maxlen because S5.2 makes INVALID dominate, a receiver cap
+        // because S6.2.1 puts it "at the count/length header, before the
+        // allocation it is meant to prevent" and S6.3 makes the refusal terminal.
+        // The subtype test is S7.3 -- a contradicting fixlen kind at this id is a
+        // SKIPPED field, not this field's length, and a skipped field is never
+        // capped.
+        if (subtype == FixlenType.String) {
+            switch ((cur, id)) {
+            case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
+            case (Root_string_array, _): if (id >= 5) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: array index above schema capacity 5"); if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
+            }
+        }
+        if (subtype == FixlenType.Blob) {
+            switch ((cur, id)) {
+            case (Root_nested, 3): if (total > 4) throw new SofabException(SofabError.InvalidMessage, "bytes_field: blob length above schema maxlen 4"); break;
+            }
+        }
     }
+
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
-        // A payload this scope does not declare is skipped: its bytes are jumped
-        // over, never inspected. Resolve the destination first and leave before a
-        // byte is buffered, decoded or checked.
+        // Destination, schema bound and receiver cap, resolved in one dispatch.
+        // An id this scope does not declare leaves at `default` -- before a byte is
+        // buffered and before either bound applies, which is the S7.3 skip and is
+        // why a skipped field is never capped. _cap is what PayloadAcc measures
+        // `total` against below: the configured cap, or a maxlen already enforced.
+        long _cap;
         switch ((cur, id)) {
-            case (Root_nested, 2):
-            case (Root_string_array, _):
-                break;
+            case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); _cap = 32; break;
+            case (Root_string_array, _): if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); _cap = 64; break;
             default: return;
         }
-        switch ((cur, id)) {
-            case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
-            case (Root_string_array, _): if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
-        }
-        string _s;
-        if (offset == 0 && chunkLength >= total) {
-            _s = _Utf8(data, chunkOffset, total);
-        } else {
-            acc ??= new List<byte>();
-            for (int _i = 0; _i < chunkLength; _i++) acc.Add(data[chunkOffset + _i]);
-            if (acc.Count < total) return;
-            _s = _Utf8(acc.ToArray(), 0, total);
-            acc.Clear();
-        }
+        string _s = pay.String(total, offset, data, chunkOffset, chunkLength, _cap);
+        if (_s == null) return;   // payload incomplete: more chunks to come
         switch ((cur, id)) {
             case (Root_nested, 2): m.nested.str = _s; break;
             case (Root_string_array, _): if (id >= 5) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: array index above schema capacity 5"); while (m.string_array.Count <= id) m.string_array.Add(""); m.string_array[id] = _s; break;
         }
     }
     public void Blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
+        // Destination, schema bound and receiver cap, resolved in one dispatch.
+        // An id this scope does not declare leaves at `default` -- before a byte is
+        // buffered and before either bound applies, which is the S7.3 skip and is
+        // why a skipped field is never capped. _cap is what PayloadAcc measures
+        // `total` against below: the configured cap, or a maxlen already enforced.
+        long _cap;
         switch ((cur, id)) {
-            case (Root_nested, 3): if (total > 4) throw new SofabException(SofabError.InvalidMessage, "bytes_field: blob length above schema maxlen 4"); break;
+            case (Root_nested, 3): if (total > 4) throw new SofabException(SofabError.InvalidMessage, "bytes_field: blob length above schema maxlen 4"); _cap = 4; break;
+            default: return;
         }
-        byte[] _b;
-        if (offset == 0 && chunkLength >= total) {
-            _b = new byte[total];
-            System.Array.Copy(data, chunkOffset, _b, 0, total);
-        } else {
-            acc ??= new List<byte>();
-            for (int _i = 0; _i < chunkLength; _i++) acc.Add(data[chunkOffset + _i]);
-            if (acc.Count < total) return;
-            _b = acc.ToArray();
-            acc.Clear();
-        }
+        byte[] _b = pay.Blob(total, offset, data, chunkOffset, chunkLength, _cap);
+        if (_b == null) return;   // payload incomplete: more chunks to come
         switch ((cur, id)) {
             case (Root_nested, 3): m.nested.bytes_field = _b; break;
         }
