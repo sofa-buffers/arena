@@ -47,19 +47,35 @@ fi
 # Always update each corelib to its remote default branch (main, else master) HEAD.
 # Shallow fetch + hard reset pins the clone to exactly the upstream tip with no
 # local divergence, so a moved branch can never leave a stale wire behind.
+#
+# The per-repo line reports the HEAD *transition* (old -> new + the new commit
+# subject) whenever the tip actually moved, and says "unchanged" otherwise: a
+# corelib bump is the usual suspect behind a moved wire or a throughput swing, so
+# it must be visible in the bootstrap log without diffing vendor/ afterwards.
 for r in $CORELIBS; do
     dir="vendor/$r"
+    fresh=0
     if [ ! -d "$dir/.git" ]; then
         rm -rf "$dir"
         echo "==> cloning $r"
         git clone --depth 1 "https://github.com/sofa-buffers/$r.git" "$dir" >/dev/null 2>&1 \
             || { echo "!! failed to clone $r"; exit 1; }
+        fresh=1
     fi
+    before="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || true)"
     if   git -C "$dir" fetch --depth 1 --quiet origin main   2>/dev/null; then :
     elif git -C "$dir" fetch --depth 1 --quiet origin master 2>/dev/null; then :
     else echo "!! failed to fetch $r from origin"; exit 1; fi
     git -C "$dir" reset --hard --quiet FETCH_HEAD
-    echo "==> $r @ $(git -C "$dir" rev-parse --short HEAD)"
+    after="$(git -C "$dir" rev-parse --short HEAD)"
+    subject="$(git -C "$dir" log -1 --format=%s 2>/dev/null || true)"
+    if [ "$fresh" = 1 ]; then
+        echo "==> $r @ $after (fresh clone): $subject"
+    elif [ "$before" != "$after" ]; then
+        echo "==> $r PULLED $before -> $after: $subject"
+    else
+        echo "==> $r @ $after (unchanged)"
+    fi
 done
 
 # --- host os/arch -> CI artifact name (mirrors the old release-asset naming) ---
@@ -106,8 +122,12 @@ fi
 # Force a re-download when the resolved run differs from the stamped one: the
 # download guard below is presence-based, so without this a checkout that already
 # has an older binary would keep serving it even though a newer build now exists.
-if [ "$(cat "$STAMP" 2>/dev/null || true)" != "$RUN_ID" ]; then
-    [ -x tools/sofabgen ] && echo "==> sofabgen -> CI run $RUN_ID; refreshing binary"
+# Same reasoning as the corelib lines above: log the run-id transition so a
+# generator bump is visible, not just implied by a re-download.
+STAMPED="$(cat "$STAMP" 2>/dev/null || true)"
+if [ "$STAMPED" != "$RUN_ID" ]; then
+    [ -x tools/sofabgen ] \
+        && echo "==> sofabgen BUMPED CI run ${STAMPED:-none} -> $RUN_ID; refreshing binary"
     rm -f tools/sofabgen
 fi
 
