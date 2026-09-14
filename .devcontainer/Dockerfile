@@ -66,9 +66,23 @@ ENV DEBIAN_FRONTEND=noninteractive
 #                                recommends nothing else pulls libicu in, and
 #                                dotnet aborts on startup without it
 #   valgrind, time             optional CPU-independent / RSS measurement helpers
+#   ripgrep, fd-find           fast tree search — 20 targets x 4 scripts makes
+#                                grepping this tree routine. The binaries are
+#                                `rg` and `fdfind`: Debian renames fd because
+#                                another package owns that name, so do NOT
+#                                symlink it back to `fd` (it would shadow that
+#                                package, and scripts relying on it break on
+#                                every machine that does not carry the symlink)
+#   shellcheck, shfmt          lint + format for the shell the arena is built
+#                                from: every target's setup.sh/bench.sh/
+#                                footprint.sh plus scripts/
+#   xxd                        hex dump — what the reference wires (sofab 434 B,
+#                                protobuf 494 B) are inspected with when the gate
+#                                reports a MISMATCH
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget unzip zip git jq time pkg-config \
+    ripgrep fd-find shellcheck shfmt xxd \
     build-essential cmake make \
     valgrind \
     zlib1g-dev libtinfo6 libncurses6 \
