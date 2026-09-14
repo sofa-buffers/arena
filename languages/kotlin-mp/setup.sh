@@ -19,7 +19,14 @@ CORELIB="$ROOT/vendor/corelib-kotlin-mp"
 # diagnostic below ever runs (the runner then logs an empty setup log and a bare
 # exit 2). Let the assignment succeed empty and let the check do the talking.
 GRADLE_JAVA_HOME="${GRADLE_JAVA_HOME:-$(ls -d /usr/lib/jvm/java-21-openjdk-* 2>/dev/null | head -1 || true)}"
-if [ ! -x "${GRADLE_JAVA_HOME:-}/bin/java" ]; then
+# Test the emptiness SEPARATELY. With no match the variable is empty and
+# "${GRADLE_JAVA_HOME:-}/bin/java" collapses to the literal `/bin/java`, which on
+# Debian/Ubuntu is the default-JVM alternatives symlink and IS executable — so
+# the check passed, `export JAVA_HOME=""` fell through, and Gradle ran on the
+# image's JDK 25 and died with `IllegalArgumentException: 25.0.3` ten minutes
+# later, after Kotlin/Native had downloaded its whole toolchain. Exactly the
+# failure this guard exists to report immediately.
+if [ -z "${GRADLE_JAVA_HOME:-}" ] || [ ! -x "$GRADLE_JAVA_HOME/bin/java" ]; then
     echo "kotlin-mp: no JDK <= 24 found for Gradle (looked for" \
          "/usr/lib/jvm/java-21-openjdk-*); install openjdk-21-jdk-headless as" \
          ".devcontainer/Dockerfile does, or set GRADLE_JAVA_HOME" >&2
