@@ -25,7 +25,7 @@ class FullScaleSeqStruct extends $pb.GeneratedMessage {
     $core.String? str,
     $core.List<$core.int>? bytesField,
   }) {
-    final result = create();
+    final result = FullScaleSeqStruct._();
     if (f32 != null) result.f32 = f32;
     if (f64 != null) result.f64 = f64;
     if (str != null) result.str = str;
@@ -37,15 +37,15 @@ class FullScaleSeqStruct extends $pb.GeneratedMessage {
 
   factory FullScaleSeqStruct.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FullScaleSeqStruct()..mergeFromBuffer(data, registry);
   factory FullScaleSeqStruct.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FullScaleSeqStruct()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FullScaleSeqStruct',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'fullscale'),
-      createEmptyInstance: create)
+      createEmptyInstance: FullScaleSeqStruct.$_createMessage)
     ..aD(1, _omitFieldNames ? '' : 'f32', fieldType: $pb.PbFieldType.OF)
     ..aD(2, _omitFieldNames ? '' : 'f64')
     ..aOS(3, _omitFieldNames ? '' : 'str')
@@ -64,12 +64,15 @@ class FullScaleSeqStruct extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use FullScaleSeqStruct() / FullScaleSeqStruct.new instead')
   static FullScaleSeqStruct create() => FullScaleSeqStruct._();
+  static $pb.GeneratedMessage $_createMessage() => FullScaleSeqStruct._();
   @$core.override
-  FullScaleSeqStruct createEmptyInstance() => create();
+  FullScaleSeqStruct createEmptyInstance() => FullScaleSeqStruct._();
   @$core.pragma('dart2js:noInline')
   static FullScaleSeqStruct getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqStruct>(create);
+      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqStruct>(
+          FullScaleSeqStruct.$_createMessage);
   static FullScaleSeqStruct? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -115,7 +118,7 @@ class FullScaleSeqStructOfFpArrays extends $pb.GeneratedMessage {
     $core.Iterable<$core.double>? fp32,
     $core.Iterable<$core.double>? fp64,
   }) {
-    final result = create();
+    final result = FullScaleSeqStructOfFpArrays._();
     if (fp32 != null) result.fp32.addAll(fp32);
     if (fp64 != null) result.fp64.addAll(fp64);
     return result;
@@ -125,15 +128,15 @@ class FullScaleSeqStructOfFpArrays extends $pb.GeneratedMessage {
 
   factory FullScaleSeqStructOfFpArrays.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FullScaleSeqStructOfFpArrays()..mergeFromBuffer(data, registry);
   factory FullScaleSeqStructOfFpArrays.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FullScaleSeqStructOfFpArrays()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FullScaleSeqStructOfFpArrays',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'fullscale'),
-      createEmptyInstance: create)
+      createEmptyInstance: FullScaleSeqStructOfFpArrays.$_createMessage)
     ..p<$core.double>(1, _omitFieldNames ? '' : 'fp32', $pb.PbFieldType.KF)
     ..p<$core.double>(2, _omitFieldNames ? '' : 'fp64', $pb.PbFieldType.KD)
     ..hasRequiredFields = false;
@@ -151,13 +154,19 @@ class FullScaleSeqStructOfFpArrays extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use FullScaleSeqStructOfFpArrays() / FullScaleSeqStructOfFpArrays.new instead')
   static FullScaleSeqStructOfFpArrays create() =>
       FullScaleSeqStructOfFpArrays._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      FullScaleSeqStructOfFpArrays._();
   @$core.override
-  FullScaleSeqStructOfFpArrays createEmptyInstance() => create();
+  FullScaleSeqStructOfFpArrays createEmptyInstance() =>
+      FullScaleSeqStructOfFpArrays._();
   @$core.pragma('dart2js:noInline')
   static FullScaleSeqStructOfFpArrays getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqStructOfFpArrays>(create);
+      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqStructOfFpArrays>(
+          FullScaleSeqStructOfFpArrays.$_createMessage);
   static FullScaleSeqStructOfFpArrays? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -180,7 +189,7 @@ class FullScaleSeqStructOfArrays extends $pb.GeneratedMessage {
     $core.Iterable<$fixnum.Int64>? i64,
     FullScaleSeqStructOfFpArrays? nested,
   }) {
-    final result = create();
+    final result = FullScaleSeqStructOfArrays._();
     if (u8 != null) result.u8.addAll(u8);
     if (i8 != null) result.i8.addAll(i8);
     if (u16 != null) result.u16.addAll(u16);
@@ -197,15 +206,15 @@ class FullScaleSeqStructOfArrays extends $pb.GeneratedMessage {
 
   factory FullScaleSeqStructOfArrays.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FullScaleSeqStructOfArrays()..mergeFromBuffer(data, registry);
   factory FullScaleSeqStructOfArrays.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FullScaleSeqStructOfArrays()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FullScaleSeqStructOfArrays',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'fullscale'),
-      createEmptyInstance: create)
+      createEmptyInstance: FullScaleSeqStructOfArrays.$_createMessage)
     ..p<$core.int>(1, _omitFieldNames ? '' : 'u8', $pb.PbFieldType.KU3)
     ..p<$core.int>(2, _omitFieldNames ? '' : 'i8', $pb.PbFieldType.K3)
     ..p<$core.int>(3, _omitFieldNames ? '' : 'u16', $pb.PbFieldType.KU3)
@@ -215,7 +224,7 @@ class FullScaleSeqStructOfArrays extends $pb.GeneratedMessage {
     ..p<$fixnum.Int64>(7, _omitFieldNames ? '' : 'u64', $pb.PbFieldType.KU6)
     ..p<$fixnum.Int64>(8, _omitFieldNames ? '' : 'i64', $pb.PbFieldType.K6)
     ..aOM<FullScaleSeqStructOfFpArrays>(10, _omitFieldNames ? '' : 'nested',
-        subBuilder: FullScaleSeqStructOfFpArrays.create)
+        subBuilder: FullScaleSeqStructOfFpArrays.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -231,12 +240,18 @@ class FullScaleSeqStructOfArrays extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use FullScaleSeqStructOfArrays() / FullScaleSeqStructOfArrays.new instead')
   static FullScaleSeqStructOfArrays create() => FullScaleSeqStructOfArrays._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      FullScaleSeqStructOfArrays._();
   @$core.override
-  FullScaleSeqStructOfArrays createEmptyInstance() => create();
+  FullScaleSeqStructOfArrays createEmptyInstance() =>
+      FullScaleSeqStructOfArrays._();
   @$core.pragma('dart2js:noInline')
   static FullScaleSeqStructOfArrays getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqStructOfArrays>(create);
+      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqStructOfArrays>(
+          FullScaleSeqStructOfArrays.$_createMessage);
   static FullScaleSeqStructOfArrays? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -280,7 +295,7 @@ class FullScaleSeqArrayOfStrings extends $pb.GeneratedMessage {
   factory FullScaleSeqArrayOfStrings({
     $core.Iterable<$core.String>? strings,
   }) {
-    final result = create();
+    final result = FullScaleSeqArrayOfStrings._();
     if (strings != null) result.strings.addAll(strings);
     return result;
   }
@@ -289,15 +304,15 @@ class FullScaleSeqArrayOfStrings extends $pb.GeneratedMessage {
 
   factory FullScaleSeqArrayOfStrings.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FullScaleSeqArrayOfStrings()..mergeFromBuffer(data, registry);
   factory FullScaleSeqArrayOfStrings.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FullScaleSeqArrayOfStrings()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FullScaleSeqArrayOfStrings',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'fullscale'),
-      createEmptyInstance: create)
+      createEmptyInstance: FullScaleSeqArrayOfStrings.$_createMessage)
     ..pPS(1, _omitFieldNames ? '' : 'strings')
     ..hasRequiredFields = false;
 
@@ -314,12 +329,18 @@ class FullScaleSeqArrayOfStrings extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use FullScaleSeqArrayOfStrings() / FullScaleSeqArrayOfStrings.new instead')
   static FullScaleSeqArrayOfStrings create() => FullScaleSeqArrayOfStrings._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      FullScaleSeqArrayOfStrings._();
   @$core.override
-  FullScaleSeqArrayOfStrings createEmptyInstance() => create();
+  FullScaleSeqArrayOfStrings createEmptyInstance() =>
+      FullScaleSeqArrayOfStrings._();
   @$core.pragma('dart2js:noInline')
   static FullScaleSeqArrayOfStrings getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqArrayOfStrings>(create);
+      $pb.GeneratedMessage.$_defaultFor<FullScaleSeqArrayOfStrings>(
+          FullScaleSeqArrayOfStrings.$_createMessage);
   static FullScaleSeqArrayOfStrings? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -341,7 +362,7 @@ class FullScaleExample extends $pb.GeneratedMessage {
     FullScaleSeqStructOfArrays? arrays,
     FullScaleSeqArrayOfStrings? stringArray,
   }) {
-    final result = create();
+    final result = FullScaleExample._();
     if (u8 != null) result.u8 = u8;
     if (i8 != null) result.i8 = i8;
     if (u16 != null) result.u16 = u16;
@@ -360,15 +381,15 @@ class FullScaleExample extends $pb.GeneratedMessage {
 
   factory FullScaleExample.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      FullScaleExample()..mergeFromBuffer(data, registry);
   factory FullScaleExample.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      FullScaleExample()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'FullScaleExample',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'fullscale'),
-      createEmptyInstance: create)
+      createEmptyInstance: FullScaleExample.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'u8', fieldType: $pb.PbFieldType.OU3)
     ..aI(2, _omitFieldNames ? '' : 'i8')
     ..aI(3, _omitFieldNames ? '' : 'u16', fieldType: $pb.PbFieldType.OU3)
@@ -379,11 +400,11 @@ class FullScaleExample extends $pb.GeneratedMessage {
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..aInt64(8, _omitFieldNames ? '' : 'i64')
     ..aOM<FullScaleSeqStruct>(10, _omitFieldNames ? '' : 'nested',
-        subBuilder: FullScaleSeqStruct.create)
+        subBuilder: FullScaleSeqStruct.$_createMessage)
     ..aOM<FullScaleSeqStructOfArrays>(100, _omitFieldNames ? '' : 'arrays',
-        subBuilder: FullScaleSeqStructOfArrays.create)
+        subBuilder: FullScaleSeqStructOfArrays.$_createMessage)
     ..aOM<FullScaleSeqArrayOfStrings>(200, _omitFieldNames ? '' : 'stringArray',
-        subBuilder: FullScaleSeqArrayOfStrings.create)
+        subBuilder: FullScaleSeqArrayOfStrings.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -397,12 +418,15 @@ class FullScaleExample extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use FullScaleExample() / FullScaleExample.new instead')
   static FullScaleExample create() => FullScaleExample._();
+  static $pb.GeneratedMessage $_createMessage() => FullScaleExample._();
   @$core.override
-  FullScaleExample createEmptyInstance() => create();
+  FullScaleExample createEmptyInstance() => FullScaleExample._();
   @$core.pragma('dart2js:noInline')
-  static FullScaleExample getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FullScaleExample>(create);
+  static FullScaleExample getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FullScaleExample>(
+          FullScaleExample.$_createMessage);
   static FullScaleExample? _defaultInstance;
 
   @$pb.TagNumber(1)

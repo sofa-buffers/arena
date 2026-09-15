@@ -409,16 +409,17 @@ pub fn main(init: std.process.Init) !void {
             var obj: message.Example = .{};
             var dec = message.Example.decoder(&obj, alloc);
             for (input) |b| {
-                const fed = dec.feed(&[_]u8{b}) catch |e| {
-                    std.debug.print("decode error: {s} [status={s}]\n",
-                                    .{ @errorName(e), @tagName(dec.status()) });
+                _ = dec.feed(&[_]u8{b}) catch |e| {
+                    var fin: []const u8 = "RETURNED";
+                    dec.finish() catch |fe| { fin = @errorName(fe); };
+                    std.debug.print("decode error: {s} [finish={s}]\n",
+                                    .{ @errorName(e), fin });
                     std.process.exit(1);
                 };
-                if (dec.status() != fed) return error.StatusDisagreesWithFeed;
             }
             dec.finish() catch |e| {
-                std.debug.print("decode error: {s} [status={s}]\n",
-                                .{ @errorName(e), @tagName(dec.status()) });
+                std.debug.print("decode error: {s} [finish={s}]\n",
+                                .{ @errorName(e), @errorName(e) });
                 std.process.exit(1);
             };
             try toJson_Example(&obj, out);

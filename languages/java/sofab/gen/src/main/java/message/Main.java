@@ -63,17 +63,20 @@ public class Main {
                     int csz = args.length > 2 ? Integer.parseInt(args[2]) : 1;
                     int step = csz > 0 ? csz : Math.max(input.length, 1);
                     for (int off = 0; off < input.length; off += step) {
-                        org.sofabuffers.sofab.DecodeStatus fed =
-                            dec.feed(input, off, Math.min(step, input.length - off));
-                        if (dec.status() != fed) {
-                            throw new IllegalStateException(
-                                "status " + dec.status() + " disagrees with the feed that set it (" + fed + ")");
-                        }
+                        dec.feed(input, off, Math.min(step, input.length - off));
                     }
                     obj = dec.finish();
                 } catch (Exception e) {
+                    String fin;
+                    try { dec.finish(); fin = "RETURNED"; }
+                    catch (org.sofabuffers.sofab.SofabException fe) { fin = fe.error().name(); }
+                    catch (java.io.UncheckedIOException fe) {
+                        fin = fe.getCause() instanceof org.sofabuffers.sofab.SofabException c
+                            ? c.error().name() : fe.getClass().getSimpleName();
+                    }
+                    catch (Exception fe) { fin = fe.getClass().getSimpleName(); }
                     System.err.println(
-                        "decode error: " + e + " [status=" + dec.status() + "]");
+                        "decode error: " + e + " [finish=" + fin + "]");
                     System.exit(1); return;
                 }
                 StringBuilder sb = new StringBuilder(); Json.to(obj, sb);

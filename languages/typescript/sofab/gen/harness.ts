@@ -5,7 +5,7 @@ const MESSAGES: Record<string, { fromJSON(d: Record<string, unknown>): { encode(
   "example": M.Example,
 };
 
-const DECODERS: Record<string, { new (): { feed(chunk: Uint8Array): import("@sofa-buffers/corelib").DecodeStatus; readonly status: import("@sofa-buffers/corelib").DecodeStatus; finish(): { toJSON(): Record<string, unknown> } } }> = {
+const DECODERS: Record<string, { new (): { feed(chunk: Uint8Array): import("@sofa-buffers/corelib").DecodeStatus; finish(): { toJSON(): Record<string, unknown> } } }> = {
   "example": M.ExampleDecoder,
 };
 
@@ -78,15 +78,15 @@ async function main(): Promise<number> {
     try {
       for (const b of input) {
         one[0] = b;
-        const fed = dec.feed(one);
-        if (dec.status !== fed) {
-          throw new Error(`status ${dec.status} disagrees with the feed that set it (${fed})`);
-        }
+        dec.feed(one);
       }
       obj = dec.finish();
     } catch (e) {
+      let fin;
+      try { dec.finish(); fin = "RETURNED"; }
+      catch (fe) { fin = (fe as { code?: string })?.code ?? String(fe); }
       process.stderr.write(
-        `decode error: ${String(e)} [status=${dec.status}]\n`);
+        `decode error: ${String(e)} [finish=${fin}]\n`);
       return 1;
     }
     process.stdout.write(JSON.stringify(obj.toJSON()) + "\n");

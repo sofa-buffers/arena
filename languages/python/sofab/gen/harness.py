@@ -54,17 +54,25 @@ def main() -> int:
         csz = int(sys.argv[3]) if len(sys.argv) > 3 else 1
         step = csz if csz > 0 else max(len(data), 1)
         dec = cls.decoder()
-        st = dec.status
+        st = message.Status.COMPLETE
         try:
             for off in range(0, len(data), step):
                 st = dec.feed(data[off:off + step])
-                if dec.status is not st:
-                    raise AssertionError('status %s disagrees with the feed that set it (%s)' % (dec.status, st))
         except Exception as e:
-            sys.stderr.write('decode error: %s: %s\n' % (type(e).__name__, e))
+            try:
+                again = dec.feed(b'').name
+            except Exception as fe:
+                again = type(fe).__name__
+            sys.stderr.write('decode error: %s: %s [refeed=%s]\n'
+                             % (type(e).__name__, e, again))
             return 1
         if st != message.Status.COMPLETE:
-            sys.stderr.write('decode failed: %s\n' % (getattr(st, 'name', st),))
+            try:
+                again = dec.feed(b'').name
+            except Exception as fe:
+                again = type(fe).__name__
+            sys.stderr.write('decode failed: %s [refeed=%s]\n'
+                             % (getattr(st, 'name', st), again))
             return 1
         sys.stdout.write(json.dumps(dec.message.to_jsonable()))
         sys.stdout.write('\n')
