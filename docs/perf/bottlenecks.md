@@ -14,6 +14,8 @@ README note — its ceiling is the CPython object model, tracked separately).
 > **Java has a dedicated deep-dive:** [`java-analysis.md`](java-analysis.md)
 > (2026-07-17) — split encode/decode timings, exact allocation accounting, and the
 > measured fixes. It supersedes every Java claim in this file.
+>
+> **2026-09 regression round:** [`regressions/README.md`](regressions/README.md) — per-language OLD→NEW bisects, root causes and prototyped fixes.
 
 ## Read the metric before reading the standings
 
