@@ -617,11 +617,11 @@ class _ExampleArraysVisitor(Visitor):
         Returns the element bound as the INTERVAL this hook carries, for the
         decoder to apply AT each element, so a value outside it is rejected
         whether the array completes or is cut short behind it. For an integer
-        element that interval is the declared width exactly; for an ``enum`` or
-        a ``bitfield`` it is the HULL of the declared set, whose gaps the
-        typed hook's own scan closes for an array that arrives. The schema
-        capacity is not checked here: ``on_schema_bound`` declares it one hook
-        earlier.
+        element that interval is the declared width; for an ``enum`` or a
+        ``bitfield`` it is the width the declaration implies -- the smallest
+        signed type holding every constant, the smallest unsigned type holding
+        the highest ``pos``. The schema capacity is not checked here:
+        ``on_schema_bound`` declares it one hook earlier.
         """
         c = self._c
         if c == _L_ExampleArrays:
@@ -1008,11 +1008,11 @@ class _ExampleVisitor(Visitor):
         Returns the element bound as the INTERVAL this hook carries, for the
         decoder to apply AT each element, so a value outside it is rejected
         whether the array completes or is cut short behind it. For an integer
-        element that interval is the declared width exactly; for an ``enum`` or
-        a ``bitfield`` it is the HULL of the declared set, whose gaps the
-        typed hook's own scan closes for an array that arrives. The schema
-        capacity is not checked here: ``on_schema_bound`` declares it one hook
-        earlier.
+        element that interval is the declared width; for an ``enum`` or a
+        ``bitfield`` it is the width the declaration implies -- the smallest
+        signed type holding every constant, the smallest unsigned type holding
+        the highest ``pos``. The schema capacity is not checked here:
+        ``on_schema_bound`` declares it one hook earlier.
         """
         c = self._c
         if c == _L_Example_arrays:
