@@ -100,11 +100,29 @@ ASSET="sofabgen-${OS}-${A}"
 GEN_API="https://api.github.com/repos/sofa-buffers/generator"
 STAMP="tools/.sofabgen-version"   # now holds the resolved workflow run id
 
+# The newest run is picked BY DATE, in the client, out of a page of candidates.
+# The endpoint is documented newest-first and behaves that way on every manual
+# check, but on 2026-09-18 a `per_page=1` request answered with a run four weeks
+# old and a sibling repo built a month-stale generator against current corelibs
+# (#120, crucible#183) — a break that reads like an upstream one and is not. List
+# position is not a guarantee this arena may rest on: a benchmark run that lies
+# about which generator produced its wire is worse than one that fails. Sorting a
+# page costs one request of the same size.
 RUN_ID="${SOFABGEN_RUN_ID:-}"
+RUN_SHA=""
 if [ -z "$RUN_ID" ]; then
-    RUN_ID="$(curl -fsSL "${AUTH[@]}" \
-        "$GEN_API/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" 2>/dev/null \
-        | jq -r '.workflow_runs[0].id // empty' 2>/dev/null || true)"
+    RUNS="$(curl -fsSL "${AUTH[@]}" \
+        "$GEN_API/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=50" 2>/dev/null || true)"
+    PICK="$(printf '%s' "$RUNS" | jq -r '
+        [.workflow_runs[]? | select(.conclusion == "success" and .created_at)]
+        | if length == 0 then empty
+          else max_by(.created_at) as $r
+               | "\($r.id) \($r.head_sha) \($r.created_at) \(length)"
+          end' 2>/dev/null || true)"
+    if [ -n "$PICK" ]; then
+        read -r RUN_ID RUN_SHA RUN_AT RUN_N <<<"$PICK"
+        echo "==> sofabgen: newest green generator@main CI run is $RUN_ID ($RUN_AT, ${RUN_SHA:0:8}) of $RUN_N considered"
+    fi
 fi
 if [ -z "$RUN_ID" ]; then
     # No network / API failed / no token: fall back to whatever binary is already
@@ -155,9 +173,40 @@ if [ ! -x tools/sofabgen ]; then
     install -m 0755 "$TMP/$ASSET" tools/sofabgen
     rm -rf "$TMP"
 fi
+
+# What landed must be what was chosen. The version string embeds the generator
+# commit (0.0.0-<timestamp>-<sha12>), so the installed binary is checkable against
+# the run resolved above — and an unchecked install is exactly how the stale
+# generator above went unnoticed: the log printed the version it installed, and
+# nothing said that version was four weeks old. A mismatch means the binary did not
+# come from the run this script selected, so it fails instead of benchmarking on;
+# the stamp goes with it so the next bootstrap re-downloads rather than reusing it.
+VER="$(tools/sofabgen -version 2>/dev/null | head -1 || true)"
+if [ -n "$RUN_SHA" ]; then
+    case "$VER" in
+        *"${RUN_SHA:0:12}"*) ;;
+        *)  echo "!! sofabgen is ${VER:-unknown}, which does not carry CI run $RUN_ID's commit $RUN_SHA" >&2
+            echo "!! refusing to benchmark against a generator this script did not choose (#120)" >&2
+            rm -f tools/sofabgen "$STAMP"
+            exit 1 ;;
+    esac
+fi
+
 # Stamp the resolved run id so an unchanged tip doesn't re-download next run.
 echo "$RUN_ID" > "$STAMP"
-echo "==> sofabgen: $(tools/sofabgen -version 2>/dev/null || echo present) (CI run $RUN_ID)"
+echo "==> sofabgen: ${VER:-present} (CI run $RUN_ID)"
+
+# Where the tip is. A generator commit whose CI is still running is the ordinary
+# state in the minutes after a push and must never fail a run — but it belongs in
+# the log, so "built on X while main is at Y" is visible here instead of being
+# reconstructed from a driver compile error or a moved wire three targets later.
+if [ -n "$RUN_SHA" ]; then
+    TIP="$(curl -fsSL "${AUTH[@]}" "$GEN_API/commits/main" 2>/dev/null \
+        | jq -r '.sha // empty' 2>/dev/null || true)"
+    if [ -n "$TIP" ] && [ "$TIP" != "$RUN_SHA" ]; then
+        echo "==> sofabgen NOTE: generator@main is at ${TIP:0:8}, the newest GREEN run is ${RUN_SHA:0:8} — newer commits have no green CI yet"
+    fi
+fi
 
 # --- python venv for the protobuf compiler + runtime + Cython -----------------
 # Recreate the venv when it's missing OR broken: an image rebuild that upgrades
