@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import IntEnum, IntFlag
-from sofab import Decoder, Encoder, Field, FixlenSubtype, SofaDecodeError, SofaIncompleteError, Status, Visitor, WireType
+from sofab import Binding, Decoder, Encoder, Field, FixlenSubtype, SofaDecodeError, SofaIncompleteError, Status, Visitor, WireType
 
 # Bytes of reassembly space, derived from the schema and the decode limits.
 #
@@ -147,8 +147,13 @@ class ExampleArrays:
     def decoder(cls, reassembly: int = REASSEMBLY) -> _StreamDecoder:
         """The streaming reader: feed it chunks of any size.
 
-        The half-built message is on ``.message`` throughout; each ``feed``
-        returns the outcome for the bytes so far.
+        Each ``feed`` returns the outcome for the bytes so far, and
+        ``.message`` carries what has arrived.
+
+        The fields this class decodes through its destination table land
+        there in one pass, when a feed returns COMPLETE; the rest appear as
+        they arrive. So a half-built message shows part of itself, and a
+        finished one shows all of it.
 
         ``reassembly`` is where a construct split across two chunks is
         joined. The default holds this schema's largest single value plus
@@ -171,13 +176,18 @@ class ExampleArrays:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        d = Decoder(visitor=_ExampleArraysVisitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        v = _ExampleArraysVisitor(o)
+        d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
         if st is Status.INVALID:
             raise SofaDecodeError(d.error or "invalid message")
         if st is Status.INCOMPLETE:
             raise SofaIncompleteError(d.error or "truncated message")
+        # COMPLETE, so the destination table's slots are final: one pass
+        # moves them onto the message. It runs AFTER the two refusals, so
+        # a decode that did not complete builds nothing.
+        v.scatter()
         return o
 
 @dataclass
@@ -239,8 +249,8 @@ class ExampleArraysNested:
     def decoder(cls, reassembly: int = REASSEMBLY) -> _StreamDecoder:
         """The streaming reader: feed it chunks of any size.
 
-        The half-built message is on ``.message`` throughout; each ``feed``
-        returns the outcome for the bytes so far.
+        Each ``feed`` returns the outcome for the bytes so far, and
+        ``.message`` carries what has arrived.
 
         ``reassembly`` is where a construct split across two chunks is
         joined. The default holds this schema's largest single value plus
@@ -347,8 +357,13 @@ class ExampleNested:
     def decoder(cls, reassembly: int = REASSEMBLY) -> _StreamDecoder:
         """The streaming reader: feed it chunks of any size.
 
-        The half-built message is on ``.message`` throughout; each ``feed``
-        returns the outcome for the bytes so far.
+        Each ``feed`` returns the outcome for the bytes so far, and
+        ``.message`` carries what has arrived.
+
+        The fields this class decodes through its destination table land
+        there in one pass, when a feed returns COMPLETE; the rest appear as
+        they arrive. So a half-built message shows part of itself, and a
+        finished one shows all of it.
 
         ``reassembly`` is where a construct split across two chunks is
         joined. The default holds this schema's largest single value plus
@@ -371,13 +386,18 @@ class ExampleNested:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        d = Decoder(visitor=_ExampleNestedVisitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        v = _ExampleNestedVisitor(o)
+        d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
         if st is Status.INVALID:
             raise SofaDecodeError(d.error or "invalid message")
         if st is Status.INCOMPLETE:
             raise SofaIncompleteError(d.error or "truncated message")
+        # COMPLETE, so the destination table's slots are final: one pass
+        # moves them onto the message. It runs AFTER the two refusals, so
+        # a decode that did not complete builds nothing.
+        v.scatter()
         return o
 
 @dataclass
@@ -516,8 +536,13 @@ class Example:
     def decoder(cls, reassembly: int = REASSEMBLY) -> _StreamDecoder:
         """The streaming reader: feed it chunks of any size.
 
-        The half-built message is on ``.message`` throughout; each ``feed``
-        returns the outcome for the bytes so far.
+        Each ``feed`` returns the outcome for the bytes so far, and
+        ``.message`` carries what has arrived.
+
+        The fields this class decodes through its destination table land
+        there in one pass, when a feed returns COMPLETE; the rest appear as
+        they arrive. So a half-built message shows part of itself, and a
+        finished one shows all of it.
 
         ``reassembly`` is where a construct split across two chunks is
         joined. The default holds this schema's largest single value plus
@@ -540,16 +565,27 @@ class Example:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        d = Decoder(visitor=_ExampleVisitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        v = _ExampleVisitor(o)
+        d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
         if st is Status.INVALID:
             raise SofaDecodeError(d.error or "invalid message")
         if st is Status.INCOMPLETE:
             raise SofaIncompleteError(d.error or "truncated message")
+        # COMPLETE, so the destination table's slots are final: one pass
+        # moves them onto the message. It runs AFTER the two refusals, so
+        # a decode that did not complete builds nothing.
+        v.scatter()
         return o
 
 # --- decode ---------------------------------------------------------------
+
+# The slot value that says a field never arrived. Storage a destination table
+# writes into starts filled with it, and the decoder overwrites only what the
+# wire carried, so a slot still holding it is a field the message omitted --
+# which is how absence is reported without inventing a value for it.
+_ABSENT = 0xFFFFFFFFFFFFFFFF
 
 class _StreamDecoder:
     """Streaming reader: feed chunks, read the message when it is COMPLETE.
@@ -565,213 +601,116 @@ class _StreamDecoder:
     and feeding an empty chunk asks again.
     """
 
-    __slots__ = ("message", "_d")
+    __slots__ = ("message", "_d", "_v")
 
     def __init__(self, msg_cls, vis_cls, reassembly=REASSEMBLY) -> None:
         self.message = msg_cls()
-        self._d = Decoder(visitor=vis_cls(self.message), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        self._v = vis_cls(self.message)
+        self._d = Decoder(visitor=self._v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                           reassembly=reassembly)
 
     def feed(self, chunk) -> Status:
-        return self._d.feed(chunk)
+        st = self._d.feed(chunk)
+        if st is Status.COMPLETE:
+            # The fields the destination table carries land on the message
+            # here, in one pass, rather than one callback at a time during
+            # the walk. Everything the visitor handles is already on it.
+            self._v.scatter()
+        return st
 
     @property
     def error(self):
         return self._d.error
 
-# Dispatch locations for ExampleArrays: one per sequence-framed scope in its tree.
-# A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
-# id space -- so the visitor below keys every hook on (location, id).
-_L_ExampleArrays = 0
-_L_ExampleArrays_nested = 1
+# Destination table for ExampleArrays: where the decoder writes the fields it can place
+# without calling back into Python. Built once, at import -- a Binding is a
+# build-once artifact and every decoder over it reuses the compiled map.
+#
+# What is not here is on the visitor below: a value whose declared width an
+# entry cannot carry (u8..u32, i8..i32, a narrow enum/bitfield), an array the
+# schema leaves unbounded, and every wrapper-sequence array.
+_BIND_ExampleArrays_nested = (Binding(closed=True)
+    .float32_array(0, at=48, cap=5, count_at=53)
+    .float64_array(1, at=54, cap=5, count_at=59)
+)
+_BIND_ExampleArrays = (Binding(closed=True)
+    .unsigned_array(0, at=0, cap=5, count_at=5, elem_max=255)
+    .signed_array(1, at=6, cap=5, count_at=11, elem_min=-128, elem_max=127)
+    .unsigned_array(2, at=12, cap=5, count_at=17, elem_max=65535)
+    .signed_array(3, at=18, cap=5, count_at=23, elem_min=-32768, elem_max=32767)
+    .unsigned_array(4, at=24, cap=5, count_at=29, elem_max=4294967295)
+    .signed_array(5, at=30, cap=5, count_at=35, elem_min=-2147483648, elem_max=2147483647)
+    .unsigned_array(6, at=36, cap=5, count_at=41)
+    .signed_array(7, at=42, cap=5, count_at=47)
+    .sequence(10, child=_BIND_ExampleArrays_nested)
+)
+_W_ExampleArrays = _BIND_ExampleArrays.tree_words_required
+_O_ExampleArrays = _BIND_ExampleArrays.tree_objects_required
+# Every slot starts at ALL ONES, which no arrival can write: an array's count
+# slot holds its element count and every other kind's holds 1. That is what
+# tells a field that never arrived from one that arrived EMPTY -- an empty
+# array replaces the default, and a zero count slot could not say so.
+_FILL_ExampleArrays = b"\xff" * (_W_ExampleArrays * 8)
 
 class _ExampleArraysVisitor(Visitor):
-    """Flat decode visitor for :class:`ExampleArrays`.
+    """Decode handler for :class:`ExampleArrays`: a destination table and nothing else.
 
-    corelib-py's visitor is flat -- one object receives every callback at every
-    depth -- so the current scope is tracked here, in ``_c``, over the stack
-    ``_s`` that ``on_sequence_begin`` / ``on_sequence_end`` maintain.
+    Every id this schema declares is on the table, so the decoder writes each
+    value straight into a slot and calls nothing here. An id the schema does
+    not declare is skipped by the codec -- the table is ``closed`` -- which is
+    also what keeps an unknown id inside a nested scope from being mistaken
+    for a field of the scope around it.
     """
 
     def __init__(self, o: ExampleArrays) -> None:
         self._o = o
-        self._c = _L_ExampleArrays
-        self._s: list[int] = []
+        self._w = bytearray(_FILL_ExampleArrays)
+        self._ob: list = []
+        # Typed views over the one buffer: no copy, no second buffer.
+        self._vu = memoryview(self._w).cast("Q")
+        self._vs = memoryview(self._w).cast("q")
+        self._vf = memoryview(self._w).cast("d")
 
-    def on_sequence_begin(self, fid: int) -> bool:
-        c = self._c
-        if c == _L_ExampleArrays:
-            if fid == 10:
-                self._s.append(c)
-                self._c = _L_ExampleArrays_nested
-                return True
-        return False
+    def destinations(self):
+        """Where the decoder is to put the fields this table names.
 
-    def on_sequence_end(self) -> None:
-        if self._s:
-            self._c = self._s.pop()
+        Asked once, when the Decoder is built, so nothing the wire says can
+        change it. A field the table names is written straight into its slot
+        and NO hook fires for it -- not the typed one, not ``on_field``, not
+        ``on_schema_bound``, whose bound rides the entry instead.
 
-    def on_array_begin(self, fid: int, wtype: WireType, count: int):
-        """An integer array's header, before any element is decoded.
-
-        Returns the element bound as the INTERVAL this hook carries, for the
-        decoder to apply AT each element, so a value outside it is rejected
-        whether the array completes or is cut short behind it. For an integer
-        element that interval is the declared width; for an ``enum`` or a
-        ``bitfield`` it is the width the declaration implies -- the smallest
-        signed type holding every constant, the smallest unsigned type holding
-        the highest ``pos``. The schema capacity is not checked here:
-        ``on_schema_bound`` declares it one hook earlier.
+        The table is ``closed``, so an id it does not name is skipped by the
+        codec: nothing reaches this class at all.
         """
-        c = self._c
-        if c == _L_ExampleArrays:
-            if fid == 0:
-                return (None, None, 255)
-            elif fid == 1:
-                return (None, -128, 127)
-            elif fid == 2:
-                return (None, None, 65535)
-            elif fid == 3:
-                return (None, -32768, 32767)
-            elif fid == 4:
-                return (None, None, 4294967295)
-            elif fid == 5:
-                return (None, -2147483648, 2147483647)
-        return None
+        return (_BIND_ExampleArrays, self._w, self._ob)
 
-    def on_unsigned_array(self, fid: int, value: list[int]) -> None:
-        c = self._c
-        if c == _L_ExampleArrays:
-            if fid == 0:
-                self._o.u8 = value
-            elif fid == 2:
-                self._o.u16 = value
-            elif fid == 4:
-                self._o.u32 = value
-            elif fid == 6:
-                self._o.u64 = value
+    def scatter(self) -> None:
+        """Move the table's slots onto the message.
 
-    def on_signed_array(self, fid: int, value: list[int]) -> None:
-        c = self._c
-        if c == _L_ExampleArrays:
-            if fid == 1:
-                self._o.i8 = value
-            elif fid == 3:
-                self._o.i16 = value
-            elif fid == 5:
-                self._o.i32 = value
-            elif fid == 7:
-                self._o.i64 = value
-
-    def on_float32_array(self, fid: int, value: list[float]) -> None:
-        c = self._c
-        if c == _L_ExampleArrays_nested:
-            if fid == 0:
-                self._o.nested.fp32 = value
-
-    def on_float64_array(self, fid: int, value: list[float]) -> None:
-        c = self._c
-        if c == _L_ExampleArrays_nested:
-            if fid == 1:
-                self._o.nested.fp64 = value
-
-    def on_field(self, fld: Field) -> bool:
-        """Accept or decline a field at its HEADER, before its value is read.
-
-        An id is declined when the header's wire type -- or, for a fixlen one,
-        its subtype -- is not the one its declared type maps to. Such a field is
-        SKIPPED, exactly like an unknown id, so neither the bound
-        ``on_schema_bound`` declares nor a receiver-side cap may reach it.
-
-        An id this scope does not declare AT ALL is declined for the same
-        reason: it is not a field this handler reads, so it is walked rather
-        than materialized, and no receiver cap may reach it. A decode that
-        steps over an over-cap field it does not want stays COMPLETE.
+        Called when the decode completes. A slot no field arrived in leaves
+        the dataclass default standing, which is how absence is reported
+        without inventing a sentinel value for it.
         """
-        c = self._c
-        if c == _L_ExampleArrays:
-            if fld.id not in {0, 1, 2, 3, 4, 5, 6, 7, 10}:
-                return False  # an id this scope does not declare is walked, not read
-            if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING:
-                return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-            if fld.id == 0:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u8: header is not the declared type -- skip it
-            elif fld.id == 1:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i8: header is not the declared type -- skip it
-            elif fld.id == 2:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u16: header is not the declared type -- skip it
-            elif fld.id == 3:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i16: header is not the declared type -- skip it
-            elif fld.id == 4:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u32: header is not the declared type -- skip it
-            elif fld.id == 5:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i32: header is not the declared type -- skip it
-            elif fld.id == 6:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u64: header is not the declared type -- skip it
-            elif fld.id == 7:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i64: header is not the declared type -- skip it
-        elif c == _L_ExampleArrays_nested:
-            if fld.id not in {0, 1}:
-                return False  # an id this scope does not declare is walked, not read
-            if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING:
-                return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-            if fld.id == 0:
-                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP32:
-                    return False  # fp32: header is not the declared type -- skip it
-            elif fld.id == 1:
-                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP64:
-                    return False  # fp64: header is not the declared type -- skip it
-        return True
-
-    def on_schema_bound(self, fid: int, n: int, wt, st) -> int:
-        """The count or length the SCHEMA declares for this field, or -1.
-
-        Answered at the count/length header, before any payload byte is read.
-        A wire count/length above it is INVALID; a field that declares one is
-        no longer governed by the receiver-side caps, which bound only what the
-        schema left open.
-
-        ``wt``/``st`` are the header's wire type and fixlen subtype. Neither is
-        consulted here: ``on_field`` has already declined a header whose type
-        contradicts the one this field declares, so a field that reaches this
-        hook is the declared field and no other.
-        """
-        c = self._c
-        if c == _L_ExampleArrays:
-            if fid == 0:
-                return 5  # u8: schema count
-            elif fid == 1:
-                return 5  # i8: schema count
-            elif fid == 2:
-                return 5  # u16: schema count
-            elif fid == 3:
-                return 5  # i16: schema count
-            elif fid == 4:
-                return 5  # u32: schema count
-            elif fid == 5:
-                return 5  # i32: schema count
-            elif fid == 6:
-                return 5  # u64: schema count
-            elif fid == 7:
-                return 5  # i64: schema count
-        elif c == _L_ExampleArrays_nested:
-            if fid == 0:
-                return 5  # fp32: schema count
-            elif fid == 1:
-                return 5  # fp64: schema count
-        return -1
+        m = self._o
+        U = self._vu
+        S = self._vs
+        F = self._vf
+        if U[5] != _ABSENT: m.u8 = list(U[0:0 + U[5]])
+        if U[11] != _ABSENT: m.i8 = list(S[6:6 + U[11]])
+        if U[17] != _ABSENT: m.u16 = list(U[12:12 + U[17]])
+        if U[23] != _ABSENT: m.i16 = list(S[18:18 + U[23]])
+        if U[29] != _ABSENT: m.u32 = list(U[24:24 + U[29]])
+        if U[35] != _ABSENT: m.i32 = list(S[30:30 + U[35]])
+        if U[41] != _ABSENT: m.u64 = list(U[36:36 + U[41]])
+        if U[47] != _ABSENT: m.i64 = list(S[42:42 + U[47]])
+        if U[53] != _ABSENT: m.nested.fp32 = list(F[48:48 + U[53]])
+        if U[59] != _ABSENT: m.nested.fp64 = list(F[54:54 + U[59]])
 
 # Dispatch locations for ExampleArraysNested: one per sequence-framed scope in its tree.
 # A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 # id space -- so the visitor below keys every hook on (location, id).
+# A scope the table enters has no location here: the decoder walks it without
+# this visitor, so nothing ever dispatches against it.
 _L_ExampleArraysNested = 0
 
 class _ExampleArraysNestedVisitor(Visitor):
@@ -787,8 +726,10 @@ class _ExampleArraysNestedVisitor(Visitor):
         self._c = _L_ExampleArraysNested
         self._s: list[int] = []
 
+    def scatter(self) -> None:
+        """Nothing to move: this class carries no destination table."""
+
     def on_sequence_begin(self, fid: int) -> bool:
-        c = self._c
         return False
 
     def on_sequence_end(self) -> None:
@@ -823,7 +764,7 @@ class _ExampleArraysNestedVisitor(Visitor):
         c = self._c
         if c == _L_ExampleArraysNested:
             if fld.id not in {0, 1}:
-                return False  # an id this scope does not declare is walked, not read
+                return False  # not one of this scope's own ids: walked, not read
             if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING:
                 return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
             if fld.id == 0:
@@ -855,111 +796,128 @@ class _ExampleArraysNestedVisitor(Visitor):
                 return 5  # fp64: schema count
         return -1
 
-# Dispatch locations for ExampleNested: one per sequence-framed scope in its tree.
-# A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
-# id space -- so the visitor below keys every hook on (location, id).
-_L_ExampleNested = 0
+# Destination table for ExampleNested: where the decoder writes the fields it can place
+# without calling back into Python. Built once, at import -- a Binding is a
+# build-once artifact and every decoder over it reuses the compiled map.
+#
+# What is not here is on the visitor below: a value whose declared width an
+# entry cannot carry (u8..u32, i8..i32, a narrow enum/bitfield), an array the
+# schema leaves unbounded, and every wrapper-sequence array.
+_BIND_ExampleNested = (Binding(closed=True)
+    .float32(0, at=0, count_at=1)
+    .float64(1, at=2, count_at=3)
+    .string(2, at=0, maxlen=32, count_at=4)
+    .bytes(3, at=1, maxlen=4, count_at=5)
+)
+_W_ExampleNested = _BIND_ExampleNested.tree_words_required
+_O_ExampleNested = _BIND_ExampleNested.tree_objects_required
+# Every slot starts at ALL ONES, which no arrival can write: an array's count
+# slot holds its element count and every other kind's holds 1. That is what
+# tells a field that never arrived from one that arrived EMPTY -- an empty
+# array replaces the default, and a zero count slot could not say so.
+_FILL_ExampleNested = b"\xff" * (_W_ExampleNested * 8)
 
 class _ExampleNestedVisitor(Visitor):
-    """Flat decode visitor for :class:`ExampleNested`.
+    """Decode handler for :class:`ExampleNested`: a destination table and nothing else.
 
-    corelib-py's visitor is flat -- one object receives every callback at every
-    depth -- so the current scope is tracked here, in ``_c``, over the stack
-    ``_s`` that ``on_sequence_begin`` / ``on_sequence_end`` maintain.
+    Every id this schema declares is on the table, so the decoder writes each
+    value straight into a slot and calls nothing here. An id the schema does
+    not declare is skipped by the codec -- the table is ``closed`` -- which is
+    also what keeps an unknown id inside a nested scope from being mistaken
+    for a field of the scope around it.
     """
 
     def __init__(self, o: ExampleNested) -> None:
         self._o = o
-        self._c = _L_ExampleNested
-        self._s: list[int] = []
+        self._w = bytearray(_FILL_ExampleNested)
+        self._ob: list = [None] * _O_ExampleNested
+        # Typed views over the one buffer: no copy, no second buffer.
+        self._vu = memoryview(self._w).cast("Q")
+        self._vf = memoryview(self._w).cast("d")
 
-    def on_sequence_begin(self, fid: int) -> bool:
-        c = self._c
-        return False
+    def destinations(self):
+        """Where the decoder is to put the fields this table names.
 
-    def on_sequence_end(self) -> None:
-        if self._s:
-            self._c = self._s.pop()
+        Asked once, when the Decoder is built, so nothing the wire says can
+        change it. A field the table names is written straight into its slot
+        and NO hook fires for it -- not the typed one, not ``on_field``, not
+        ``on_schema_bound``, whose bound rides the entry instead.
 
-    def on_float32(self, fid: int, value: float) -> None:
-        c = self._c
-        if c == _L_ExampleNested:
-            if fid == 0:
-                self._o.f32 = value
-
-    def on_float64(self, fid: int, value: float) -> None:
-        c = self._c
-        if c == _L_ExampleNested:
-            if fid == 1:
-                self._o.f64 = value
-
-    def on_string(self, fid: int, value: str) -> None:
-        c = self._c
-        if c == _L_ExampleNested:
-            if fid == 2:
-                self._o.str = value
-
-    def on_bytes(self, fid: int, value: bytes) -> None:
-        c = self._c
-        if c == _L_ExampleNested:
-            if fid == 3:
-                self._o.bytes_field = value
-
-    def on_field(self, fld: Field) -> bool:
-        """Accept or decline a field at its HEADER, before its value is read.
-
-        An id is declined when the header's wire type -- or, for a fixlen one,
-        its subtype -- is not the one its declared type maps to. Such a field is
-        SKIPPED, exactly like an unknown id, so neither the bound
-        ``on_schema_bound`` declares nor a receiver-side cap may reach it.
-
-        An id this scope does not declare AT ALL is declined for the same
-        reason: it is not a field this handler reads, so it is walked rather
-        than materialized, and no receiver cap may reach it. A decode that
-        steps over an over-cap field it does not want stays COMPLETE.
+        The table is ``closed``, so an id it does not name is skipped by the
+        codec: nothing reaches this class at all.
         """
-        c = self._c
-        if c == _L_ExampleNested:
-            if fld.id not in {0, 1, 2, 3}:
-                return False  # an id this scope does not declare is walked, not read
-            if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING and fld.id not in {2, 3}:
-                return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-            if fld.id == 2:
-                if fld.subtype != FixlenSubtype.STRING:
-                    return False  # str: header is not the declared type -- skip it
-            elif fld.id == 3:
-                if fld.subtype != FixlenSubtype.BLOB:
-                    return False  # bytes_field: header is not the declared type -- skip it
-        return True
+        return (_BIND_ExampleNested, self._w, self._ob)
 
-    def on_schema_bound(self, fid: int, n: int, wt, st) -> int:
-        """The count or length the SCHEMA declares for this field, or -1.
+    def scatter(self) -> None:
+        """Move the table's slots onto the message.
 
-        Answered at the count/length header, before any payload byte is read.
-        A wire count/length above it is INVALID; a field that declares one is
-        no longer governed by the receiver-side caps, which bound only what the
-        schema left open.
-
-        ``wt``/``st`` are the header's wire type and fixlen subtype. Neither is
-        consulted here: ``on_field`` has already declined a header whose type
-        contradicts the one this field declares, so a field that reaches this
-        hook is the declared field and no other.
+        Called when the decode completes. A slot no field arrived in leaves
+        the dataclass default standing, which is how absence is reported
+        without inventing a sentinel value for it.
         """
-        c = self._c
-        if c == _L_ExampleNested:
-            if fid == 2:
-                return 32  # str: schema maxlen
-            elif fid == 3:
-                return 4  # bytes_field: schema maxlen
-        return -1
+        m = self._o
+        U = self._vu
+        F = self._vf
+        OB = self._ob
+        if U[1] != _ABSENT: m.f32 = F[0]
+        if U[3] != _ABSENT: m.f64 = F[2]
+        if U[4] != _ABSENT: m.str = OB[0]
+        if U[5] != _ABSENT: m.bytes_field = OB[1]
+
+# Destination table for Example: where the decoder writes the fields it can place
+# without calling back into Python. Built once, at import -- a Binding is a
+# build-once artifact and every decoder over it reuses the compiled map.
+#
+# What is not here is on the visitor below: a value whose declared width an
+# entry cannot carry (u8..u32, i8..i32, a narrow enum/bitfield), an array the
+# schema leaves unbounded, and every wrapper-sequence array.
+_BIND_Example_arrays_nested = (Binding(closed=True)
+    .float32_array(0, at=70, cap=5, count_at=75)
+    .float64_array(1, at=76, cap=5, count_at=81)
+)
+_BIND_Example_arrays = (Binding(closed=True)
+    .unsigned_array(0, at=22, cap=5, count_at=27, elem_max=255)
+    .signed_array(1, at=28, cap=5, count_at=33, elem_min=-128, elem_max=127)
+    .unsigned_array(2, at=34, cap=5, count_at=39, elem_max=65535)
+    .signed_array(3, at=40, cap=5, count_at=45, elem_min=-32768, elem_max=32767)
+    .unsigned_array(4, at=46, cap=5, count_at=51, elem_max=4294967295)
+    .signed_array(5, at=52, cap=5, count_at=57, elem_min=-2147483648, elem_max=2147483647)
+    .unsigned_array(6, at=58, cap=5, count_at=63)
+    .signed_array(7, at=64, cap=5, count_at=69)
+    .sequence(10, child=_BIND_Example_arrays_nested)
+)
+_BIND_Example_nested = (Binding(closed=True)
+    .float32(0, at=16, count_at=17)
+    .float64(1, at=18, count_at=19)
+    .string(2, at=0, maxlen=32, count_at=20)
+    .bytes(3, at=1, maxlen=4, count_at=21)
+)
+_BIND_Example = (Binding()
+    .unsigned(0, at=0, count_at=1, max_value=255)
+    .signed(1, at=2, count_at=3, min_value=-128, max_value=127)
+    .unsigned(2, at=4, count_at=5, max_value=65535)
+    .signed(3, at=6, count_at=7, min_value=-32768, max_value=32767)
+    .unsigned(4, at=8, count_at=9, max_value=4294967295)
+    .signed(5, at=10, count_at=11, min_value=-2147483648, max_value=2147483647)
+    .unsigned(6, at=12, count_at=13)
+    .signed(7, at=14, count_at=15)
+    .sequence(10, child=_BIND_Example_nested)
+    .sequence(100, child=_BIND_Example_arrays)
+)
+_W_Example = _BIND_Example.tree_words_required
+_O_Example = _BIND_Example.tree_objects_required
+# Every slot starts at ALL ONES, which no arrival can write: an array's count
+# slot holds its element count and every other kind's holds 1. That is what
+# tells a field that never arrived from one that arrived EMPTY -- an empty
+# array replaces the default, and a zero count slot could not say so.
+_FILL_Example = b"\xff" * (_W_Example * 8)
 
 # Dispatch locations for Example: one per sequence-framed scope in its tree.
 # A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 # id space -- so the visitor below keys every hook on (location, id).
+# A scope the table enters has no location here: the decoder walks it without
+# this visitor, so nothing ever dispatches against it.
 _L_Example = 0
-_L_Example_nested = 1
-_L_Example_arrays = 2
-_L_Example_arrays_nested = 3
 _L_Example_string_array = 4
 
 class _ExampleVisitor(Visitor):
@@ -974,27 +932,66 @@ class _ExampleVisitor(Visitor):
         self._o = o
         self._c = _L_Example
         self._s: list[int] = []
+        self._w = bytearray(_FILL_Example)
+        self._ob: list = [None] * _O_Example
+        # Typed views over the one buffer: no copy, no second buffer.
+        self._vu = memoryview(self._w).cast("Q")
+        self._vs = memoryview(self._w).cast("q")
+        self._vf = memoryview(self._w).cast("d")
+
+    def destinations(self):
+        """Where the decoder is to put the fields this table names.
+
+        Asked once, when the Decoder is built, so nothing the wire says can
+        change it. A field the table names is written straight into its slot
+        and NO hook fires for it -- not the typed one, not ``on_field``, not
+        ``on_schema_bound``, whose bound rides the entry instead.
+        Everything the table does not name reaches the hooks below unchanged.
+        """
+        return (_BIND_Example, self._w, self._ob)
+
+    def scatter(self) -> None:
+        """Move the table's slots onto the message.
+
+        Called when the decode completes. A slot no field arrived in leaves
+        the dataclass default standing, which is how absence is reported
+        without inventing a sentinel value for it.
+        """
+        m = self._o
+        U = self._vu
+        S = self._vs
+        F = self._vf
+        OB = self._ob
+        if U[1] != _ABSENT: m.u8 = U[0]
+        if U[3] != _ABSENT: m.i8 = S[2]
+        if U[5] != _ABSENT: m.u16 = U[4]
+        if U[7] != _ABSENT: m.i16 = S[6]
+        if U[9] != _ABSENT: m.u32 = U[8]
+        if U[11] != _ABSENT: m.i32 = S[10]
+        if U[13] != _ABSENT: m.u64 = U[12]
+        if U[15] != _ABSENT: m.i64 = S[14]
+        if U[17] != _ABSENT: m.nested.f32 = F[16]
+        if U[19] != _ABSENT: m.nested.f64 = F[18]
+        if U[20] != _ABSENT: m.nested.str = OB[0]
+        if U[21] != _ABSENT: m.nested.bytes_field = OB[1]
+        if U[27] != _ABSENT: m.arrays.u8 = list(U[22:22 + U[27]])
+        if U[33] != _ABSENT: m.arrays.i8 = list(S[28:28 + U[33]])
+        if U[39] != _ABSENT: m.arrays.u16 = list(U[34:34 + U[39]])
+        if U[45] != _ABSENT: m.arrays.i16 = list(S[40:40 + U[45]])
+        if U[51] != _ABSENT: m.arrays.u32 = list(U[46:46 + U[51]])
+        if U[57] != _ABSENT: m.arrays.i32 = list(S[52:52 + U[57]])
+        if U[63] != _ABSENT: m.arrays.u64 = list(U[58:58 + U[63]])
+        if U[69] != _ABSENT: m.arrays.i64 = list(S[64:64 + U[69]])
+        if U[75] != _ABSENT: m.arrays.nested.fp32 = list(F[70:70 + U[75]])
+        if U[81] != _ABSENT: m.arrays.nested.fp64 = list(F[76:76 + U[81]])
 
     def on_sequence_begin(self, fid: int) -> bool:
         c = self._c
         if c == _L_Example:
-            if fid == 10:
-                self._s.append(c)
-                self._c = _L_Example_nested
-                return True
-            elif fid == 100:
-                self._s.append(c)
-                self._c = _L_Example_arrays
-                return True
-            elif fid == 200:
+            if fid == 200:
                 self._o.string_array = []
                 self._s.append(c)
                 self._c = _L_Example_string_array
-                return True
-        elif c == _L_Example_arrays:
-            if fid == 10:
-                self._s.append(c)
-                self._c = _L_Example_arrays_nested
                 return True
         return False
 
@@ -1002,134 +999,13 @@ class _ExampleVisitor(Visitor):
         if self._s:
             self._c = self._s.pop()
 
-    def on_array_begin(self, fid: int, wtype: WireType, count: int):
-        """An integer array's header, before any element is decoded.
-
-        Returns the element bound as the INTERVAL this hook carries, for the
-        decoder to apply AT each element, so a value outside it is rejected
-        whether the array completes or is cut short behind it. For an integer
-        element that interval is the declared width; for an ``enum`` or a
-        ``bitfield`` it is the width the declaration implies -- the smallest
-        signed type holding every constant, the smallest unsigned type holding
-        the highest ``pos``. The schema capacity is not checked here:
-        ``on_schema_bound`` declares it one hook earlier.
-        """
-        c = self._c
-        if c == _L_Example_arrays:
-            if fid == 0:
-                return (None, None, 255)
-            elif fid == 1:
-                return (None, -128, 127)
-            elif fid == 2:
-                return (None, None, 65535)
-            elif fid == 3:
-                return (None, -32768, 32767)
-            elif fid == 4:
-                return (None, None, 4294967295)
-            elif fid == 5:
-                return (None, -2147483648, 2147483647)
-        return None
-
-    def on_unsigned(self, fid: int, value: int) -> None:
-        c = self._c
-        if c == _L_Example:
-            if fid == 0:
-                if value > 255:
-                    raise SofaDecodeError("u8: value outside declared width u8")
-                self._o.u8 = value
-            elif fid == 2:
-                if value > 65535:
-                    raise SofaDecodeError("u16: value outside declared width u16")
-                self._o.u16 = value
-            elif fid == 4:
-                if value > 4294967295:
-                    raise SofaDecodeError("u32: value outside declared width u32")
-                self._o.u32 = value
-            elif fid == 6:
-                self._o.u64 = value
-
-    def on_signed(self, fid: int, value: int) -> None:
-        c = self._c
-        if c == _L_Example:
-            if fid == 1:
-                if value < -128 or value > 127:
-                    raise SofaDecodeError("i8: value outside declared width i8")
-                self._o.i8 = value
-            elif fid == 3:
-                if value < -32768 or value > 32767:
-                    raise SofaDecodeError("i16: value outside declared width i16")
-                self._o.i16 = value
-            elif fid == 5:
-                if value < -2147483648 or value > 2147483647:
-                    raise SofaDecodeError("i32: value outside declared width i32")
-                self._o.i32 = value
-            elif fid == 7:
-                self._o.i64 = value
-
-    def on_float32(self, fid: int, value: float) -> None:
-        c = self._c
-        if c == _L_Example_nested:
-            if fid == 0:
-                self._o.nested.f32 = value
-
-    def on_float64(self, fid: int, value: float) -> None:
-        c = self._c
-        if c == _L_Example_nested:
-            if fid == 1:
-                self._o.nested.f64 = value
-
     def on_string(self, fid: int, value: str) -> None:
         c = self._c
-        if c == _L_Example_nested:
-            if fid == 2:
-                self._o.nested.str = value
-        elif c == _L_Example_string_array:
+        if c == _L_Example_string_array:
             _t = self._o.string_array
             while len(_t) <= fid:
                 _t.append("")
             _t[fid] = value
-
-    def on_bytes(self, fid: int, value: bytes) -> None:
-        c = self._c
-        if c == _L_Example_nested:
-            if fid == 3:
-                self._o.nested.bytes_field = value
-
-    def on_unsigned_array(self, fid: int, value: list[int]) -> None:
-        c = self._c
-        if c == _L_Example_arrays:
-            if fid == 0:
-                self._o.arrays.u8 = value
-            elif fid == 2:
-                self._o.arrays.u16 = value
-            elif fid == 4:
-                self._o.arrays.u32 = value
-            elif fid == 6:
-                self._o.arrays.u64 = value
-
-    def on_signed_array(self, fid: int, value: list[int]) -> None:
-        c = self._c
-        if c == _L_Example_arrays:
-            if fid == 1:
-                self._o.arrays.i8 = value
-            elif fid == 3:
-                self._o.arrays.i16 = value
-            elif fid == 5:
-                self._o.arrays.i32 = value
-            elif fid == 7:
-                self._o.arrays.i64 = value
-
-    def on_float32_array(self, fid: int, value: list[float]) -> None:
-        c = self._c
-        if c == _L_Example_arrays_nested:
-            if fid == 0:
-                self._o.arrays.nested.fp32 = value
-
-    def on_float64_array(self, fid: int, value: list[float]) -> None:
-        c = self._c
-        if c == _L_Example_arrays_nested:
-            if fid == 1:
-                self._o.arrays.nested.fp64 = value
 
     def on_field(self, fld: Field) -> bool:
         """Accept or decline a field at its HEADER, before its value is read.
@@ -1146,61 +1022,10 @@ class _ExampleVisitor(Visitor):
         """
         c = self._c
         if c == _L_Example:
-            if fld.id not in {0, 1, 2, 3, 4, 5, 6, 7, 10, 100, 200}:
-                return False  # an id this scope does not declare is walked, not read
+            if fld.id not in {200}:
+                return False  # not one of this scope's own ids: walked, not read
             if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING:
                 return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-        elif c == _L_Example_nested:
-            if fld.id not in {0, 1, 2, 3}:
-                return False  # an id this scope does not declare is walked, not read
-            if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING and fld.id not in {2, 3}:
-                return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-            if fld.id == 2:
-                if fld.subtype != FixlenSubtype.STRING:
-                    return False  # str: header is not the declared type -- skip it
-            elif fld.id == 3:
-                if fld.subtype != FixlenSubtype.BLOB:
-                    return False  # bytes_field: header is not the declared type -- skip it
-        elif c == _L_Example_arrays:
-            if fld.id not in {0, 1, 2, 3, 4, 5, 6, 7, 10}:
-                return False  # an id this scope does not declare is walked, not read
-            if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING:
-                return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-            if fld.id == 0:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u8: header is not the declared type -- skip it
-            elif fld.id == 1:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i8: header is not the declared type -- skip it
-            elif fld.id == 2:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u16: header is not the declared type -- skip it
-            elif fld.id == 3:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i16: header is not the declared type -- skip it
-            elif fld.id == 4:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u32: header is not the declared type -- skip it
-            elif fld.id == 5:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i32: header is not the declared type -- skip it
-            elif fld.id == 6:
-                if fld.type != WireType.ARRAY_UNSIGNED:
-                    return False  # u64: header is not the declared type -- skip it
-            elif fld.id == 7:
-                if fld.type != WireType.ARRAY_SIGNED:
-                    return False  # i64: header is not the declared type -- skip it
-        elif c == _L_Example_arrays_nested:
-            if fld.id not in {0, 1}:
-                return False  # an id this scope does not declare is walked, not read
-            if fld.subtype is not None and fld.subtype >= FixlenSubtype.STRING:
-                return False  # a string/blob payload here is not this scope's: skip it, never materialize it (S6.4.5)
-            if fld.id == 0:
-                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP32:
-                    return False  # fp32: header is not the declared type -- skip it
-            elif fld.id == 1:
-                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP64:
-                    return False  # fp64: header is not the declared type -- skip it
         elif c == _L_Example_string_array:
             if fld.subtype != FixlenSubtype.STRING:
                 return False  # string_array: header is not the declared type -- skip it
@@ -1222,34 +1047,7 @@ class _ExampleVisitor(Visitor):
         hook is the declared field and no other.
         """
         c = self._c
-        if c == _L_Example_nested:
-            if fid == 2:
-                return 32  # str: schema maxlen
-            elif fid == 3:
-                return 4  # bytes_field: schema maxlen
-        elif c == _L_Example_arrays:
-            if fid == 0:
-                return 5  # u8: schema count
-            elif fid == 1:
-                return 5  # i8: schema count
-            elif fid == 2:
-                return 5  # u16: schema count
-            elif fid == 3:
-                return 5  # i16: schema count
-            elif fid == 4:
-                return 5  # u32: schema count
-            elif fid == 5:
-                return 5  # i32: schema count
-            elif fid == 6:
-                return 5  # u64: schema count
-            elif fid == 7:
-                return 5  # i64: schema count
-        elif c == _L_Example_arrays_nested:
-            if fid == 0:
-                return 5  # fp32: schema count
-            elif fid == 1:
-                return 5  # fp64: schema count
-        elif c == _L_Example_string_array:
+        if c == _L_Example_string_array:
             return 64  # string_array: schema element maxlen
         return -1
 
