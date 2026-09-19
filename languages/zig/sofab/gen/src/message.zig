@@ -399,12 +399,28 @@ const _dec_Example = struct {
     pub fn string(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
         switch (self.cur) {
             .root_nested => switch (id) {
-                2 => if (total > 32) { self.inv = true; } else { const chunk = self._take(total, offset, _chunk) orelse return; if (!sofab.utf8Valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
+                2 => if (total > 32) { self.inv = true; } else { const chunk = self._takeStr(total, offset, _chunk) orelse return; self.m.nested.str = chunk; },
                 else => {},
             },
-            .root_string_array => if (id >= 5) { self.inv = true; } else if (total > 64) { self.inv = true; } else { const chunk = self._take(total, offset, _chunk) orelse return; if (!sofab.utf8Valid(chunk)) { self.inv = true; } else { sofab.arrays.setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } },
+            .root_string_array => if (id >= 5) { self.inv = true; } else if (total > 64) { self.inv = true; } else { const chunk = self._takeStr(total, offset, _chunk) orelse return; sofab.arrays.setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); },
             else => {},
         }
+    }
+
+    /// _take for a `string`: strict UTF-8 is decided on the SOURCE bytes
+    /// before they are copied, so an invalid payload is never allocated and
+    /// the validator does not re-read a copy it just stored. Invalid UTF-8
+    /// is INVALID and returns null. A payload split across feed chunks is
+    /// stitched first -- it has no contiguous source until then.
+    fn _takeStr(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
+        if (offset == 0 and chunk.len >= total) {
+            const src = chunk[0..total];
+            if (!sofab.utf8Valid(src)) { self.inv = true; return null; }
+            return self.alloc.dupe(u8, src) catch { self.inv = true; return null; };
+        }
+        const p = (self.acc.push(self.alloc, total, offset, chunk) catch { self.inv = true; return null; }) orelse return null;
+        if (!sofab.utf8Valid(p)) { self.inv = true; return null; }
+        return p;
     }
 
     pub fn blob(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {

@@ -22,6 +22,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:harness/message.dart';
+import 'package:sofa_buffers_corelib/sofa_buffers_corelib.dart' show InlineString;
 
 import 'bench_common.dart';
 
@@ -38,39 +39,39 @@ Example buildExample() {
     ..nested = (ExampleNested()
       ..f32 = 3.14
       ..f64 = 3.14159265
-      ..str = 'Hello, World!'
-      ..bytes_field = Uint8List.fromList(<int>[0xDE, 0xAD, 0xBE, 0xEF]))
+      ..str.assignString('Hello, World!')
+      ..bytes_field.assign(<int>[0xDE, 0xAD, 0xBE, 0xEF]))
     ..arrays = (ExampleArrays()
-      ..u8 = <int>[0, 64, 128, 191, 255]
-      ..i8 = <int>[-128, -64, 0, 63, 127]
-      ..u16 = <int>[0, 16384, 32768, 49151, 65535]
-      ..i16 = <int>[-32768, -16384, 0, 16383, 32767]
-      ..u32 = <int>[0, 1073741824, 2147483648, 3221225471, 4294967295]
-      ..i32 = <int>[-2147483648, -1073741824, 0, 1073741823, 2147483647]
-      ..u64 = <int>[
+      ..u8.assign(<int>[0, 64, 128, 191, 255])
+      ..i8.assign(<int>[-128, -64, 0, 63, 127])
+      ..u16.assign(<int>[0, 16384, 32768, 49151, 65535])
+      ..i16.assign(<int>[-32768, -16384, 0, 16383, 32767])
+      ..u32.assign(<int>[0, 1073741824, 2147483648, 3221225471, 4294967295])
+      ..i32.assign(<int>[-2147483648, -1073741824, 0, 1073741823, 2147483647])
+      ..u64.assign(<int>[
         0,
         0x4000000000000000, // 4611686018427387904
         0x8000000000000000, // 9223372036854775808
         0xBFFFFFFFFFFFFFFF, // 13835058055282163711
         0xFFFFFFFFFFFFFFFF, // 18446744073709551615
-      ]
-      ..i64 = <int>[
+      ])
+      ..i64.assign(<int>[
         -9223372036854775807,
         -4611686018427387904,
         0,
         4611686018427387903,
         9223372036854775807,
-      ]
+      ])
       ..nested = (ExampleArraysNested()
-        ..fp32 = <double>[1.0, 2.0, 3.0, -3.4028234663852886e38, 3.4028234663852886e38]
-        ..fp64 = <double>[1.0, 2.0, 3.0, -1.7976931348623157e308, 1.7976931348623157e308]))
+        ..fp32.assign(<double>[1.0, 2.0, 3.0, -3.4028234663852886e38, 3.4028234663852886e38])
+        ..fp64.assign(<double>[1.0, 2.0, 3.0, -1.7976931348623157e308, 1.7976931348623157e308])))
     ..string_array = <String>[
       'Hello, Sofab!',
       '',
       '1234567890',
       'äöüÄÖÜß',
       'This_is_a_very_long_test_string_with_!@#\$%^&*()_+-=[]{}',
-    ];
+    ].map(InlineString.of).toList();
 }
 
 bool _bytesEqual(Uint8List a, Uint8List b) {

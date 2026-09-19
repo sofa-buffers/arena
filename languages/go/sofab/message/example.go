@@ -171,6 +171,14 @@ func NewExample() *Example {
 // schema: no value of it can encode to more.
 const ExampleMaxSize = 732
 
+// ExampleMaxDepth is the deepest sequence nesting encoding this message opens,
+// derived from the schema: no value of it nests deeper.
+const ExampleMaxDepth = 2
+
+// _ExampleEncOpts bounds this message's encoders to ExampleMaxDepth. It is
+// package-level so passing it allocates nothing per call.
+var _ExampleEncOpts = []sofab.Option{sofab.WithMaxDepth(ExampleMaxDepth)}
+
 // Encode serializes the message into a buffer this call allocates and owns.
 //
 // The buffer is exactly ExampleMaxSize bytes -- the schema's worst case -- so a
@@ -178,7 +186,7 @@ const ExampleMaxSize = 732
 // does not, and is reported rather than truncated.
 func (m *Example) Encode() ([]byte, error) {
 	buf := make([]byte, ExampleMaxSize)
-	e, err := sofab.NewEncoderBuffer(buf, 0)
+	e, err := sofab.NewEncoderBuffer(buf, 0, _ExampleEncOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +207,7 @@ func (m *Example) EncodeTo(w io.Writer) error {
 	e, err := sofab.NewEncoderSink(scratch[:], 0, func(_ *sofab.Encoder, b []byte) error {
 		_, werr := w.Write(b)
 		return werr
-	})
+	}, _ExampleEncOpts...)
 	if err != nil {
 		return err
 	}

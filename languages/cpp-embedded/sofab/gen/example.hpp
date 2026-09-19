@@ -5,6 +5,7 @@
 #include <vector>
 #include <span>
 #include <cstddef>
+#include <utility>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
@@ -433,7 +434,7 @@ struct Example : sofab::Message {
     static Example decode(const std::uint8_t *data, std::size_t len) {
         sofab::IStreamObject<Example> in;
         in.feed(data, len);
-        return *in;
+        return std::move(*in);
     }
 
     /**
