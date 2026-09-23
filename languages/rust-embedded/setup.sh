@@ -50,7 +50,7 @@ path = "src/bench.rs"
 required-features = ["std"]
 
 [dependencies]
-sofab = { package = "sofa-buffers-corelib-no-std", path = "$SOFAB_RS_CORELIB", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64"] }
+sofab = { package = "sofa-buffers-corelib-no-std", path = "$SOFAB_RS_CORELIB", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64", "heapless"] }
 heapless = { version = "$RUST_HEAPLESS", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }

@@ -15,7 +15,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 msgs = { package = "sofabuffers-generated", path = "../sofab/gen", default-features = false }
-sofab = { package = "sofa-buffers-corelib-no-std", path = "../../../vendor/corelib-rs-no-std", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64"] }
+sofab = { package = "sofa-buffers-corelib-no-std", path = "../../../vendor/corelib-rs-no-std", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64", "heapless"] }
 
 [profile.release]
 opt-level = "z"
