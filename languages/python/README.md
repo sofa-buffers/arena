@@ -1,12 +1,27 @@
 # SofaBuffers — Python target: why it's the slowest
 
 The Python SofaBuffers target is the slowest in the arena (~0.11× of
-protobuf-python), **and it's *not* a fallback bug.** The Python sofab target runs
-the **compiled Cython accelerator**, not the pure-Python engine — verified at
-runtime (`sofab.IMPL == "native"`, and the generated `message.Encoder`/`Decoder`
-resolve to `sofab._speedups`). Native is doing real work: forcing the pure-Python
-fallback with `SOFAB_PUREPYTHON=1` drops throughput ~**7×** (≈3 MB/s), so the
-accelerator is the only reason Python is as fast as it is.
+protobuf-python), **and it's *not* a fallback bug.** corelib-py ships two engines
+behind one API — the **compiled accelerator** (`sofab._speedups`, built by Cython)
+and the pure-Python fallback — and the arena runs **both**, one row each:
+
+| row | engine | `codec` |
+|---|---|---|
+| `python/native` | `sofab._speedups`, the compiled accelerator | `native` |
+| `python/pure` | the pure-Python fallback, forced with `SOFAB_PUREPYTHON=1` | `python` |
+
+`import sofab` resolves the engine once per process, so `bench.sh` runs the same
+`sofab/bench.py` twice — same message, same `BENCH_ITERS`, same interpreter, only
+the environment differs. Nothing is assumed about which engine loaded:
+`bench.py` fails the run unless `sofab.IMPL` matches the row's `BENCH_IMPL` label,
+so a missing extension can never masquerade as the accelerator. Both rows share
+the target's single protobuf measurement and are held to the same 434 B sofab
+reference wire by the gate — the engines are byte-for-byte identical, only their
+speed differs.
+
+That pair is what prices the accelerator: it is worth ~**7×** (pure ≈3 MB/s), so
+it is the only reason Python is as fast as it is. The headline ~0.11× below is the
+`python/native` row.
 
 It still trails protobuf because protobuf-python is a thin shell over Google's C
 **`upb`** engine — nearly all its encode/decode runs in C — whereas SofaBuffers
@@ -35,5 +50,5 @@ The lever is *not* the harness or the corelib's byte-level codec (both already l
 schema in C and populate the object in one `_speedups` call, instead of returning a
 `Field` per field to a Python loop) is what would close the gap. Reproduce with
 `valgrind --tool=callgrind` over an encode+decode loop of
-`languages/python/sofab/gen/message.py`, or compare `SOFAB_PUREPYTHON=1` vs unset to
-see the native contribution directly.
+`languages/python/sofab/gen/message.py`, or read the native contribution straight
+off the `python/native` vs `python/pure` rows of a benchmark run.
