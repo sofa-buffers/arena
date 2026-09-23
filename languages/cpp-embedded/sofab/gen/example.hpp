@@ -5,6 +5,7 @@
 #include <vector>
 #include <span>
 #include <cstddef>
+#include <utility>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
@@ -182,7 +183,7 @@ struct ExampleArraysNested : sofab::Message {
      * @param is Stream delivering the field.
      * @param id Field identifier.
      */
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t _count) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
             is.readArray(fp32, _count, 5);
@@ -312,7 +313,7 @@ struct ExampleArrays : sofab::Message {
      * @param is Stream delivering the field.
      * @param id Field identifier.
      */
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t _count) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t _count) noexcept override {
         switch (id) {
         case 0:
             is.readArray(u8, _count, 5);
@@ -433,7 +434,7 @@ struct Example : sofab::Message {
     static Example decode(const std::uint8_t *data, std::size_t len) {
         sofab::IStreamObject<Example> in;
         in.feed(data, len);
-        return *in;
+        return std::move(*in);
     }
 
     /**
@@ -515,7 +516,7 @@ struct Example : sofab::Message {
      * @param is Stream delivering the field.
      * @param id Field identifier.
      */
-    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t _size, std::size_t) noexcept override {
+    void deserialize(sofab::IStreamImpl &is, sofab::id id, std::size_t, std::size_t) noexcept override {
         switch (id) {
         case 0:
             is.read(u8);

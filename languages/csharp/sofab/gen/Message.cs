@@ -151,7 +151,7 @@ public sealed class Example {
     /// <summary>
     /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     /// </summary>
-    public List<string> string_array = new();
+    public List<string> string_array = new(5);
 
     public void Serialize(OStream os) {
         if (this.u8 != 0) { os.WriteUnsigned(0, (ulong)this.u8); }
@@ -183,14 +183,18 @@ public sealed class Example {
         return true;
     }
     public const int MaxSize = 732;
-    // Per-thread scratch buffer: Encode() serialises into it and returns an
-    // exact-size copy, so the worst-case buffer is not re-allocated (and
-    // zeroed) on every call. Do not call Encode() reentrantly from a
-    // Serialize() override on the same thread.
+    // Per-thread scratch buffer and encoder: Encode() serialises into the
+    // buffer and returns an exact-size copy, so neither the worst-case
+    // buffer nor the encoder's fixed state is re-allocated (and zeroed) on
+    // every call; Reset drops any state a previous, failed Encode() left.
+    // Do not call Encode() reentrantly from a Serialize() override on the
+    // same thread.
     [ThreadStatic] private static byte[] _encScratch;
+    [ThreadStatic] private static OStream _encStream;
     public byte[] Encode() {
         var buf = _encScratch ??= new byte[MaxSize];
-        var os = new OStream(buf);
+        var os = _encStream;
+        if (os == null) { _encStream = os = new OStream(buf); } else { os.Reset(buf, 0); }
         Serialize(os);
         var outp = new byte[os.BytesUsed];
         Array.Copy(buf, outp, os.BytesUsed);
@@ -285,13 +289,16 @@ internal sealed class ExampleVisitor : IVisitor {
     private int afill = 0;             // elements still expected by an armed native-array fill (S7.3)
     private int[] stk = new int[16];   // sequence scope stack (unboxed, was Stack<int>)
     private int sp = 0;
-    private readonly PayloadAcc pay = new PayloadAcc(); // reassembles a string/blob payload split across feeds
+    private PayloadAcc pay;            // lazy: only a string/blob payload split across feeds needs it
     public ExampleVisitor(Example msg) { m = msg; }
     private const int Root = 0;
     private const int Root_nested = 1;
     private const int Root_arrays = 2;
     private const int Root_arrays_nested = 3;
     private const int Root_string_array = 4;
+    // Receiver-side decode limits: caps on schema-unbounded
+    // fields only; exceeding one throws SofabError.LimitExceeded.
+    private const long MaxDynArrayCount = 65536;
 
     public void Unsigned(int id, ulong value) {
         if (askip > 0) { askip--; return; }   // discard a contradictory array at a scalar id
@@ -346,7 +353,7 @@ internal sealed class ExampleVisitor : IVisitor {
         if (subtype == FixlenType.String) {
             switch ((cur, id)) {
             case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); break;
-            case (Root_string_array, _): if (id >= 5) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: array index above schema capacity 5"); if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
+            case (Root_string_array, _): global::sofab.Seq.CheckIndex(id, 5, MaxDynArrayCount); if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); break;
             }
         }
         if (subtype == FixlenType.Blob) {
@@ -357,36 +364,42 @@ internal sealed class ExampleVisitor : IVisitor {
     }
 
     public void String(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
-        // Destination, schema bound and receiver cap, resolved in one dispatch.
+        // Destination and the bound it is read under, resolved in one dispatch.
         // An id this scope does not declare leaves at `default` -- before a byte is
-        // buffered and before either bound applies, which is the S7.3 skip and is
+        // buffered and before any bound applies, which is the S7.3 skip and is
         // why a skipped field is never capped. _cap is what PayloadAcc measures
-        // `total` against below: the configured cap, or a maxlen already enforced.
+        // `total` against below: the configured receiver cap, or the field's own
+        // schema maxlen, which FixlenBegin already enforced at the LENGTH WORD.
         long _cap;
         switch ((cur, id)) {
-            case (Root_nested, 2): if (total > 32) throw new SofabException(SofabError.InvalidMessage, "str: string length above schema maxlen 32"); _cap = 32; break;
-            case (Root_string_array, _): if (total > 64) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: string length above schema maxlen 64"); _cap = 64; break;
+            case (Root_nested, 2): _cap = 32; break;
+            case (Root_string_array, _): _cap = 64; break;
             default: return;
         }
-        string _s = pay.String(total, offset, data, chunkOffset, chunkLength, _cap);
+        string _s;
+        if (offset == 0 && chunkLength >= total) { _s = global::sofab.Utf8.Decode(data, chunkOffset, total); }
+        else _s = (pay ??= new PayloadAcc()).String(total, offset, data, chunkOffset, chunkLength, _cap);
         if (_s == null) return;   // payload incomplete: more chunks to come
         switch ((cur, id)) {
             case (Root_nested, 2): m.nested.str = _s; break;
-            case (Root_string_array, _): if (id >= 5) throw new SofabException(SofabError.InvalidMessage, "Root_string_array element: array index above schema capacity 5"); while (m.string_array.Count <= id) m.string_array.Add(""); m.string_array[id] = _s; break;
+            case (Root_string_array, _): global::sofab.Seq.PlaceElem(m.string_array, id, "", _s, 5, MaxDynArrayCount); break;
         }
     }
     public void Blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
-        // Destination, schema bound and receiver cap, resolved in one dispatch.
+        // Destination and the bound it is read under, resolved in one dispatch.
         // An id this scope does not declare leaves at `default` -- before a byte is
-        // buffered and before either bound applies, which is the S7.3 skip and is
+        // buffered and before any bound applies, which is the S7.3 skip and is
         // why a skipped field is never capped. _cap is what PayloadAcc measures
-        // `total` against below: the configured cap, or a maxlen already enforced.
+        // `total` against below: the configured receiver cap, or the field's own
+        // schema maxlen, which FixlenBegin already enforced at the LENGTH WORD.
         long _cap;
         switch ((cur, id)) {
-            case (Root_nested, 3): if (total > 4) throw new SofabException(SofabError.InvalidMessage, "bytes_field: blob length above schema maxlen 4"); _cap = 4; break;
+            case (Root_nested, 3): _cap = 4; break;
             default: return;
         }
-        byte[] _b = pay.Blob(total, offset, data, chunkOffset, chunkLength, _cap);
+        byte[] _b;
+        if (offset == 0 && chunkLength >= total) { _b = new byte[total]; Array.Copy(data, chunkOffset, _b, 0, total); }
+        else _b = (pay ??= new PayloadAcc()).Blob(total, offset, data, chunkOffset, chunkLength, _cap);
         if (_b == null) return;   // payload incomplete: more chunks to come
         switch ((cur, id)) {
             case (Root_nested, 3): m.nested.bytes_field = _b; break;

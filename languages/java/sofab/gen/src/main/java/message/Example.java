@@ -182,6 +182,10 @@ class ExampleVisitor implements Visitor {
     private int[] stk = new int[16];    // sequence scope stack (unboxed, was ArrayDeque<Integer>)
     private int sp = 0;
     private final PayloadAcc acc = new PayloadAcc();
+    // Schema capacities of this message's wrapper arrays: an element index at
+    // or past its array's count is INVALID_MSG, compared by the corelib call
+    // that places the element, before the list grows.
+    private static final Bound SCHEMA_COUNT_5 = Bound.schema(5);
     ExampleVisitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
@@ -290,7 +294,7 @@ class ExampleVisitor implements Visitor {
         if (subtype == FixlenType.STRING) {
             switch (cur) {
             case 1: switch (id) { case 2: if (total > 32) throw Sofab.invalid("str: string length above schema maxlen 32"); break; default: break; } break;
-            case 4: if (id >= 5) throw Sofab.invalid("Root_string_array element: array index above schema capacity 5"); if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
+            case 4: Seq.checkIndex(id, SCHEMA_COUNT_5); if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
             default: break;
             }
         }
@@ -310,22 +314,13 @@ class ExampleVisitor implements Visitor {
         case 4: break;
         default: return;
         }
-        // Bounded fields (schema maxlen): a wire byte length above the
-        // declared maxlen is malformed input, INVALID before any byte is
-        // accumulated -- never a truncation.
-        switch (cur) {
-        case 1: switch (id) {
-            case 2: if (total > 32) throw Sofab.invalid("str: string length above schema maxlen 32"); break;
-        } break;
-        case 4: if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
-        }
         String _s = acc.string(total, offset, data, chunkOffset, chunkLength, Bound.SCHEMA_BOUNDED);
         if (_s == null) return;
         switch (cur) {
         case 1: switch (id) {
             case 2: m.nested.str = _s; break;
         } break;
-        case 4: if (id >= 5) throw Sofab.invalid("Root_string_array element: array index above schema capacity 5"); while (m.string_array.size() <= id) m.string_array.add(""); m.string_array.set(id, _s); break;
+        case 4: Seq.placeElem(m.string_array, id, "", _s, SCHEMA_COUNT_5); break;
         }
     }
     public void blob(int id, int total, int offset, byte[] data, int chunkOffset, int chunkLength) {
@@ -335,14 +330,6 @@ class ExampleVisitor implements Visitor {
         switch (cur) {
         case 1: switch (id) { case 3: break; default: return; } break;
         default: return;
-        }
-        // Bounded fields (schema maxlen): a wire byte length above the
-        // declared maxlen is malformed input, INVALID before any byte is
-        // accumulated -- never a truncation.
-        switch (cur) {
-        case 1: switch (id) {
-            case 3: if (total > 4) throw Sofab.invalid("bytes_field: blob length above schema maxlen 4"); break;
-        } break;
         }
         byte[] _b = acc.blob(total, offset, data, chunkOffset, chunkLength, Bound.SCHEMA_BOUNDED);
         if (_b == null) return;
