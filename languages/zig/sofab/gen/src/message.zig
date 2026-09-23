@@ -305,20 +305,73 @@ const _dec_Example = struct {
     };
 
     pub fn unsigned(self: *_dec_Example, id: sofab.Id, value: sofab.Unsigned) void {
-        if (self.askip > 0) { self.askip -= 1; return; }
+        if (self.askip > 0) {
+            self.askip -= 1;
+            return;
+        }
         switch (self.cur) {
             .root => switch (id) {
-                0 => { if (value > 255) { self.inv = true; return; } self.m.u8 = @intCast(value); },
-                2 => { if (value > 65535) { self.inv = true; return; } self.m.u16 = @intCast(value); },
-                4 => { if (value > 4294967295) { self.inv = true; return; } self.m.u32 = @intCast(value); },
+                0 => {
+                    if (value > 255) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.u8 = @intCast(value);
+                },
+                2 => {
+                    if (value > 65535) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.u16 = @intCast(value);
+                },
+                4 => {
+                    if (value > 4294967295) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.u32 = @intCast(value);
+                },
                 6 => self.m.u64 = value,
                 else => {},
             },
             .root_arrays => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; if (value > 255) { self.inv = true; return; } self.m.arrays.u8.push(@intCast(value), &self.inv); } },
-                2 => { if (self.afill != 0) { self.afill -= 1; if (value > 65535) { self.inv = true; return; } self.m.arrays.u16.push(@intCast(value), &self.inv); } },
-                4 => { if (self.afill != 0) { self.afill -= 1; if (value > 4294967295) { self.inv = true; return; } self.m.arrays.u32.push(@intCast(value), &self.inv); } },
-                6 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.u64.push(value, &self.inv); } },
+                0 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        if (value > 255) {
+                            self.inv = true;
+                            return;
+                        }
+                        self.m.arrays.u8.push(@intCast(value), &self.inv);
+                    }
+                },
+                2 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        if (value > 65535) {
+                            self.inv = true;
+                            return;
+                        }
+                        self.m.arrays.u16.push(@intCast(value), &self.inv);
+                    }
+                },
+                4 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        if (value > 4294967295) {
+                            self.inv = true;
+                            return;
+                        }
+                        self.m.arrays.u32.push(@intCast(value), &self.inv);
+                    }
+                },
+                6 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        self.m.arrays.u64.push(value, &self.inv);
+                    }
+                },
                 else => {},
             },
             else => {},
@@ -326,20 +379,73 @@ const _dec_Example = struct {
     }
 
     pub fn signed(self: *_dec_Example, id: sofab.Id, value: sofab.Signed) void {
-        if (self.askip > 0) { self.askip -= 1; return; }
+        if (self.askip > 0) {
+            self.askip -= 1;
+            return;
+        }
         switch (self.cur) {
             .root => switch (id) {
-                1 => { if (value < -128 or value > 127) { self.inv = true; return; } self.m.i8 = @intCast(value); },
-                3 => { if (value < -32768 or value > 32767) { self.inv = true; return; } self.m.i16 = @intCast(value); },
-                5 => { if (value < -2147483648 or value > 2147483647) { self.inv = true; return; } self.m.i32 = @intCast(value); },
+                1 => {
+                    if (value < -128 or value > 127) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.i8 = @intCast(value);
+                },
+                3 => {
+                    if (value < -32768 or value > 32767) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.i16 = @intCast(value);
+                },
+                5 => {
+                    if (value < -2147483648 or value > 2147483647) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.i32 = @intCast(value);
+                },
                 7 => self.m.i64 = value,
                 else => {},
             },
             .root_arrays => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; if (value < -128 or value > 127) { self.inv = true; return; } self.m.arrays.i8.push(@intCast(value), &self.inv); } },
-                3 => { if (self.afill != 0) { self.afill -= 1; if (value < -32768 or value > 32767) { self.inv = true; return; } self.m.arrays.i16.push(@intCast(value), &self.inv); } },
-                5 => { if (self.afill != 0) { self.afill -= 1; if (value < -2147483648 or value > 2147483647) { self.inv = true; return; } self.m.arrays.i32.push(@intCast(value), &self.inv); } },
-                7 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.i64.push(value, &self.inv); } },
+                1 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        if (value < -128 or value > 127) {
+                            self.inv = true;
+                            return;
+                        }
+                        self.m.arrays.i8.push(@intCast(value), &self.inv);
+                    }
+                },
+                3 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        if (value < -32768 or value > 32767) {
+                            self.inv = true;
+                            return;
+                        }
+                        self.m.arrays.i16.push(@intCast(value), &self.inv);
+                    }
+                },
+                5 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        if (value < -2147483648 or value > 2147483647) {
+                            self.inv = true;
+                            return;
+                        }
+                        self.m.arrays.i32.push(@intCast(value), &self.inv);
+                    }
+                },
+                7 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        self.m.arrays.i64.push(value, &self.inv);
+                    }
+                },
                 else => {},
             },
             else => {},
@@ -347,14 +453,22 @@ const _dec_Example = struct {
     }
 
     pub fn fp32(self: *_dec_Example, id: sofab.Id, value: f32) void {
-        if (self.askip > 0) { self.askip -= 1; return; }
+        if (self.askip > 0) {
+            self.askip -= 1;
+            return;
+        }
         switch (self.cur) {
             .root_nested => switch (id) {
                 0 => self.m.nested.f32 = value,
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.nested.fp32.push(value, &self.inv); } },
+                0 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        self.m.arrays.nested.fp32.push(value, &self.inv);
+                    }
+                },
                 else => {},
             },
             else => {},
@@ -362,14 +476,22 @@ const _dec_Example = struct {
     }
 
     pub fn fp64(self: *_dec_Example, id: sofab.Id, value: f64) void {
-        if (self.askip > 0) { self.askip -= 1; return; }
+        if (self.askip > 0) {
+            self.askip -= 1;
+            return;
+        }
         switch (self.cur) {
             .root_nested => switch (id) {
                 1 => self.m.nested.f64 = value,
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                1 => { if (self.afill != 0) { self.afill -= 1; self.m.arrays.nested.fp64.push(value, &self.inv); } },
+                1 => {
+                    if (self.afill != 0) {
+                        self.afill -= 1;
+                        self.m.arrays.nested.fp64.push(value, &self.inv);
+                    }
+                },
                 else => {},
             },
             else => {},
@@ -384,12 +506,21 @@ const _dec_Example = struct {
     pub fn fixlenBegin(self: *_dec_Example, id: sofab.Id, subtype: sofab.FixlenType, total: usize) sofab.Error!void {
         switch (subtype) {
             .string => switch (self.cur) {
-                .root_nested => switch (id) { 2 => if (total > 32) return sofab.Error.InvalidMessage, else => {}, },
-                .root_string_array => { if (id >= 5) return sofab.Error.InvalidMessage; if (total > 64) return sofab.Error.InvalidMessage; },
+                .root_nested => switch (id) {
+                    2 => if (total > 32) return sofab.Error.InvalidMessage,
+                    else => {},
+                },
+                .root_string_array => {
+                    try sofab.arrays.overIndex(.{ .schema = 5 }, id);
+                    if (total > 64) return sofab.Error.InvalidMessage;
+                },
                 else => {},
             },
             .blob => switch (self.cur) {
-                .root_nested => switch (id) { 3 => if (total > 4) return sofab.Error.InvalidMessage, else => {}, },
+                .root_nested => switch (id) {
+                    3 => if (total > 4) return sofab.Error.InvalidMessage,
+                    else => {},
+                },
                 else => {},
             },
             else => {},
@@ -399,18 +530,57 @@ const _dec_Example = struct {
     pub fn string(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
         switch (self.cur) {
             .root_nested => switch (id) {
-                2 => if (total > 32) { self.inv = true; } else { const chunk = self._take(total, offset, _chunk) orelse return; if (!sofab.utf8Valid(chunk)) { self.inv = true; } else { self.m.nested.str = chunk; } },
+                2 => {
+                    const chunk = self._takeStr(total, offset, _chunk) orelse return;
+                    self.m.nested.str = chunk;
+                },
                 else => {},
             },
-            .root_string_array => if (id >= 5) { self.inv = true; } else if (total > 64) { self.inv = true; } else { const chunk = self._take(total, offset, _chunk) orelse return; if (!sofab.utf8Valid(chunk)) { self.inv = true; } else { sofab.arrays.setElem([]const u8, self.alloc, &(self.m.string_array), id, "", chunk); } },
+            .root_string_array => {
+                const chunk = self._takeStr(total, offset, _chunk) orelse return;
+                sofab.arrays.placeElem([]const u8, .{ .schema = 5 }, self.alloc, &(self.m.string_array), id, "", chunk) catch {
+                    self.inv = true;
+                };
+            },
             else => {},
         }
+    }
+
+    /// _take for a `string`: strict UTF-8 is decided on the SOURCE bytes
+    /// before they are copied, so an invalid payload is never allocated and
+    /// the validator does not re-read a copy it just stored. Invalid UTF-8
+    /// is INVALID and returns null. A payload split across feed chunks is
+    /// stitched first -- it has no contiguous source until then.
+    fn _takeStr(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
+        if (offset == 0 and chunk.len >= total) {
+            const src = chunk[0..total];
+            if (!sofab.utf8Valid(src)) {
+                self.inv = true;
+                return null;
+            }
+            return self.alloc.dupe(u8, src) catch {
+                self.inv = true;
+                return null;
+            };
+        }
+        const p = (self.acc.push(self.alloc, total, offset, chunk) catch {
+            self.inv = true;
+            return null;
+        }) orelse return null;
+        if (!sofab.utf8Valid(p)) {
+            self.inv = true;
+            return null;
+        }
+        return p;
     }
 
     pub fn blob(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
         switch (self.cur) {
             .root_nested => switch (id) {
-                3 => if (total > 4) { self.inv = true; } else { const chunk = self._take(total, offset, _chunk) orelse return; self.m.nested.bytes_field = chunk; },
+                3 => {
+                    const chunk = self._take(total, offset, _chunk) orelse return;
+                    self.m.nested.bytes_field = chunk;
+                },
                 else => {},
             },
             else => {},
@@ -492,19 +662,79 @@ const _dec_Example = struct {
         };
         switch (self.cur) {
             .root_arrays => switch (id) {
-                0 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u8.clear(); },
-                1 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i8.clear(); },
-                2 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u16.clear(); },
-                3 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i16.clear(); },
-                4 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u32.clear(); },
-                5 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i32.clear(); },
-                6 => if (kind == .unsigned) { if (count > 5) { self.inv = true; return; } self.m.arrays.u64.clear(); },
-                7 => if (kind == .signed) { if (count > 5) { self.inv = true; return; } self.m.arrays.i64.clear(); },
+                0 => if (kind == .unsigned) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.u8.clear();
+                },
+                1 => if (kind == .signed) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.i8.clear();
+                },
+                2 => if (kind == .unsigned) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.u16.clear();
+                },
+                3 => if (kind == .signed) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.i16.clear();
+                },
+                4 => if (kind == .unsigned) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.u32.clear();
+                },
+                5 => if (kind == .signed) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.i32.clear();
+                },
+                6 => if (kind == .unsigned) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.u64.clear();
+                },
+                7 => if (kind == .signed) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.i64.clear();
+                },
                 else => {},
             },
             .root_arrays_nested => switch (id) {
-                0 => if (kind == .fp32) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp32.clear(); },
-                1 => if (kind == .fp64) { if (count > 5) { self.inv = true; return; } self.m.arrays.nested.fp64.clear(); },
+                0 => if (kind == .fp32) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.nested.fp32.clear();
+                },
+                1 => if (kind == .fp64) {
+                    if (count > 5) {
+                        self.inv = true;
+                        return;
+                    }
+                    self.m.arrays.nested.fp64.clear();
+                },
                 else => {},
             },
             else => {},
@@ -526,7 +756,10 @@ const _dec_Example = struct {
     /// stays the caller's, decided on `total` before this call; a field the
     /// schema leaves unbounded goes through _takeCapped instead.
     fn _take(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
-        return self.acc.take(self.alloc, total, offset, chunk, false) catch { self.inv = true; return null; };
+        return self.acc.take(self.alloc, total, offset, chunk, false) catch {
+            self.inv = true;
+            return null;
+        };
     }
 
     pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {
@@ -538,7 +771,10 @@ const _dec_Example = struct {
             .root => switch (id) {
                 10 => .root_nested,
                 100 => .root_arrays,
-                200 => blk: { self.m.string_array = &.{}; break :blk .root_string_array; },
+                200 => blk: {
+                    self.m.string_array = &.{};
+                    break :blk .root_string_array;
+                },
                 else => .dead,
             },
             .root_arrays => switch (id) {

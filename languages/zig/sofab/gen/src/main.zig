@@ -411,15 +411,15 @@ pub fn main(init: std.process.Init) !void {
             for (input) |b| {
                 _ = dec.feed(&[_]u8{b}) catch |e| {
                     var fin: []const u8 = "RETURNED";
-                    dec.finish() catch |fe| { fin = @errorName(fe); };
-                    std.debug.print("decode error: {s} [finish={s}]\n",
-                                    .{ @errorName(e), fin });
+                    dec.finish() catch |fe| {
+                        fin = @errorName(fe);
+                    };
+                    std.debug.print("decode error: {s} [finish={s}]\n", .{ @errorName(e), fin });
                     std.process.exit(1);
                 };
             }
             dec.finish() catch |e| {
-                std.debug.print("decode error: {s} [finish={s}]\n",
-                                .{ @errorName(e), @errorName(e) });
+                std.debug.print("decode error: {s} [finish={s}]\n", .{ @errorName(e), @errorName(e) });
                 std.process.exit(1);
             };
             try toJson_Example(&obj, out);

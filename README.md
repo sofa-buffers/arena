@@ -48,7 +48,8 @@ every target fills is [`schema/STATE.md`](schema/STATE.md)
 | **Maxspeed** — cpp/heapfree | `corelib-cpp` with `allow_dynamic: false` — every schema-bounded field in `sofab::FixedString`/`FixedBytes`/`InlineVector`, so a decode allocates nothing | the same `libprotobuf` run as the `cpp` row | throughput |
 | **Maxspeed** — rust/heapless | `corelib-rs` (std) with `allow_dynamic: false` — every schema-bounded field in `heapless::String`/`heapless::Vec`, so a decode allocates nothing | the same `prost` run as the `rust` row | throughput |
 | **Maxspeed** — zig | `corelib-zig` | [zig-protobuf](https://github.com/Arwalk/zig-protobuf) (Arwalk) | throughput |
-| **Maxspeed** — go, csharp, java, typescript, python, dart | each language's corelib | Google protobuf runtime (Dart: [`protoc_plugin`](https://pub.dev/packages/protoc_plugin)) | throughput |
+| **Maxspeed** — go, csharp, java, typescript, dart | each language's corelib | Google protobuf runtime (Dart: [`protoc_plugin`](https://pub.dev/packages/protoc_plugin)) | throughput |
+| **Maxspeed** — python/native, python/pure | `corelib-py`, one row per engine it ships: the compiled accelerator (`sofab._speedups`, built by Cython) and the pure-Python fallback forced with `SOFAB_PUREPYTHON=1` — same driver, same wire, so the pair prices the accelerator | one shared protobuf-python run for both rows | throughput |
 | **Maxspeed** — kotlin-mp | `corelib-kotlin-mp` — one `commonMain` codec for JVM, JS and native | [**Square Wire**](https://github.com/square/wire) — the protobuf implementation that generates Kotlin Multiplatform sources directly (no Java classes in the chain), on its KMP `wire-runtime` | throughput |
 | **Embedded** — c-embedded | `corelib-c-cpp` (C object API) | **nanopb** + `protobuf-c` (ref) | footprint |
 | **Embedded** — cpp-embedded | `corelib-c-cpp` C++ wrapper (`corelib: c-cpp`) | **EmbeddedProto** | footprint |
@@ -78,12 +79,16 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   protobuf-family baseline (`protobuf`, `protobuf-c`, `nanopb`, `micropb`,
   `embeddedproto`) emits the identical **494-byte** protobuf wire. A drifted fill in
   any language is caught automatically.
-- **One knob per extra row.** A `sofab-<variant>` impl (today `cpp`/`sofab-heapfree`
-  and `rust`/`sofab-heapless`) is the **same corelib and the same driver source**, built
-  with the same flags, one `cfg.yaml` key apart — and it faces the very same
-  protobuf run as its base row. So the `<lang>/<variant>` rows isolate that one
-  codegen option, and unlike rows of different languages they *are* comparable to
-  each other.
+- **One knob per extra row.** A `sofab-<variant>` impl is the **same corelib and the
+  same driver source**, built with the same flags and facing the very same protobuf
+  run as its base row, with exactly one thing changed: a `cfg.yaml` key
+  (`cpp`/`sofab-heapfree` and `rust`/`sofab-heapless`, both `allow_dynamic: false`)
+  or which engine of a corelib that ships two backs the run
+  (`python`/`sofab-native` vs `python`/`sofab-pure`, the compiled accelerator vs
+  the pure-Python fallback — the one target where both impls are named and there
+  is no unlabelled base row). So the `<lang>/<variant>` rows isolate that one
+  knob, and unlike rows of different languages they *are* comparable to each
+  other.
 - **Optimized per category, portably, identically per row.** Maxspeed targets build
   for speed — `-O3 -march=native -flto` (C/C++), `target-cpu=native` + LTO (Rust),
   and portable runtime tuning for the VMs (workstation/server GC, `GOGC`, ParallelGC,
@@ -210,10 +215,12 @@ to their base row
 - † The two **TypeScript** rows are the **identical** codec on the two JavaScript
 engines — Node (V8) and Bun (JavaScriptCore)
 
-- ‡ **Python is slowest, and it's not a fallback.** Python trails because
+- ‡ **Python is slowest, and it's not a fallback.** The row above is the compiled
+accelerator (`python/native`, asserted at runtime: `sofab.IMPL == "native"`); the
+arena runs the pure-Python engine as its own `python/pure` row, ~7× slower, so the
+accelerator's contribution is measured rather than claimed. Python trails because
 protobuf-python is a thin shell over Google's C **`upb`** engine while SofaBuffers
-keeps a **per-field Python driver** — it runs the native Cython accelerator
-(`sofab.IMPL == "native"`), not a fallback. See
+keeps a **per-field Python driver**. See
 [`languages/python/README.md`](languages/python/README.md) for the full profile
 (runtime verification + callgrind attribution table).*
 
@@ -307,7 +314,10 @@ languages/
     sofab-<v>/     (optional) a second codegen configuration of the SAME corelib
                    and driver, one cfg.yaml key apart — cpp/sofab-heapfree and
                    rust/sofab-heapless are `allow_dynamic: false`. Gets its own
-                   `<lang>/<v>` row.
+                   `<lang>/<v>` row. A variant that only swaps a corelib's engine
+                   needs no directory at all: python/native and python/pure are
+                   two runs of the same sofab/bench.py in bench.sh, the second
+                   under SOFAB_PUREPYTHON=1.
     protobuf/ | nanopb/ | micropb/ | embeddedproto/   the baseline driver(s)
     footprint.sh   (embedded) object-sum — or bare-metal --gc-sections link
                    delta on the cross targets (c-/cpp-/rust-cortex-m and -riscv)

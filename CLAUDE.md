@@ -87,7 +87,7 @@ Everything below is only what is **not** written in those files.
   `rust-embedded/{sofab-ffi,micropb-ffi}` crates, linked into the **same** C
   driver as the C targets.
 
-### Add a sofab codegen variant to an existing target
+### Add a sofab variant to an existing target
 
 A second configuration of the *same* corelib (e.g. `cpp`'s `sofab-heapfree` =
 `allow_dynamic: false`) is an impl named `sofab-<variant>`, not a new target: add
@@ -98,6 +98,15 @@ target passes `-DBENCH_IMPL` so one `bench.cpp` serves both), and run it in
 reference wire and it gets a `<lang>/<variant>` maxspeed row sharing the target's
 protobuf column. Keep the two cfg.yaml files one key apart so the row isolates
 that key — that is the whole point of the pair.
+
+A variant that changes no generated code needs no directory and no cfg.yaml: when
+a corelib ships two engines behind one API, the second engine is just another run
+of the same driver in `bench.sh` with the env that selects it, labelled via
+`BENCH_IMPL` (`python` runs `sofab-native` and `sofab-pure`, the second under
+`SOFAB_PUREPYTHON=1`). Name every engine: python has **no** plain `sofab` impl,
+because an unlabelled row would leave which engine ran to the `codec` footnote.
+The driver must assert that the engine which actually resolved matches its label,
+or a missing accelerator silently mislabels a row.
 
 ### Add a new baseline library (new opponent)
 

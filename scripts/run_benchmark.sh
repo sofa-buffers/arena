@@ -27,10 +27,11 @@
 # and `sizeof_bytes=`, reported as footnotes and never ranked on.
 #
 # `impl` is `sofab`, `protobuf`/another baseline, or `sofab-<variant>` — the same
-# corelib and driver with one codegen option flipped (cpp's sofab-heapfree and
-# rust's sofab-heapless, #107). A variant is a sofab impl to the gate and gets its
-# own maxspeed row labelled `<lang>/<variant>`, sharing its target's protobuf
-# column.
+# corelib and driver with exactly one thing changed: a codegen option (cpp's
+# sofab-heapfree and rust's sofab-heapless, #107) or which engine of a corelib
+# that ships two backs the run (python's sofab-pure). A variant is a sofab
+# impl to the gate and gets its own maxspeed row labelled `<lang>/<variant>`,
+# sharing its target's protobuf column.
 #
 # Usage:
 #   ./scripts/run_benchmark.sh                 # setup + run every language
@@ -259,10 +260,17 @@ echo
 echo "  size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)"
 echo "  MB/s advantage  = sofab_MBps  / protobuf_MBps    (bytes/s;    embeds the wire-size gap — see #85)"
 echo "  msg/s advantage = sofab_msgs  / protobuf_msgs    (messages/s; size-neutral per-message codec speed)"
-echo "  <lang>/<variant> = a second sofab codegen configuration of the same target"
-echo "                     (same driver, flags and protobuf run) — rows comparable to each other."
+echo "  <lang>/<variant> = a second sofab configuration of the same target — one codegen"
+echo "                     option or corelib engine changed (same driver, flags and protobuf"
+echo "                     run), so these rows ARE comparable to each other."
+# Which corelib engine backed each sofab row, where a corelib has more than one
+# (python's native accelerator vs its pure-Python fallback — one row each).
 for lang in $maxspeed_langs; do
-    c="${CODEC[$lang,sofab]:-}"; [ -n "$c" ] && echo "  sofab codec ($lang): $c"
+    for impl in $(ordered_impls "$lang"); do
+        is_sofab "$impl" || continue
+        c="${CODEC[$lang,$impl]:-}"; [ -n "$c" ] || continue
+        echo "  sofab codec ($(row_label "$lang" "$impl")): $c"
+    done
 done
 # In-memory struct size, where a target reports it: the cost side of fixed-capacity
 # storage, which sizes with the schema's declared count/maxlen rather than with the

@@ -30,21 +30,22 @@ are never part of the ranking and every other target may omit them.
 
 | field | meaning |
 |---|---|
-| `codec` | which SofaBuffers codec backed the run where a corelib has more than one (Python: `native` vs the pure-Python fallback) |
+| `codec` | which SofaBuffers codec backed the run where a corelib has more than one (Python: `native` vs `python`, the pure-Python fallback — one row each, see below) |
 | `sizeof_bytes` | in-memory size of the message struct. The cost side of fixed-capacity storage, which sizes with the schema's declared `count`/`maxlen` rather than with the payload — the wire is unaffected. Emitted by the C++ and Rust targets for both of their storage profiles (#107) |
 
-### `sofab-<variant>`: a second codegen configuration
+### `sofab-<variant>`: a second configuration of the same corelib
 
 `impl` may also be `sofab-<variant>` — the **same corelib and the same driver**
-generated with one codegen option flipped, so the pair isolates that option and
-nothing else. It is a SofaBuffers impl for every purpose: the gate holds it to the
+with exactly one thing changed (a codegen option, or which engine of a corelib
+that ships two backs the run), so the pair isolates that one axis and nothing
+else. It is a SofaBuffers impl for every purpose: the gate holds it to the
 sofab reference wire, and it gets its own maxspeed row labelled `<lang>/<variant>`
 sharing its target's single protobuf measurement (so both configurations face the
 identical baseline run, and — unlike rows of different languages — the two rows
 **are** comparable to each other).
 
-Today there are two, both flipping `allow_dynamic` to `false` so a decode
-allocates nothing (#107):
+Today there are three. Two flip `allow_dynamic` to `false` so a decode allocates
+nothing (#107):
 
 - **`cpp` / `sofab-heapfree`** — `corelib: cpp` storing every schema-bounded field
   in `sofab::FixedString<N>` / `FixedBytes<N>` / `InlineVector<T, N>` instead of
@@ -58,7 +59,25 @@ allocates nothing (#107):
   and `[profile.release]`; only the generated `message` module and the `BENCH_IMPL`
   env var (read via `option_env!`) differ.
 
-Both pairs emit `sizeof_bytes`, the cost side of the trade.
+The third changes no generated code at all — it swaps the corelib engine behind
+an unchanged API:
+
+- **`python` / `sofab-native` + `sofab-pure`** — `corelib-py` ships a compiled
+  accelerator (`sofab._speedups`, built by Cython) and a pure-Python fallback
+  that produce byte-identical wires; `import sofab` picks one per process from
+  `SOFAB_PUREPYTHON`. `languages/python/bench.sh` therefore runs
+  `sofab/bench.py` twice, same message and same `BENCH_ITERS`, once per engine,
+  and each run asserts that the engine which resolved matches its `BENCH_IMPL`
+  label (so a missing extension fails the run instead of mislabelling a row).
+  This is the one target where **both** impls are variants and there is no plain
+  `sofab`: the rows are `python/native` (accelerator) and `python/pure`
+  (fallback), each carrying the `codec` key naming the engine it ran. A row named
+  just `python` would leave the engine to a footnote, which is the very thing the
+  pair exists to show. `native` rather than `cython` because it names what is
+  measured — compiled code instead of interpreted — not the tool that built it.
+
+Both `allow_dynamic` pairs emit `sizeof_bytes`, the cost side of that trade; the
+Python pair changes no storage, so it does not.
 
 ## Rules every target follows
 

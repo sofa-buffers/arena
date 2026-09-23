@@ -31,6 +31,11 @@ for variant in sofab sofab-heapless; do
     # bench deserialize state.json straight into them).
     deps="sofab = { package = \"sofa-buffers-corelib\", path = \"$CORELIB\" }"
     if [ "$variant" = sofab-heapless ]; then
+        # The corelib implements sofab::seq::SeqVec for heapless::Vec only behind
+        # its `heapless` feature (it is off by default and adds no wire code), and
+        # the generated fields are typed with those containers -- exactly what the
+        # manifest sofabgen emits for allow_dynamic: false names, mirrored here.
+        deps="sofab = { package = \"sofa-buffers-corelib\", path = \"$CORELIB\", features = [\"heapless\"] }"
         # Pinned via RUST_HEAPLESS in languages/versions.sh (shared with the
         # rust-embedded crates, which micropb holds to heapless 0.8).
         deps="$deps
