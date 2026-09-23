@@ -4,6 +4,7 @@
 # so the timed process is a bare `java` with nothing of the build system in it.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/../common/cooldown.sh"   # cooldown_between_impls (COOLDOWN_S from the runner)
 ROOT="$(cd "$HERE/../.." && pwd)"
 export STATE_JSON="${STATE_JSON:-$ROOT/schema/state.json}"
 export BENCH_ITERS="${BENCH_ITERS:-2000000}"
@@ -18,4 +19,5 @@ export BENCH_ITERS="${BENCH_ITERS:-2000000}"
 JAVA_TUNE="${JAVA_TUNE:--XX:+UseParallelGC -Xms512m -Xmx512m -XX:+AlwaysPreTouch}"
 
 java $JAVA_TUNE -cp "$(cat "$HERE/sofab/build/bench-classpath.txt")"    message.BenchKt
+cooldown_between_impls
 java $JAVA_TUNE -cp "$(cat "$HERE/protobuf/build/bench-classpath.txt")" bench.BenchKt

@@ -3,6 +3,7 @@
 # print BENCH lines to stdout.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/../common/cooldown.sh"   # cooldown_between_impls (COOLDOWN_S from the runner)
 ROOT="$(cd "$HERE/../.." && pwd)"
 PY="${PYBIN:-$ROOT/tools/venv/bin/python}"
 export STATE_JSON="${STATE_JSON:-$ROOT/schema/state.json}"
@@ -21,6 +22,8 @@ export BENCH_ITERS="${BENCH_ITERS:-200000}"
 # resolved matches it.
 PYTHONPATH="$ROOT/vendor/corelib-py/src" \
     BENCH_IMPL=sofab-native "$PY" "$HERE/sofab/bench.py"
+cooldown_between_impls
 PYTHONPATH="$ROOT/vendor/corelib-py/src" SOFAB_PUREPYTHON=1 \
     BENCH_IMPL=sofab-pure "$PY" "$HERE/sofab/bench.py"
+cooldown_between_impls
 "$PY" "$HERE/protobuf/bench.py"

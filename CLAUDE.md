@@ -35,7 +35,10 @@ Everything below is only what is **not** written in those files.
   each target's `setup.sh` (compilers, `RUSTFLAGS`, Cargo `[profile.release]` —
   in **both** crates) and `bench.sh` (VM tuning env, exported once for both
   impls, each knob justified in a comment). Tuning must stay portable — never
-  pin a CPU/ISA level.
+  pin a CPU/ISA level. The same applies to the CPU's thermal state: every
+  timing `bench.sh` sources `languages/common/cooldown.sh` and calls
+  `cooldown_between_impls` between its impls, so the first impl of a row is not
+  the only one that meets a cool CPU (docs/BENCH.md rule 5).
 - The runner has **no impl registry**: impls appear by emitting
   `BENCH`/`FOOTPRINT` lines, which is why `bench.sh` stdout must contain
   nothing else (logs → stderr).

@@ -104,6 +104,15 @@ Python pair changes no storage, so it does not.
    number.
 4. **`BENCH_ITERS` overrides the iteration count** (env var), so a slow
    instrumented pass can use fewer iterations than the timed pass.
+5. **Cool down between impls.** A `bench.sh` that times more than one impl must
+   idle between them, by sourcing `languages/common/cooldown.sh` and calling
+   `cooldown_between_impls` after each timed run. The runner already idles
+   `COOLDOWN_S` before every `bench.sh`, but the impls within one run used to
+   follow each other back-to-back, so only the first met a cool CPU — and since
+   the order is fixed (sofab first), that bias landed on the same impl in every
+   one of the `RUNS` repeats, where best-of-N cannot average it out. The pause is
+   a no-op unless the runner exports `COOLDOWN_S`, and it logs to stderr, never
+   to the BENCH-only stdout.
 
 ## Cross-language correctness gate
 

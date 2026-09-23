@@ -39,7 +39,7 @@
 #   LANGS="python go" ./scripts/run_benchmark.sh
 #   BENCH_ITERS=100000 ./scripts/run_benchmark.sh
 #   RUNS=5 ./scripts/run_benchmark.sh                # best-of-5 throughput (noise)
-#   COOLDOWN_S=30 ./scripts/run_benchmark.sh         # longer idle pause between runs
+#   COOLDOWN_S=30 ./scripts/run_benchmark.sh         # longer idle pause (runs + impls)
 #   COOLDOWN_S=0 ./scripts/run_benchmark.sh          # no pause (fast, hotter CPU)
 #
 # The cross-language correctness gate is fatal: if any present impl's wire bytes
@@ -63,7 +63,15 @@ RUNS="${RUNS:-5}"
 # seconds before each executed bench (between the repeats of one target AND across
 # targets) so every run starts from a comparable thermal state. Build-only
 # bare-metal targets emit no BENCH line and are never cooled down. 0 disables.
+#
+# It is exported because the same pause applies BETWEEN THE IMPLS of one target:
+# they run inside a single bench.sh, which the runner cannot interleave, so each
+# bench.sh cools between its impls itself through the shared helper
+# languages/common/cooldown.sh. Without it the impl that runs first (sofab, by
+# convention) would get the only cool CPU of the row, identically in every
+# repeat — a bias best-of-N cannot average out because the order never changes.
 COOLDOWN_S="${COOLDOWN_S:-10}"
+export COOLDOWN_S
 
 export STATE_JSON="$ROOT/schema/state.json"
 export SOFABGEN="$ROOT/tools/sofabgen"

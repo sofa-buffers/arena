@@ -2,6 +2,7 @@
 # C# target: run both impls, print EXACTLY two BENCH lines to stdout.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/../common/cooldown.sh"   # cooldown_between_impls (COOLDOWN_S from the runner)
 
 export PATH="/usr/local/dotnet:$PATH"
 export DOTNET_ROOT="/usr/local/dotnet"
@@ -23,4 +24,5 @@ export DOTNET_GCgen0size="${DOTNET_GCgen0size:-0x4000000}"
 export DOTNET_TieredPGO="${DOTNET_TieredPGO:-1}"
 
 dotnet "$HERE/sofab/bench/bin/Release/net9.0/sofab_bench.dll"
+cooldown_between_impls
 dotnet "$HERE/protobuf/bin/Release/net9.0/protobuf_bench.dll"

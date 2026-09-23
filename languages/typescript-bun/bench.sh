@@ -5,6 +5,7 @@
 # lang=typescript-bun so the runner tables it as its own runtime row.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/../common/cooldown.sh"   # cooldown_between_impls (COOLDOWN_S from the runner)
 ROOT="$(cd "$HERE/../.." && pwd)"
 TS="$ROOT/languages/typescript"
 export STATE_JSON="${STATE_JSON:-$ROOT/schema/state.json}"
@@ -17,4 +18,5 @@ command -v bun >/dev/null || { echo "FAIL: bun not on PATH" >&2; exit 1; }
 retag() { sed -E 's/lang=typescript /lang=typescript-bun /'; }
 
 ( cd "$TS/sofab/gen" && bun run bench.ts | retag )
+cooldown_between_impls
 ( cd "$TS/protobuf" && bun run bench.ts | retag )
