@@ -99,23 +99,23 @@ pub extern "C" fn sofab_enc(buf: *mut u8, len: usize, a: u64, b: i64) -> usize {
     let mut os = OStream::new(buf);
     let _ = os.write_unsigned(1, a as Unsigned);
     let _ = os.write_signed(2, b as Signed);
-    let _ = os.write_sequence_begin(10);
+    let _ = os.write_sequence_begin_lazy(10);
     let _ = os.write_fp32(0, f32::from_bits(a as u32));
     let _ = os.write_fp64(1, f64::from_bits(a));
     let _ = os.write_str(2, "Hello, World!");
     let _ = os.write_blob(3, &[1, 2, 3, 4]);
     let _ = os.write_sequence_end();
-    let _ = os.write_sequence_begin(100);
+    let _ = os.write_sequence_begin_lazy(100);
     let _ = os.write_array_unsigned(0, &[a as u32, 1, 2, 3, 4]);
     let _ = os.write_array_signed(1, &[b as i32, -1, 2, -3, 4]);
     let _ = os.write_array_unsigned(6, &[a, 1, 2, 3, 4]);
     let _ = os.write_array_signed(7, &[b, -1, 2, -3, 4]);
-    let _ = os.write_sequence_begin(10);
+    let _ = os.write_sequence_begin_lazy(10);
     let _ = os.write_array_fp32(0, &[f32::from_bits(a as u32), 1.0]);
     let _ = os.write_array_fp64(1, &[f64::from_bits(a), 1.0]);
     let _ = os.write_sequence_end();
     let _ = os.write_sequence_end();
-    let _ = os.write_sequence_begin(200);
+    let _ = os.write_sequence_begin_lazy(200);
     let _ = os.write_str(0, "s");
     let _ = os.write_sequence_end();
     os.bytes_used()
