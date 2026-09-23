@@ -292,7 +292,8 @@ than the smallest protobuf alternative in every one.*
   barely per message on Node/V8, where `MB/s` trails — and Python is the far outlier,
   because its protobuf baseline is a thin shell
   over Google's C `upb` engine while SofaBuffers still drives every field from
-  Python. *(How the codegen was tuned: [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md).)*
+  Python. *(How the codegen was tuned: the generator repo's
+  [`docs/perf-patches/`](https://github.com/sofa-buffers/generator/tree/main/docs/perf-patches).)*
 - **The smallest embedded codec in every language, on both ISAs** — measured the
   way firmware actually pays: the flash a codec adds once the linker drops what it
   never calls. It undercuts nanopb, EmbeddedProto and micropb across the board,

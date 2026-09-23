@@ -13,7 +13,6 @@ always play in the same league.
 | [`docs/BENCH.md`](docs/BENCH.md) | the benchmark contract every target obeys: `BENCH`/`FOOTPRINT` line format, timing rules, self-check, reference wires |
 | [`schema/STATE.md`](schema/STATE.md) / [`schema/state.json`](schema/state.json) | the canonical field values every target must fill |
 | [`scripts/run_benchmark.sh`](scripts/run_benchmark.sh) header + [`scripts/bootstrap.sh`](scripts/bootstrap.sh) comments | runner semantics; how sofabgen/corelib versions are resolved (bleeding edge, not pinned) |
-| [`docs/perf/bottlenecks.md`](docs/perf/bottlenecks.md) | perf methodology + what was already tried (before optimizing anything) |
 | `languages/<target>/{meta,setup.sh,bench.sh,footprint.sh}` | the per-target ground truth for flags, tuning and generation |
 
 Everything below is only what is **not** written in those files.
@@ -157,9 +156,11 @@ reference wires are the fairness anchor.
   family shares `languages/c-embedded/bench.h`) — what matters is that every
   impl in a target uses the **same** helper.
 - Perf work belongs in the generator/corelibs, not per-target patches — all
-  historical `*.patch` hacks were folded upstream (sofabgen ≥ v0.6.0); read
-  `docs/perf/bottlenecks.md` first. Python's 0.10× is analyzed and expected
-  (`languages/python/README.md`).
+  historical `*.patch` hacks were folded upstream (sofabgen ≥ v0.6.0). What was
+  already measured and tried lives with the code that fixes it, in the generator
+  repo (`sofa-buffers/generator` → `docs/perf-patches/`, plus its regression
+  analyses) — read it there before optimizing anything. Python's 0.10× is
+  analyzed and expected (`languages/python/README.md`).
 - README result tables are hand-refreshed from `results/RESULTS.txt` after a
   full `RUNS=5` run — never edit numbers ad hoc.
 - `.devcontainer/.env` holds a real `GITHUB_TOKEN` (gitignored) — never commit
