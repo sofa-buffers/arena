@@ -1,7 +1,7 @@
 # SofaBuffers — Python target: why it's the slowest
 
-The Python SofaBuffers target is the slowest in the arena (~0.11× of
-protobuf-python), **and it's *not* a fallback bug.** corelib-py ships two engines
+The Python SofaBuffers target is the slowest in the arena relative to
+protobuf-python, **and it's *not* a fallback bug.** corelib-py ships two engines
 behind one API — the **compiled accelerator** (`sofab._speedups`, built by Cython)
 and the pure-Python fallback — and the arena runs **both**, one row each:
 
@@ -19,9 +19,10 @@ the target's single protobuf measurement and are held to the same 434 B sofab
 reference wire by the gate — the engines are byte-for-byte identical, only their
 speed differs.
 
-That pair is what prices the accelerator: it is worth ~**7×** (pure ≈3 MB/s), so
-it is the only reason Python is as fast as it is. The headline ~0.11× below is the
-`python/native` row.
+That pair is what prices the accelerator — it is the only reason Python is as
+fast as it is. The headline Python row is `python/native`; the current numbers
+for both rows live in the main [README](../../README.md) and
+[`results/RESULTS.txt`](../../results/RESULTS.txt).
 
 It still trails protobuf because protobuf-python is a thin shell over Google's C
 **`upb`** engine — nearly all its encode/decode runs in C — whereas SofaBuffers
