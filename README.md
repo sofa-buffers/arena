@@ -190,34 +190,34 @@ columns and keep only the size **advantage** (`1.14×`).
 | language | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
 |---|--:|--:|--:|--:|:--:|:--:|:--:|
 | C++        | 295.8 | 262.2 | 681 669 | 530 747 | **1.14×** | **1.13×** | **1.28×** |
-| C++ · heapfree § | 377.2 | 262.2 | 869 070 | 530 747 | **1.14×** | **1.44×** | **1.64×** |
+| C++ · heapfree _\*1_ | 377.2 | 262.2 | 869 070 | 530 747 | **1.14×** | **1.44×** | **1.64×** |
 | Rust       | 394.4 | 248.8 | 908 826 | 503 550 | **1.14×** | **1.59×** | **1.80×** |
-| Rust · heapless § | 488.0 | 248.8 | 1 124 438 | 503 550 | **1.14×** | **1.96×** | **2.23×** |
+| Rust · heapless _\*1_ | 488.0 | 248.8 | 1 124 438 | 503 550 | **1.14×** | **1.96×** | **2.23×** |
 | Zig        | 423.3 | 265.3 | 975 268 | 536 973 | **1.14×** | **1.60×** | **1.82×** |
 | Dart       | 170.9 |  56.8 | 393 700 | 114 889 | **1.14×** | **3.01×** | **3.43×** |
 | Go         | 146.5 | 140.2 | 337 470 | 283 882 | **1.14×** | **1.04×** | **1.19×** |
 | C#         | 228.3 | 130.9 | 526 122 | 264 986 | **1.14×** | **1.74×** | **1.99×** |
 | Java       | 286.6 | 255.9 | 660 275 | 518 071 | **1.14×** | **1.12×** | **1.27×** |
 | Kotlin Multiplatform | 255.2 | 151.9 | 587 927 | 307 453 | **1.14×** | **1.68×** | **1.91×** |
-| TypeScript · Node/V8 † |  69.6 |  76.5 | 160 415 | 154 898 | **1.14×** | 0.91× | **1.04×** |
-| TypeScript · Bun/JSC † |  56.4 |  34.5 | 129 902 |  69 813 | **1.14×** | **1.63×** | **1.86×** |
-| Python · native ‡ |  27.1 | 177.6 |  62 409 | 359 556 | **1.14×** | 0.15× | 0.17× |
-| Python · pure ‡ |   2.7 | 177.6 |   6 278 | 359 556 | **1.14×** | 0.02× | 0.02× |
+| TypeScript · Node/V8 _\*2_ |  69.6 |  76.5 | 160 415 | 154 898 | **1.14×** | 0.91× | **1.04×** |
+| TypeScript · Bun/JSC _\*2_ |  56.4 |  34.5 | 129 902 |  69 813 | **1.14×** | **1.63×** | **1.86×** |
+| Python · native _\*3_ |  27.1 | 177.6 |  62 409 | 359 556 | **1.14×** | 0.15× | 0.17× |
+| Python · pure _\*3_ |   2.7 | 177.6 |   6 278 | 359 556 | **1.14×** | 0.02× | 0.02× |
 
 ***SofaBuffers is faster per message (`msg/s`) than protobuf in every compiled
 language** — and on both JavaScript engines; Python the only outlier. `MB/s` reads
 lower than `msg/s` throughout because SofaBuffers moves fewer bytes per message
 (its smaller wire). adv >1 → SofaBuffers ahead; comparable only within a row.*
 
-- § The **heapfree** / **heapless** rows are the same corelib and the same driver
+- _\*1_ The **heapfree** / **heapless** rows are the same corelib and the same driver
 one `cfg.yaml` key apart (`allow_dynamic: false`), sharing their base row's
 protobuf run — so they isolate that single codegen option and *are* comparable
 to their base row
 
-- † The two **TypeScript** rows are the **identical** codec on the two JavaScript
+- _\*2_ The two **TypeScript** rows are the **identical** codec on the two JavaScript
 engines — Node (V8) and Bun (JavaScriptCore)
 
-- ‡ **Python is slowest, and it's not a fallback.** The `native` row is the compiled
+- _\*3_ **Python is slowest, and it's not a fallback.** The `native` row is the compiled
 accelerator (asserted at runtime: `sofab.IMPL == "native"`); the `pure` row is the
 pure-Python engine of the same corelib (`SOFAB_PUREPYTHON=1`, same driver, same
 protobuf run), ~10× slower, so the accelerator's contribution is measured rather
