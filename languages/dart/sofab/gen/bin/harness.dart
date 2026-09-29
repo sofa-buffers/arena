@@ -100,7 +100,7 @@ Example _fromJsonExample(Map<String, dynamic> j) {
   if (j.containsKey('u32')) { m.u32 = (j['u32'] as num).toInt(); }
   if (j.containsKey('i32')) { m.i32 = (j['i32'] as num).toInt(); }
   if (j.containsKey('u64')) { m.u64 = (j['u64'] is String ? BigInt.parse(j['u64'] as String) : BigInt.from(_exact64(j['u64']))).toSigned(64).toInt(); }
-  if (j.containsKey('i64')) { m.i64 = (j['i64'] as num).toInt(); }
+  if (j.containsKey('i64')) { m.i64 = (j['i64'] is String ? BigInt.parse(j['i64'] as String) : BigInt.from(_exact64(j['i64']))).toSigned(64).toInt(); }
   if (j.containsKey('nested')) { m.nested = _fromJsonExampleNested(j['nested'] as Map<String, dynamic>); }
   if (j.containsKey('arrays')) { m.arrays = _fromJsonExampleArrays(j['arrays'] as Map<String, dynamic>); }
   if (j.containsKey('string_array')) { m.string_array = <sofab.InlineString>[for (final _x in (j['string_array'] as List)) sofab.InlineString.of(_x as String)]; }

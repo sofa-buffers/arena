@@ -36,11 +36,6 @@
 # error "SofaBuffers: message example uses 64-bit integers, but the corelib was built with SOFAB_DISABLE_INT64_SUPPORT."
 #endif
 
-/* --- descriptor width guard: field ids must fit the configured profile --- */
-#if 200 > SOFAB_OBJECT_DESCR_ID_MAX
-# error "SofaBuffers: field ids in example exceed the configured SOFAB_OBJECT_DESCR_PROFILE id width."
-#endif
-
 /* --- value-width guard: field ids must fit the corelib's id ceiling --- */
 #if 200 > SOFAB_ID_MAX
 # error "SofaBuffers: field ids in example exceed SOFAB_ID_MAX for this value width (see SOFAB_DISABLE_INT64_SUPPORT)."

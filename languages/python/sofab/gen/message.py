@@ -627,7 +627,10 @@ class _StreamDecoder:
 #
 # What is not here is on the visitor below: a value whose declared width an
 # entry cannot carry (u8..u32, i8..i32, a narrow enum/bitfield), an array the
-# schema leaves unbounded, and every wrapper-sequence array.
+# schema leaves unbounded, every wrapper-sequence array, and a union with an
+# option of those shapes. Every other union is a one-of table: the decoder
+# writes the held option's id into its `which_at` slot, and a re-selected
+# option starts again from the `default=` / `default_id=` its rows state.
 _BIND_ExampleArrays_nested = (Binding(closed=True)
     .float32_array(0, at=48, cap=5, count_at=53)
     .float64_array(1, at=54, cap=5, count_at=59)
@@ -799,7 +802,10 @@ class _ExampleArraysNestedVisitor(Visitor):
 #
 # What is not here is on the visitor below: a value whose declared width an
 # entry cannot carry (u8..u32, i8..i32, a narrow enum/bitfield), an array the
-# schema leaves unbounded, and every wrapper-sequence array.
+# schema leaves unbounded, every wrapper-sequence array, and a union with an
+# option of those shapes. Every other union is a one-of table: the decoder
+# writes the held option's id into its `which_at` slot, and a re-selected
+# option starts again from the `default=` / `default_id=` its rows state.
 _BIND_ExampleNested = (Binding(closed=True)
     .float32(0, at=0, count_at=1)
     .float64(1, at=2, count_at=3)
@@ -867,7 +873,10 @@ class _ExampleNestedVisitor(Visitor):
 #
 # What is not here is on the visitor below: a value whose declared width an
 # entry cannot carry (u8..u32, i8..i32, a narrow enum/bitfield), an array the
-# schema leaves unbounded, and every wrapper-sequence array.
+# schema leaves unbounded, every wrapper-sequence array, and a union with an
+# option of those shapes. Every other union is a one-of table: the decoder
+# writes the held option's id into its `which_at` slot, and a re-selected
+# option starts again from the `default=` / `default_id=` its rows state.
 _BIND_Example_arrays_nested = (Binding(closed=True)
     .float32_array(0, at=70, cap=5, count_at=75)
     .float64_array(1, at=76, cap=5, count_at=81)
