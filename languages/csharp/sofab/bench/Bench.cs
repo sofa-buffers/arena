@@ -19,13 +19,13 @@ static class Program {
             i32 = -1000000000,
             u64 = 10000000000000UL,
             i64 = -5000000000000L,
-            nested = new ExampleNested {
+            nested = new Example_Nested {
                 f32 = 3.14f,
                 f64 = 3.14159265,
                 str = "Hello, World!",
                 bytes_field = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF },
             },
-            arrays = new ExampleArrays(),
+            arrays = new Example_Arrays(),
             string_array = new List<string>(),
         };
         var a = m.arrays;
@@ -41,7 +41,7 @@ static class Program {
         a.i64 = new long[] {
             -9223372036854775807, -4611686018427387904, 0,
             4611686018427387903, 9223372036854775807 };
-        a.nested = new ExampleArraysNested();
+        a.nested = new Example_Arrays_Nested();
         a.nested.fp32 = new float[] { 1f, 2f, 3f, -float.MaxValue, float.MaxValue };
         a.nested.fp64 = new double[] { 1d, 2d, 3d, -double.MaxValue, double.MaxValue };
         m.string_array.AddRange(new string[] {

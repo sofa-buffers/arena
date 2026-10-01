@@ -7,7 +7,7 @@
   <properties>
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <exec.mainClass>message.Main</exec.mainClass>
+    <exec.mainClass>message.harness.Main</exec.mainClass>
   </properties>
   <dependencies>
     <dependency><groupId>org.sofabuffers</groupId><artifactId>corelib</artifactId><version>${sofab.version}</version></dependency>
@@ -30,7 +30,7 @@
         <artifactId>maven-assembly-plugin</artifactId>
         <version>3.8.0</version>
         <configuration>
-          <archive><manifest><mainClass>message.Main</mainClass></manifest></archive>
+          <archive><manifest><mainClass>message.harness.Main</mainClass></manifest></archive>
           <descriptorRefs><descriptorRef>jar-with-dependencies</descriptorRef></descriptorRefs>
           <appendAssemblyId>false</appendAssemblyId>
         </configuration>

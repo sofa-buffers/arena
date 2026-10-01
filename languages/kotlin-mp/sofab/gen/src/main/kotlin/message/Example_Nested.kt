@@ -6,7 +6,7 @@ package message
 
 import org.sofabuffers.sofab.*
 
-public class ExampleNested {
+public class Example_Nested {
     public var f32: Float = 0.0f
     public var f64: Double = 0.0
     /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */

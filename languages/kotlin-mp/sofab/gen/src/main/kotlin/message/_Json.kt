@@ -6,11 +6,11 @@ package message
 
 import org.sofabuffers.sofab.*
 
-internal class JsonValue private constructor(
+internal class _JsonValue private constructor(
     private val kind: Int,
     private val text: String = "",
-    private val items: List<JsonValue> = emptyList(),
-    private val members: Map<String, JsonValue> = emptyMap(),
+    private val items: kotlin.collections.List<_JsonValue> = emptyList(),
+    private val members: kotlin.collections.Map<String, _JsonValue> = emptyMap(),
 ) {
     internal val isNull: Boolean get() = kind == NULL
 
@@ -24,8 +24,8 @@ internal class JsonValue private constructor(
     internal fun int(): Long = text.toLong()
     internal fun uint(): ULong = text.toULong()
     internal fun bool(): Boolean = text == "true"
-    internal fun arr(): List<JsonValue> = items
-    internal fun obj(): Map<String, JsonValue> = members
+    internal fun arr(): kotlin.collections.List<_JsonValue> = items
+    internal fun obj(): kotlin.collections.Map<String, _JsonValue> = members
 
     internal companion object {
         private const val NULL = 0
@@ -34,8 +34,8 @@ internal class JsonValue private constructor(
         private const val ARR = 3
         private const val OBJ = 4
 
-        internal fun parse(s: String): JsonValue {
-            val p = P(s)
+        internal fun parse(s: String): _JsonValue {
+            val p = _P(s)
             p.ws()
             val v = p.value()
             p.ws()
@@ -43,23 +43,23 @@ internal class JsonValue private constructor(
         }
     }
 
-    private class P(val s: String) {
+    private class _P(val s: String) {
         var i = 0
         fun ws() { while (i < s.length && s[i].isWhitespace()) i++ }
-        fun value(): JsonValue {
+        fun value(): _JsonValue {
             ws()
             return when (s[i]) {
                 '{' -> obj()
                 '[' -> arr()
-                '"' -> JsonValue(STR, str())
+                '"' -> _JsonValue(STR, str())
                 else -> lit()
             }
         }
-        fun obj(): JsonValue {
-            val m = LinkedHashMap<String, JsonValue>()
+        fun obj(): _JsonValue {
+            val m = kotlin.collections.LinkedHashMap<String, _JsonValue>()
             i++ // {
             ws()
-            if (s[i] == '}') { i++; return JsonValue(OBJ, members = m) }
+            if (s[i] == '}') { i++; return _JsonValue(OBJ, members = m) }
             while (true) {
                 ws()
                 val k = str()
@@ -70,13 +70,13 @@ internal class JsonValue private constructor(
                 i++ // }
                 break
             }
-            return JsonValue(OBJ, members = m)
+            return _JsonValue(OBJ, members = m)
         }
-        fun arr(): JsonValue {
-            val l = ArrayList<JsonValue>()
+        fun arr(): _JsonValue {
+            val l = kotlin.collections.ArrayList<_JsonValue>()
             i++ // [
             ws()
-            if (s[i] == ']') { i++; return JsonValue(ARR, items = l) }
+            if (s[i] == ']') { i++; return _JsonValue(ARR, items = l) }
             while (true) {
                 l.add(value())
                 ws()
@@ -84,10 +84,10 @@ internal class JsonValue private constructor(
                 i++ // ]
                 break
             }
-            return JsonValue(ARR, items = l)
+            return _JsonValue(ARR, items = l)
         }
         fun str(): String {
-            val b = StringBuilder()
+            val b = kotlin.text.StringBuilder()
             i++ // "
             while (s[i] != '"') {
                 if (s[i] == '\\') {
@@ -109,17 +109,17 @@ internal class JsonValue private constructor(
             i++ // "
             return b.toString()
         }
-        fun lit(): JsonValue {
+        fun lit(): _JsonValue {
             val start = i
             while (i < s.length && s[i] !in ",]} \t\r\n") i++
             val t = s.substring(start, i)
-            return if (t == "null") JsonValue(NULL, t) else JsonValue(LIT, t)
+            return if (t == "null") _JsonValue(NULL, t) else _JsonValue(LIT, t)
         }
     }
 }
 
-internal object Json {
-    internal fun to(o: ExampleNested, b: StringBuilder) {
+internal object _Json {
+    internal fun to(o: Example_Nested, b: kotlin.text.StringBuilder) {
         b.append('{')
         b.append("\"f32\":")
         b.append(o.f32)
@@ -128,14 +128,14 @@ internal object Json {
         b.append(o.f64)
         b.append(',')
         b.append("\"str\":")
-        Json.str(b, o.str)
+        _Json.str(b, o.str)
         b.append(',')
         b.append("\"bytes_field\":")
-        Json.bytes(b, o.bytes_field)
+        _Json.bytes(b, o.bytes_field)
         b.append('}')
     }
-    internal fun from(j: Map<String, JsonValue>, o: ExampleNested) {
-        var e: JsonValue?
+    internal fun from(j: kotlin.collections.Map<String, _JsonValue>, o: Example_Nested) {
+        var e: _JsonValue?
         e = j["f32"]
         if (e != null && !e.isNull) {
             o.f32 = e.num().toFloat()
@@ -150,10 +150,10 @@ internal object Json {
         }
         e = j["bytes_field"]
         if (e != null && !e.isNull) {
-            o.bytes_field = Json.toBytes(e.arr())
+            o.bytes_field = _Json.toBytes(e.arr())
         }
     }
-    internal fun to(o: ExampleArraysNested, b: StringBuilder) {
+    internal fun to(o: Example_Arrays_Nested, b: kotlin.text.StringBuilder) {
         b.append('{')
         b.append("\"fp32\":")
         b.append('[')
@@ -172,8 +172,8 @@ internal object Json {
         b.append(']')
         b.append('}')
     }
-    internal fun from(j: Map<String, JsonValue>, o: ExampleArraysNested) {
-        var e: JsonValue?
+    internal fun from(j: kotlin.collections.Map<String, _JsonValue>, o: Example_Arrays_Nested) {
+        var e: _JsonValue?
         e = j["fp32"]
         if (e != null && !e.isNull) {
             val _a0 = e.arr()
@@ -187,7 +187,7 @@ internal object Json {
             for (_k0 in _a0.indices) o.fp64[_k0] = _a0[_k0].num()
         }
     }
-    internal fun to(o: ExampleArrays, b: StringBuilder) {
+    internal fun to(o: Example_Arrays, b: kotlin.text.StringBuilder) {
         b.append('{')
         b.append("\"u8\":")
         b.append('[')
@@ -257,8 +257,8 @@ internal object Json {
         to(o.nested, b)
         b.append('}')
     }
-    internal fun from(j: Map<String, JsonValue>, o: ExampleArrays) {
-        var e: JsonValue?
+    internal fun from(j: kotlin.collections.Map<String, _JsonValue>, o: Example_Arrays) {
+        var e: _JsonValue?
         e = j["u8"]
         if (e != null && !e.isNull) {
             val _a0 = e.arr()
@@ -312,7 +312,7 @@ internal object Json {
             from(e.obj(), o.nested)
         }
     }
-    internal fun to(o: Example, b: StringBuilder) {
+    internal fun to(o: Example, b: kotlin.text.StringBuilder) {
         b.append('{')
         b.append("\"u8\":")
         b.append(o.u8)
@@ -348,13 +348,13 @@ internal object Json {
         b.append('[')
         for (_i0 in o.string_array.indices) {
             if (_i0 > 0) b.append(',')
-            Json.str(b, o.string_array[_i0])
+            _Json.str(b, o.string_array[_i0])
         }
         b.append(']')
         b.append('}')
     }
-    internal fun from(j: Map<String, JsonValue>, o: Example) {
-        var e: JsonValue?
+    internal fun from(j: kotlin.collections.Map<String, _JsonValue>, o: Example) {
+        var e: _JsonValue?
         e = j["u8"]
         if (e != null && !e.isNull) {
             o.u8 = e.uint().toUByte()
@@ -404,7 +404,7 @@ internal object Json {
             }
         }
     }
-    internal fun str(b: StringBuilder, s: String) {
+    internal fun str(b: kotlin.text.StringBuilder, s: String) {
         b.append('"')
         for (c in s) {
             when {
@@ -417,12 +417,12 @@ internal object Json {
         }
         b.append('"')
     }
-    internal fun bytes(b: StringBuilder, a: ByteArray) {
+    internal fun bytes(b: kotlin.text.StringBuilder, a: ByteArray) {
         b.append('[')
         for (i in a.indices) { if (i > 0) b.append(','); b.append(a[i].toInt() and 0xFF) }
         b.append(']')
     }
-    internal fun toBytes(a: List<JsonValue>): ByteArray {
+    internal fun toBytes(a: kotlin.collections.List<_JsonValue>): ByteArray {
         val r = ByteArray(a.size)
         for (i in a.indices) r[i] = a[i].num().toInt().toByte()
         return r

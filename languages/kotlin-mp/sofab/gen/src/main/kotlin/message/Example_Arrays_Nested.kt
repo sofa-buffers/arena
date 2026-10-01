@@ -6,7 +6,7 @@ package message
 
 import org.sofabuffers.sofab.*
 
-public class ExampleArraysNested {
+public class Example_Arrays_Nested {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
     public var fp32: FloatArray = Seq.EMPTY_FLOATS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */

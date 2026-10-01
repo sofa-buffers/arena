@@ -16,7 +16,7 @@ const sofab = @import("sofab");
 /// error.InvalidMessage so INCOMPLETE and INVALID never collapse.
 pub const DecodeError = sofab.Error || error{IncompleteMessage};
 
-pub const ExampleArrays = struct {
+pub const Example_Arrays = struct {
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     u8: sofab.FixedArray(u8, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
@@ -33,10 +33,10 @@ pub const ExampleArrays = struct {
     u64: sofab.FixedArray(u64, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     i64: sofab.FixedArray(i64, 5) = .{},
-    nested: ExampleArraysNested = .{},
+    nested: Example_Arrays_Nested = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn serialize(self: *const ExampleArrays, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const Example_Arrays, os: *sofab.OStream) sofab.Error!void {
         if (self.u8.len() != 0) {
             try os.writeArrayUnsigned(0, self.u8.slice());
         }
@@ -68,7 +68,7 @@ pub const ExampleArrays = struct {
 
     /// True when every field equals its declared default, compared per field
     /// and recursively -- i.e. when serialize would write no child at all (S2).
-    pub fn isDefault(self: *const ExampleArrays) bool {
+    pub fn isDefault(self: *const Example_Arrays) bool {
         if (self.u8.len() != 0) return false;
         if (self.i8.len() != 0) return false;
         if (self.u16.len() != 0) return false;
@@ -82,14 +82,14 @@ pub const ExampleArrays = struct {
     }
 };
 
-pub const ExampleArraysNested = struct {
+pub const Example_Arrays_Nested = struct {
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     fp32: sofab.FixedArray(f32, 5) = .{},
     /// Schema bound: count 5 -- the capacity is in the type; the LENGTH starts at 0 and is what reaches the wire.
     fp64: sofab.FixedArray(f64, 5) = .{},
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn serialize(self: *const ExampleArraysNested, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const Example_Arrays_Nested, os: *sofab.OStream) sofab.Error!void {
         if (self.fp32.len() != 0) {
             try os.writeArrayFp32(0, self.fp32.slice());
         }
@@ -100,14 +100,14 @@ pub const ExampleArraysNested = struct {
 
     /// True when every field equals its declared default, compared per field
     /// and recursively -- i.e. when serialize would write no child at all (S2).
-    pub fn isDefault(self: *const ExampleArraysNested) bool {
+    pub fn isDefault(self: *const Example_Arrays_Nested) bool {
         if (self.fp32.len() != 0) return false;
         if (self.fp64.len() != 0) return false;
         return true;
     }
 };
 
-pub const ExampleNested = struct {
+pub const Example_Nested = struct {
     f32: f32 = 0.0,
     f64: f64 = 0.0,
     /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
@@ -116,7 +116,7 @@ pub const ExampleNested = struct {
     bytes_field: []const u8 = "",
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
-    pub fn serialize(self: *const ExampleNested, os: *sofab.OStream) sofab.Error!void {
+    pub fn serialize(self: *const Example_Nested, os: *sofab.OStream) sofab.Error!void {
         if (self.f32 != 0.0) try os.writeFp32(0, self.f32);
         if (self.f64 != 0.0) try os.writeFp64(1, self.f64);
         if (self.str.len != 0) try os.writeString(2, self.str);
@@ -125,7 +125,7 @@ pub const ExampleNested = struct {
 
     /// True when every field equals its declared default, compared per field
     /// and recursively -- i.e. when serialize would write no child at all (S2).
-    pub fn isDefault(self: *const ExampleNested) bool {
+    pub fn isDefault(self: *const Example_Nested) bool {
         if (self.f32 != 0.0) return false;
         if (self.f64 != 0.0) return false;
         if (self.str.len != 0) return false;
@@ -144,8 +144,8 @@ pub const Example = struct {
     i32: i32 = 0,
     u64: u64 = 0,
     i64: i64 = 0,
-    nested: ExampleNested = .{},
-    arrays: ExampleArrays = .{},
+    nested: Example_Nested = .{},
+    arrays: Example_Arrays = .{},
     /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     string_array: []const []const u8 = &.{},
 
@@ -213,7 +213,7 @@ pub const Example = struct {
     /// error.IncompleteMessage; malformed input with error.InvalidMessage.
     pub fn decode(alloc: std.mem.Allocator, data: []const u8) DecodeError!Example {
         var m: Example = .{};
-        var v: _dec_Example = .{ .m = &m, .alloc = alloc };
+        var v: _Example__Visitor = .{ .m = &m, .alloc = alloc };
         const st = try sofab.decode(data, &v);
         // A scalar array over its schema count, or a wrapper-array element
         // id at/beyond the schema count: an index above the schema capacity
@@ -250,7 +250,7 @@ pub const Example = struct {
     /// produced it.
     pub const Decoder = struct {
         is: sofab.IStream = sofab.IStream.init(),
-        v: _dec_Example,
+        v: _Example__Visitor,
 
         /// Feed the next chunk, of any size. `.complete` means the bytes
         /// ended on a field boundary, `.incomplete` mid-field -- neither
@@ -284,7 +284,7 @@ pub const Example = struct {
 
 /// Flat-visitor decoder for Example: a (location, id) state machine over the
 /// corelib's streaming callbacks, with a bounded location stack.
-const _dec_Example = struct {
+const _Example__Visitor = struct {
     m: *Example,
     alloc: std.mem.Allocator,
     stack: [256]_Loc = undefined,
@@ -300,11 +300,11 @@ const _dec_Example = struct {
         root_nested,
         root_arrays,
         root_arrays_nested,
-        root_string_array,
+        root_string__array,
         dead, // skipped subtree: an undeclared sequence id, a S7.3 wire-type mismatch, or a failed per-element allocation
     };
 
-    pub fn unsigned(self: *_dec_Example, id: sofab.Id, value: sofab.Unsigned) void {
+    pub fn unsigned(self: *_Example__Visitor, id: sofab.Id, value: sofab.Unsigned) void {
         if (self.askip > 0) {
             self.askip -= 1;
             return;
@@ -378,7 +378,7 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn signed(self: *_dec_Example, id: sofab.Id, value: sofab.Signed) void {
+    pub fn signed(self: *_Example__Visitor, id: sofab.Id, value: sofab.Signed) void {
         if (self.askip > 0) {
             self.askip -= 1;
             return;
@@ -452,7 +452,7 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn fp32(self: *_dec_Example, id: sofab.Id, value: f32) void {
+    pub fn fp32(self: *_Example__Visitor, id: sofab.Id, value: f32) void {
         if (self.askip > 0) {
             self.askip -= 1;
             return;
@@ -475,7 +475,7 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn fp64(self: *_dec_Example, id: sofab.Id, value: f64) void {
+    pub fn fp64(self: *_Example__Visitor, id: sofab.Id, value: f64) void {
         if (self.askip > 0) {
             self.askip -= 1;
             return;
@@ -503,14 +503,14 @@ const _dec_Example = struct {
     /// word must not downgrade the verdict. The subtype switch is S7.3 -- a
     /// contradicting fixlen kind at this id is a SKIPPED field, not this
     /// field's length.
-    pub fn fixlenBegin(self: *_dec_Example, id: sofab.Id, subtype: sofab.FixlenType, total: usize) sofab.Error!void {
+    pub fn fixlenBegin(self: *_Example__Visitor, id: sofab.Id, subtype: sofab.FixlenType, total: usize) sofab.Error!void {
         switch (subtype) {
             .string => switch (self.cur) {
                 .root_nested => switch (id) {
                     2 => if (total > 32) return sofab.Error.InvalidMessage,
                     else => {},
                 },
-                .root_string_array => {
+                .root_string__array => {
                     try sofab.arrays.overIndex(.{ .schema = 5 }, id);
                     if (total > 64) return sofab.Error.InvalidMessage;
                 },
@@ -527,7 +527,7 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn string(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
+    pub fn string(self: *_Example__Visitor, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
         switch (self.cur) {
             .root_nested => switch (id) {
                 2 => {
@@ -536,7 +536,7 @@ const _dec_Example = struct {
                 },
                 else => {},
             },
-            .root_string_array => {
+            .root_string__array => {
                 const chunk = self._takeStr(total, offset, _chunk) orelse return;
                 sofab.arrays.placeElem([]const u8, .{ .schema = 5 }, self.alloc, &(self.m.string_array), id, "", chunk) catch {
                     self.inv = true;
@@ -551,7 +551,7 @@ const _dec_Example = struct {
     /// the validator does not re-read a copy it just stored. Invalid UTF-8
     /// is INVALID and returns null. A payload split across feed chunks is
     /// stitched first -- it has no contiguous source until then.
-    fn _takeStr(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
+    fn _takeStr(self: *_Example__Visitor, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
         if (offset == 0 and chunk.len >= total) {
             const src = chunk[0..total];
             if (!sofab.utf8Valid(src)) {
@@ -574,7 +574,7 @@ const _dec_Example = struct {
         return p;
     }
 
-    pub fn blob(self: *_dec_Example, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
+    pub fn blob(self: *_Example__Visitor, id: sofab.Id, total: usize, offset: usize, _chunk: []const u8) void {
         switch (self.cur) {
             .root_nested => switch (id) {
                 3 => {
@@ -587,7 +587,7 @@ const _dec_Example = struct {
         }
     }
 
-    pub fn arrayBegin(self: *_dec_Example, id: sofab.Id, kind: sofab.ArrayKind, count: usize) void {
+    pub fn arrayBegin(self: *_Example__Visitor, id: sofab.Id, kind: sofab.ArrayKind, count: usize) void {
         self.askip = switch (kind) {
             .unsigned => switch (self.cur) {
                 .root_arrays => switch (id) {
@@ -755,14 +755,14 @@ const _dec_Example = struct {
     /// This is the SCHEMA-BOUNDED entry point. A `maxlen` is a validity bound and
     /// stays the caller's, decided on `total` before this call; a field the
     /// schema leaves unbounded goes through _takeCapped instead.
-    fn _take(self: *_dec_Example, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
+    fn _take(self: *_Example__Visitor, total: usize, offset: usize, chunk: []const u8) ?[]const u8 {
         return self.acc.take(self.alloc, total, offset, chunk, false) catch {
             self.inv = true;
             return null;
         };
     }
 
-    pub fn sequenceBegin(self: *_dec_Example, id: sofab.Id) void {
+    pub fn sequenceBegin(self: *_Example__Visitor, id: sofab.Id) void {
         if (self.sp < self.stack.len) {
             self.stack[self.sp] = self.cur;
             self.sp += 1;
@@ -773,7 +773,7 @@ const _dec_Example = struct {
                 100 => .root_arrays,
                 200 => blk: {
                     self.m.string_array = &.{};
-                    break :blk .root_string_array;
+                    break :blk .root_string__array;
                 },
                 else => .dead,
             },
@@ -785,7 +785,7 @@ const _dec_Example = struct {
         };
     }
 
-    pub fn sequenceEnd(self: *_dec_Example) void {
+    pub fn sequenceEnd(self: *_Example__Visitor) void {
         if (self.sp > 0) {
             self.sp -= 1;
             self.cur = self.stack[self.sp];

@@ -11,7 +11,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 command -v arm-none-eabi-gcc >/dev/null \
     || { echo "c-cortex-m: arm-none-eabi-gcc not installed (apt: gcc-arm-none-eabi)" >&2; exit 1; }
 
-if [ ! -f "$ROOT/languages/c-embedded/sofab/gen/example.c" ] \
+if [ ! -f "$ROOT/languages/c-embedded/sofab/gen/example_sofab.c" ] \
    || [ ! -f "$ROOT/languages/c-embedded/nanopb/gen/message.pb.c" ] \
    || [ ! -f "${NANOPB:-$ROOT/vendor/nanopb}/pb_encode.c" ]; then
     "$ROOT/languages/c-embedded/setup.sh"

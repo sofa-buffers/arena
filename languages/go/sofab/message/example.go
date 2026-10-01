@@ -11,10 +11,10 @@ import (
 // Example is a generated SofaBuffers object.
 type Example struct {
 	sofab.VisitorBase
-	U64    uint64        `json:"u64"`
-	I64    int64         `json:"i64"`
-	Nested ExampleNested `json:"nested"`
-	Arrays ExampleArrays `json:"arrays"`
+	U64    uint64         `json:"u64"`
+	I64    int64          `json:"i64"`
+	Nested Example_Nested `json:"nested"`
+	Arrays Example_Arrays `json:"arrays"`
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
 	StringArray []string `json:"string_array"`
 	U32         uint32   `json:"u32"`
@@ -161,32 +161,32 @@ func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	return nil, nil
 }
 
-// NewExample returns a Example with schema defaults applied.
-func NewExample() *Example {
+// Example__New returns a Example with schema defaults applied.
+func Example__New() *Example {
 	m := &Example{}
 	return m
 }
 
-// ExampleMaxSize is this message's worst-case encoded size, derived from the
+// Example__MaxSize is this message's worst-case encoded size, derived from the
 // schema: no value of it can encode to more.
-const ExampleMaxSize = 732
+const Example__MaxSize = 732
 
-// ExampleMaxDepth is the deepest sequence nesting encoding this message opens,
+// Example__MaxDepth is the deepest sequence nesting encoding this message opens,
 // derived from the schema: no value of it nests deeper.
-const ExampleMaxDepth = 2
+const Example__MaxDepth = 2
 
-// _ExampleEncOpts bounds this message's encoders to ExampleMaxDepth. It is
+// _Example__EncOpts bounds this message's encoders to Example__MaxDepth. It is
 // package-level so passing it allocates nothing per call.
-var _ExampleEncOpts = []sofab.Option{sofab.WithMaxDepth(ExampleMaxDepth)}
+var _Example__EncOpts = []sofab.Option{sofab.WithMaxDepth(Example__MaxDepth)}
 
 // Encode serializes the message into a buffer this call allocates and owns.
 //
-// The buffer is exactly ExampleMaxSize bytes -- the schema's worst case -- so a
+// The buffer is exactly Example__MaxSize bytes -- the schema's worst case -- so a
 // conformant value always fits. A value filled past a declared count/maxlen
 // does not, and is reported rather than truncated.
 func (m *Example) Encode() ([]byte, error) {
-	buf := make([]byte, ExampleMaxSize)
-	e, err := sofab.NewEncoderBuffer(buf, 0, _ExampleEncOpts...)
+	buf := make([]byte, Example__MaxSize)
+	e, err := sofab.NewEncoderBuffer(buf, 0, _Example__EncOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (m *Example) EncodeTo(w io.Writer) error {
 	e, err := sofab.NewEncoderSink(scratch[:], 0, func(_ *sofab.Encoder, b []byte) error {
 		_, werr := w.Write(b)
 		return werr
-	}, _ExampleEncOpts...)
+	}, _Example__EncOpts...)
 	if err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func (m *Example) EncodeTo(w io.Writer) error {
 	return e.Flush()
 }
 
-// DecodeExample parses bytes into a new message (with defaults pre-applied).
+// Example__Decode parses bytes into a new message (with defaults pre-applied).
 // Decode feeds the buffer to the corelib's decoder in one go, dispatching
 // each field to the message's sofab.Visitor implementation.
 //
@@ -224,21 +224,21 @@ func (m *Example) EncodeTo(w io.Writer) error {
 // and copies. The message therefore outlives data, and data may be reused
 // or mutated the moment this returns.
 //
-// Use this when the message is already in memory. DecodeExampleFrom is the
+// Use this when the message is already in memory. Example__DecodeFrom is the
 // streaming twin for a message that is not.
-func DecodeExample(data []byte) (*Example, error) {
-	m := NewExample()
+func Example__Decode(data []byte) (*Example, error) {
+	m := Example__New()
 	if err := sofab.AcceptBytes(data, m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// DecodeExampleFrom parses a message straight out of r (with defaults pre-applied).
+// Example__DecodeFrom parses a message straight out of r (with defaults pre-applied).
 //
 // The wire image is never held whole in memory: r is drained in chunks and
 // each field is dispatched as its bytes arrive, so what bounds memory is
-// the chunk plus the largest single field, not the message. DecodeExample is
+// the chunk plus the largest single field, not the message. Example__Decode is
 // the in-memory path for bytes you already hold; this is the one to reach
 // for over a network connection, a file, or any producer that outruns the
 // memory you want to spend.
@@ -248,8 +248,8 @@ func DecodeExample(data []byte) (*Example, error) {
 // streamed, at every chunk boundary. A reader that ends inside a field is
 // INCOMPLETE, which is sofab.ErrIncomplete here: only the caller's framing
 // knows whether more could still have come (S5.2.4).
-func DecodeExampleFrom(r io.Reader) (*Example, error) {
-	m := NewExample()
+func Example__DecodeFrom(r io.Reader) (*Example, error) {
+	m := Example__New()
 	scratch := make([]byte, 4096)
 	out, err := sofab.NewDecoder(m).FeedFrom(r, scratch)
 	if err != nil {

@@ -4,7 +4,7 @@ import org.sofabuffers.sofab.*;
 import java.io.IOException;
 import java.util.*;
 
-public class ExampleArraysNested {
+public class Example_Arrays_Nested {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
     public float[] fp32 = Seq.EMPTY_FLOATS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */

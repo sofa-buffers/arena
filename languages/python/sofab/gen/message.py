@@ -25,7 +25,7 @@ MAX_FIELD_SPAN = 70
 REASSEMBLY = MAX_FIELD_SPAN + 65536
 
 @dataclass
-class ExampleArrays:
+class Example_Arrays:
     #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     u8: list[int] = field(default_factory=list)
     #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
@@ -42,7 +42,7 @@ class ExampleArrays:
     u64: list[int] = field(default_factory=list)
     #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     i64: list[int] = field(default_factory=list)
-    nested: ExampleArraysNested = field(default_factory=lambda: ExampleArraysNested())
+    nested: Example_Arrays_Nested = field(default_factory=lambda: Example_Arrays_Nested())
 
     # Worst-case encoded size, derived from the schema: no value of this
     # class can encode to more, which is why encode() can size one exact
@@ -105,7 +105,7 @@ class ExampleArrays:
         }
 
     @classmethod
-    def from_jsonable(cls, d: dict) -> "ExampleArrays":
+    def from_jsonable(cls, d: dict) -> "Example_Arrays":
         o = cls()
         if "u8" in d:
             o.u8 = list(d["u8"])
@@ -124,7 +124,7 @@ class ExampleArrays:
         if "i64" in d:
             o.i64 = list(d["i64"])
         if "nested" in d:
-            o.nested = ExampleArraysNested.from_jsonable(d["nested"])
+            o.nested = Example_Arrays_Nested.from_jsonable(d["nested"])
         return o
 
     def encode(self) -> bytes:
@@ -135,7 +135,7 @@ class ExampleArrays:
         count/maxlen raises :class:`sofab.SofaBufferError` instead of being
         truncated, and nothing is returned.
         """
-        buf = bytearray(ExampleArrays.MAX_SIZE)
+        buf = bytearray(Example_Arrays.MAX_SIZE)
         e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
@@ -160,10 +160,10 @@ class ExampleArrays:
         larger one to feed larger chunks. What is SKIPPED never enters it,
         whatever its size.
         """
-        return _StreamDecoder(cls, _ExampleArraysVisitor, reassembly)
+        return _StreamDecoder(cls, _Example_Arrays__Visitor, reassembly)
 
     @classmethod
-    def decode(cls, data: bytes) -> "ExampleArrays":
+    def decode(cls, data: bytes) -> "Example_Arrays":
         """Decode a message that OWNS its bytes.
 
         Every destination holds a copy -- ``str``/``bytes`` values the corelib
@@ -175,7 +175,7 @@ class ExampleArrays:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        v = _ExampleArraysVisitor(o)
+        v = _Example_Arrays__Visitor(o)
         d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
@@ -190,7 +190,7 @@ class ExampleArrays:
         return o
 
 @dataclass
-class ExampleArraysNested:
+class Example_Arrays_Nested:
     #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
     fp32: list[float] = field(default_factory=list)
     #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
@@ -221,7 +221,7 @@ class ExampleArraysNested:
         }
 
     @classmethod
-    def from_jsonable(cls, d: dict) -> "ExampleArraysNested":
+    def from_jsonable(cls, d: dict) -> "Example_Arrays_Nested":
         o = cls()
         if "fp32" in d:
             o.fp32 = list(d["fp32"])
@@ -237,7 +237,7 @@ class ExampleArraysNested:
         count/maxlen raises :class:`sofab.SofaBufferError` instead of being
         truncated, and nothing is returned.
         """
-        buf = bytearray(ExampleArraysNested.MAX_SIZE)
+        buf = bytearray(Example_Arrays_Nested.MAX_SIZE)
         e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
@@ -257,10 +257,10 @@ class ExampleArraysNested:
         larger one to feed larger chunks. What is SKIPPED never enters it,
         whatever its size.
         """
-        return _StreamDecoder(cls, _ExampleArraysNestedVisitor, reassembly)
+        return _StreamDecoder(cls, _Example_Arrays_Nested__Visitor, reassembly)
 
     @classmethod
-    def decode(cls, data: bytes) -> "ExampleArraysNested":
+    def decode(cls, data: bytes) -> "Example_Arrays_Nested":
         """Decode a message that OWNS its bytes.
 
         Every destination holds a copy -- ``str``/``bytes`` values the corelib
@@ -272,7 +272,7 @@ class ExampleArraysNested:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        d = Decoder(visitor=_ExampleArraysNestedVisitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        d = Decoder(visitor=_Example_Arrays_Nested__Visitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
         if st is Status.INVALID:
@@ -282,7 +282,7 @@ class ExampleArraysNested:
         return o
 
 @dataclass
-class ExampleNested:
+class Example_Nested:
     f32: float = 0.0
     f64: float = 0.0
     #: Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
@@ -325,7 +325,7 @@ class ExampleNested:
         }
 
     @classmethod
-    def from_jsonable(cls, d: dict) -> "ExampleNested":
+    def from_jsonable(cls, d: dict) -> "Example_Nested":
         o = cls()
         if "f32" in d:
             o.f32 = d["f32"]
@@ -345,7 +345,7 @@ class ExampleNested:
         count/maxlen raises :class:`sofab.SofaBufferError` instead of being
         truncated, and nothing is returned.
         """
-        buf = bytearray(ExampleNested.MAX_SIZE)
+        buf = bytearray(Example_Nested.MAX_SIZE)
         e = Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
@@ -370,10 +370,10 @@ class ExampleNested:
         larger one to feed larger chunks. What is SKIPPED never enters it,
         whatever its size.
         """
-        return _StreamDecoder(cls, _ExampleNestedVisitor, reassembly)
+        return _StreamDecoder(cls, _Example_Nested__Visitor, reassembly)
 
     @classmethod
-    def decode(cls, data: bytes) -> "ExampleNested":
+    def decode(cls, data: bytes) -> "Example_Nested":
         """Decode a message that OWNS its bytes.
 
         Every destination holds a copy -- ``str``/``bytes`` values the corelib
@@ -385,7 +385,7 @@ class ExampleNested:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        v = _ExampleNestedVisitor(o)
+        v = _Example_Nested__Visitor(o)
         d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
@@ -410,8 +410,8 @@ class Example:
     i32: int = 0
     u64: int = 0
     i64: int = 0
-    nested: ExampleNested = field(default_factory=lambda: ExampleNested())
-    arrays: ExampleArrays = field(default_factory=lambda: ExampleArrays())
+    nested: Example_Nested = field(default_factory=lambda: Example_Nested())
+    arrays: Example_Arrays = field(default_factory=lambda: Example_Arrays())
     #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
     string_array: list[str] = field(default_factory=list)
 
@@ -509,9 +509,9 @@ class Example:
         if "i64" in d:
             o.i64 = d["i64"]
         if "nested" in d:
-            o.nested = ExampleNested.from_jsonable(d["nested"])
+            o.nested = Example_Nested.from_jsonable(d["nested"])
         if "arrays" in d:
-            o.arrays = ExampleArrays.from_jsonable(d["arrays"])
+            o.arrays = Example_Arrays.from_jsonable(d["arrays"])
         if "string_array" in d:
             o.string_array = list(d["string_array"])
         return o
@@ -549,7 +549,7 @@ class Example:
         larger one to feed larger chunks. What is SKIPPED never enters it,
         whatever its size.
         """
-        return _StreamDecoder(cls, _ExampleVisitor, reassembly)
+        return _StreamDecoder(cls, _Example__Visitor, reassembly)
 
     @classmethod
     def decode(cls, data: bytes) -> "Example":
@@ -564,7 +564,7 @@ class Example:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        v = _ExampleVisitor(o)
+        v = _Example__Visitor(o)
         d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
@@ -621,7 +621,7 @@ class _StreamDecoder:
     def error(self):
         return self._d.error
 
-# Destination table for ExampleArrays: where the decoder writes the fields it can place
+# Destination table for Example_Arrays: where the decoder writes the fields it can place
 # without calling back into Python. Built once, at import -- a Binding is a
 # build-once artifact and every decoder over it reuses the compiled map.
 #
@@ -631,11 +631,11 @@ class _StreamDecoder:
 # option of those shapes. Every other union is a one-of table: the decoder
 # writes the held option's id into its `which_at` slot, and a re-selected
 # option starts again from the `default=` / `default_id=` its rows state.
-_BIND_ExampleArrays_nested = (Binding(closed=True)
+_Example_Arrays__Bind__nested = (Binding(closed=True)
     .float32_array(0, at=48, cap=5, count_at=53)
     .float64_array(1, at=54, cap=5, count_at=59)
 )
-_BIND_ExampleArrays = (Binding(closed=True)
+_Example_Arrays__Bind = (Binding(closed=True)
     .unsigned_array(0, at=0, cap=5, count_at=5, elem_max=255)
     .signed_array(1, at=6, cap=5, count_at=11, elem_min=-128, elem_max=127)
     .unsigned_array(2, at=12, cap=5, count_at=17, elem_max=65535)
@@ -644,18 +644,18 @@ _BIND_ExampleArrays = (Binding(closed=True)
     .signed_array(5, at=30, cap=5, count_at=35, elem_min=-2147483648, elem_max=2147483647)
     .unsigned_array(6, at=36, cap=5, count_at=41)
     .signed_array(7, at=42, cap=5, count_at=47)
-    .sequence(10, child=_BIND_ExampleArrays_nested)
+    .sequence(10, child=_Example_Arrays__Bind__nested)
 )
-_W_ExampleArrays = _BIND_ExampleArrays.tree_words_required
-_O_ExampleArrays = _BIND_ExampleArrays.tree_objects_required
+_Example_Arrays__Words = _Example_Arrays__Bind.tree_words_required
+_Example_Arrays__Objects = _Example_Arrays__Bind.tree_objects_required
 # Every slot starts at ALL ONES, which no arrival can write: an array's count
 # slot holds its element count and every other kind's holds 1. That is what
 # tells a field that never arrived from one that arrived EMPTY -- an empty
 # array replaces the default, and a zero count slot could not say so.
-_FILL_ExampleArrays = b"\xff" * (_W_ExampleArrays * 8)
+_Example_Arrays__Fill = b"\xff" * (_Example_Arrays__Words * 8)
 
-class _ExampleArraysVisitor(Visitor):
-    """Decode handler for :class:`ExampleArrays`: a destination table and nothing else.
+class _Example_Arrays__Visitor(Visitor):
+    """Decode handler for :class:`Example_Arrays`: a destination table and nothing else.
 
     Every id this schema declares is on the table, so the decoder writes each
     value straight into a slot and calls nothing here. An id the schema does
@@ -664,9 +664,9 @@ class _ExampleArraysVisitor(Visitor):
     for a field of the scope around it.
     """
 
-    def __init__(self, o: ExampleArrays) -> None:
+    def __init__(self, o: Example_Arrays) -> None:
         self._o = o
-        self._w = bytearray(_FILL_ExampleArrays)
+        self._w = bytearray(_Example_Arrays__Fill)
         self._ob: list = []
         # Typed views over the one buffer: no copy, no second buffer.
         self._vu = memoryview(self._w).cast("Q")
@@ -684,7 +684,7 @@ class _ExampleArraysVisitor(Visitor):
         The table is ``closed``, so an id it does not name is skipped by the
         codec: nothing reaches this class at all.
         """
-        return (_BIND_ExampleArrays, self._w, self._ob)
+        return (_Example_Arrays__Bind, self._w, self._ob)
 
     def scatter(self) -> None:
         """Move the table's slots onto the message.
@@ -708,24 +708,24 @@ class _ExampleArraysVisitor(Visitor):
         if U[53] != _ABSENT: m.nested.fp32 = list(F[48:48 + U[53]])
         if U[59] != _ABSENT: m.nested.fp64 = list(F[54:54 + U[59]])
 
-# Dispatch locations for ExampleArraysNested: one per sequence-framed scope in its tree.
+# Dispatch locations for Example_Arrays_Nested: one per sequence-framed scope in its tree.
 # A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 # id space -- so the visitor below keys every hook on (location, id).
 # A scope the table enters has no location here: the decoder walks it without
 # this visitor, so nothing ever dispatches against it.
-_L_ExampleArraysNested = 0
+_Example_Arrays_Nested__Loc = 0
 
-class _ExampleArraysNestedVisitor(Visitor):
-    """Flat decode visitor for :class:`ExampleArraysNested`.
+class _Example_Arrays_Nested__Visitor(Visitor):
+    """Flat decode visitor for :class:`Example_Arrays_Nested`.
 
     corelib-py's visitor is flat -- one object receives every callback at every
     depth -- so the current scope is tracked here, in ``_c``, over the stack
     ``_s`` that ``on_sequence_begin`` / ``on_sequence_end`` maintain.
     """
 
-    def __init__(self, o: ExampleArraysNested) -> None:
+    def __init__(self, o: Example_Arrays_Nested) -> None:
         self._o = o
-        self._c = _L_ExampleArraysNested
+        self._c = _Example_Arrays_Nested__Loc
         self._s: list[int] = []
 
     def scatter(self) -> None:
@@ -740,13 +740,13 @@ class _ExampleArraysNestedVisitor(Visitor):
 
     def on_float32_array(self, fid: int, value: list[float]) -> None:
         c = self._c
-        if c == _L_ExampleArraysNested:
+        if c == _Example_Arrays_Nested__Loc:
             if fid == 0:
                 self._o.fp32 = value
 
     def on_float64_array(self, fid: int, value: list[float]) -> None:
         c = self._c
-        if c == _L_ExampleArraysNested:
+        if c == _Example_Arrays_Nested__Loc:
             if fid == 1:
                 self._o.fp64 = value
 
@@ -764,7 +764,7 @@ class _ExampleArraysNestedVisitor(Visitor):
         steps over an over-cap field it does not want stays COMPLETE.
         """
         c = self._c
-        if c == _L_ExampleArraysNested:
+        if c == _Example_Arrays_Nested__Loc:
             if fld.id not in {0, 1}:
                 return False  # not one of this scope's own ids: walked, not read
             if fld.id == 0:
@@ -789,14 +789,14 @@ class _ExampleArraysNestedVisitor(Visitor):
         hook is the declared field and no other.
         """
         c = self._c
-        if c == _L_ExampleArraysNested:
+        if c == _Example_Arrays_Nested__Loc:
             if fid == 0:
                 return 5  # fp32: schema count
             elif fid == 1:
                 return 5  # fp64: schema count
         return -1
 
-# Destination table for ExampleNested: where the decoder writes the fields it can place
+# Destination table for Example_Nested: where the decoder writes the fields it can place
 # without calling back into Python. Built once, at import -- a Binding is a
 # build-once artifact and every decoder over it reuses the compiled map.
 #
@@ -806,22 +806,22 @@ class _ExampleArraysNestedVisitor(Visitor):
 # option of those shapes. Every other union is a one-of table: the decoder
 # writes the held option's id into its `which_at` slot, and a re-selected
 # option starts again from the `default=` / `default_id=` its rows state.
-_BIND_ExampleNested = (Binding(closed=True)
+_Example_Nested__Bind = (Binding(closed=True)
     .float32(0, at=0, count_at=1)
     .float64(1, at=2, count_at=3)
     .string(2, at=0, maxlen=32, count_at=4)
     .bytes(3, at=1, maxlen=4, count_at=5)
 )
-_W_ExampleNested = _BIND_ExampleNested.tree_words_required
-_O_ExampleNested = _BIND_ExampleNested.tree_objects_required
+_Example_Nested__Words = _Example_Nested__Bind.tree_words_required
+_Example_Nested__Objects = _Example_Nested__Bind.tree_objects_required
 # Every slot starts at ALL ONES, which no arrival can write: an array's count
 # slot holds its element count and every other kind's holds 1. That is what
 # tells a field that never arrived from one that arrived EMPTY -- an empty
 # array replaces the default, and a zero count slot could not say so.
-_FILL_ExampleNested = b"\xff" * (_W_ExampleNested * 8)
+_Example_Nested__Fill = b"\xff" * (_Example_Nested__Words * 8)
 
-class _ExampleNestedVisitor(Visitor):
-    """Decode handler for :class:`ExampleNested`: a destination table and nothing else.
+class _Example_Nested__Visitor(Visitor):
+    """Decode handler for :class:`Example_Nested`: a destination table and nothing else.
 
     Every id this schema declares is on the table, so the decoder writes each
     value straight into a slot and calls nothing here. An id the schema does
@@ -830,10 +830,10 @@ class _ExampleNestedVisitor(Visitor):
     for a field of the scope around it.
     """
 
-    def __init__(self, o: ExampleNested) -> None:
+    def __init__(self, o: Example_Nested) -> None:
         self._o = o
-        self._w = bytearray(_FILL_ExampleNested)
-        self._ob: list = [None] * _O_ExampleNested
+        self._w = bytearray(_Example_Nested__Fill)
+        self._ob: list = [None] * _Example_Nested__Objects
         # Typed views over the one buffer: no copy, no second buffer.
         self._vu = memoryview(self._w).cast("Q")
         self._vf = memoryview(self._w).cast("d")
@@ -849,7 +849,7 @@ class _ExampleNestedVisitor(Visitor):
         The table is ``closed``, so an id it does not name is skipped by the
         codec: nothing reaches this class at all.
         """
-        return (_BIND_ExampleNested, self._w, self._ob)
+        return (_Example_Nested__Bind, self._w, self._ob)
 
     def scatter(self) -> None:
         """Move the table's slots onto the message.
@@ -877,11 +877,11 @@ class _ExampleNestedVisitor(Visitor):
 # option of those shapes. Every other union is a one-of table: the decoder
 # writes the held option's id into its `which_at` slot, and a re-selected
 # option starts again from the `default=` / `default_id=` its rows state.
-_BIND_Example_arrays_nested = (Binding(closed=True)
+_Example__Bind__arrays__nested = (Binding(closed=True)
     .float32_array(0, at=70, cap=5, count_at=75)
     .float64_array(1, at=76, cap=5, count_at=81)
 )
-_BIND_Example_arrays = (Binding(closed=True)
+_Example__Bind__arrays = (Binding(closed=True)
     .unsigned_array(0, at=22, cap=5, count_at=27, elem_max=255)
     .signed_array(1, at=28, cap=5, count_at=33, elem_min=-128, elem_max=127)
     .unsigned_array(2, at=34, cap=5, count_at=39, elem_max=65535)
@@ -890,15 +890,15 @@ _BIND_Example_arrays = (Binding(closed=True)
     .signed_array(5, at=52, cap=5, count_at=57, elem_min=-2147483648, elem_max=2147483647)
     .unsigned_array(6, at=58, cap=5, count_at=63)
     .signed_array(7, at=64, cap=5, count_at=69)
-    .sequence(10, child=_BIND_Example_arrays_nested)
+    .sequence(10, child=_Example__Bind__arrays__nested)
 )
-_BIND_Example_nested = (Binding(closed=True)
+_Example__Bind__nested = (Binding(closed=True)
     .float32(0, at=16, count_at=17)
     .float64(1, at=18, count_at=19)
     .string(2, at=0, maxlen=32, count_at=20)
     .bytes(3, at=1, maxlen=4, count_at=21)
 )
-_BIND_Example = (Binding()
+_Example__Bind = (Binding()
     .unsigned(0, at=0, count_at=1, max_value=255)
     .signed(1, at=2, count_at=3, min_value=-128, max_value=127)
     .unsigned(2, at=4, count_at=5, max_value=65535)
@@ -907,26 +907,26 @@ _BIND_Example = (Binding()
     .signed(5, at=10, count_at=11, min_value=-2147483648, max_value=2147483647)
     .unsigned(6, at=12, count_at=13)
     .signed(7, at=14, count_at=15)
-    .sequence(10, child=_BIND_Example_nested)
-    .sequence(100, child=_BIND_Example_arrays)
+    .sequence(10, child=_Example__Bind__nested)
+    .sequence(100, child=_Example__Bind__arrays)
 )
-_W_Example = _BIND_Example.tree_words_required
-_O_Example = _BIND_Example.tree_objects_required
+_Example__Words = _Example__Bind.tree_words_required
+_Example__Objects = _Example__Bind.tree_objects_required
 # Every slot starts at ALL ONES, which no arrival can write: an array's count
 # slot holds its element count and every other kind's holds 1. That is what
 # tells a field that never arrived from one that arrived EMPTY -- an empty
 # array replaces the default, and a zero count slot could not say so.
-_FILL_Example = b"\xff" * (_W_Example * 8)
+_Example__Fill = b"\xff" * (_Example__Words * 8)
 
 # Dispatch locations for Example: one per sequence-framed scope in its tree.
 # A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 # id space -- so the visitor below keys every hook on (location, id).
 # A scope the table enters has no location here: the decoder walks it without
 # this visitor, so nothing ever dispatches against it.
-_L_Example = 0
-_L_Example_string_array = 4
+_Example__Loc = 0
+_Example__Loc__string_array = 4
 
-class _ExampleVisitor(Visitor):
+class _Example__Visitor(Visitor):
     """Flat decode visitor for :class:`Example`.
 
     corelib-py's visitor is flat -- one object receives every callback at every
@@ -936,10 +936,10 @@ class _ExampleVisitor(Visitor):
 
     def __init__(self, o: Example) -> None:
         self._o = o
-        self._c = _L_Example
+        self._c = _Example__Loc
         self._s: list[int] = []
-        self._w = bytearray(_FILL_Example)
-        self._ob: list = [None] * _O_Example
+        self._w = bytearray(_Example__Fill)
+        self._ob: list = [None] * _Example__Objects
         # Typed views over the one buffer: no copy, no second buffer.
         self._vu = memoryview(self._w).cast("Q")
         self._vs = memoryview(self._w).cast("q")
@@ -954,7 +954,7 @@ class _ExampleVisitor(Visitor):
         ``on_schema_bound``, whose bound rides the entry instead.
         Everything the table does not name reaches the hooks below unchanged.
         """
-        return (_BIND_Example, self._w, self._ob)
+        return (_Example__Bind, self._w, self._ob)
 
     def scatter(self) -> None:
         """Move the table's slots onto the message.
@@ -993,11 +993,11 @@ class _ExampleVisitor(Visitor):
 
     def on_sequence_begin(self, fid: int) -> bool:
         c = self._c
-        if c == _L_Example:
+        if c == _Example__Loc:
             if fid == 200:
                 self._o.string_array = []
                 self._s.append(c)
-                self._c = _L_Example_string_array
+                self._c = _Example__Loc__string_array
                 return True
         return False
 
@@ -1007,7 +1007,7 @@ class _ExampleVisitor(Visitor):
 
     def on_string(self, fid: int, value: str) -> None:
         c = self._c
-        if c == _L_Example_string_array:
+        if c == _Example__Loc__string_array:
             self._o.string_array[fid] = value
 
     def on_field(self, fld: Field) -> bool:
@@ -1024,9 +1024,9 @@ class _ExampleVisitor(Visitor):
         steps over an over-cap field it does not want stays COMPLETE.
         """
         c = self._c
-        if c == _L_Example:
+        if c == _Example__Loc:
             return False  # every id handled here is framed as a sequence: unknown or mistyped (S7.3)
-        elif c == _L_Example_string_array:
+        elif c == _Example__Loc__string_array:
             if fld.subtype != FixlenSubtype.STRING:
                 return False  # string_array: header is not the declared type -- skip it
             reserve_leaf(self._o.string_array, fld.id, "", 5, 65536)
@@ -1046,7 +1046,7 @@ class _ExampleVisitor(Visitor):
         hook is the declared field and no other.
         """
         c = self._c
-        if c == _L_Example_string_array:
+        if c == _Example__Loc__string_array:
             return 64  # string_array: schema element maxlen
         return -1
 

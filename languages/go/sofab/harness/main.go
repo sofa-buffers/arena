@@ -102,7 +102,7 @@ func run_encode_example() {
 
 //go:noinline
 func run_decode_example() {
-	obj, err := message.DecodeExample(benchExampleWire)
+	obj, err := message.Example__Decode(benchExampleWire)
 	if err != nil {
 		fail(err)
 	}
@@ -126,7 +126,7 @@ func warmup_encode_example() {
 
 //go:noinline
 func warmup_decode_example() {
-	obj, err := message.DecodeExample(benchExampleWire)
+	obj, err := message.Example__Decode(benchExampleWire)
 	if err != nil {
 		fail(err)
 	}
@@ -137,7 +137,7 @@ func warmup_decode_example() {
 // observation; only the run_* call is collected.
 func benchMain(w string, in []byte) int {
 	if w == "encode_example" || w == "decode_example" {
-		benchExampleIn = message.NewExample()
+		benchExampleIn = message.Example__New()
 		if err := json.Unmarshal(in, benchExampleIn); err != nil {
 			fail(err)
 		}
@@ -188,7 +188,7 @@ func main() {
 	switch msg {
 	case "example":
 		if mode == "encode" {
-			obj := message.NewExample()
+			obj := message.Example__New()
 			if err := json.Unmarshal(in, obj); err != nil {
 				fail(err)
 			}
@@ -198,7 +198,7 @@ func main() {
 			}
 			os.Stdout.Write(b)
 		} else if mode == "decode" {
-			obj, err := message.DecodeExample(in)
+			obj, err := message.Example__Decode(in)
 			if err != nil {
 				fail(err)
 			}
@@ -206,7 +206,7 @@ func main() {
 			os.Stdout.Write(out)
 			fmt.Fprintln(os.Stdout)
 		} else if mode == "streamdecode" {
-			obj, err := message.DecodeExampleFrom(&dripReader{b: in})
+			obj, err := message.Example__DecodeFrom(&dripReader{b: in})
 			if err != nil {
 				fail(err)
 			}

@@ -15,7 +15,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 command -v riscv64-unknown-elf-gcc >/dev/null \
     || { echo "c-riscv: riscv64-unknown-elf-gcc not installed (apt: gcc-riscv64-unknown-elf + picolibc-riscv64-unknown-elf)" >&2; exit 1; }
 
-if [ ! -f "$ROOT/languages/c-embedded/sofab/gen/example.c" ] \
+if [ ! -f "$ROOT/languages/c-embedded/sofab/gen/example_sofab.c" ] \
    || [ ! -f "$ROOT/languages/c-embedded/nanopb/gen/message.pb.c" ] \
    || [ ! -f "${NANOPB:-$ROOT/vendor/nanopb}/pb_encode.c" ]; then
     "$ROOT/languages/c-embedded/setup.sh"

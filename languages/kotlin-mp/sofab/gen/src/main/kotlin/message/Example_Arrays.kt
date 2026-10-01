@@ -6,7 +6,7 @@ package message
 
 import org.sofabuffers.sofab.*
 
-public class ExampleArrays {
+public class Example_Arrays {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
     public var u8: UByteArray = Seq.EMPTY_UBYTES
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
@@ -23,7 +23,7 @@ public class ExampleArrays {
     public var u64: ULongArray = Seq.EMPTY_ULONGS
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
     public var i64: LongArray = Seq.EMPTY_LONGS
-    public var nested: ExampleArraysNested = ExampleArraysNested()
+    public var nested: Example_Arrays_Nested = Example_Arrays_Nested()
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {

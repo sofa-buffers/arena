@@ -6,8 +6,8 @@ import (
 	"github.com/sofa-buffers/corelib-go"
 )
 
-// ExampleArrays is a generated SofaBuffers object.
-type ExampleArrays struct {
+// Example_Arrays is a generated SofaBuffers object.
+type Example_Arrays struct {
 	sofab.VisitorBase
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	U8 []uint8 `json:"u8"`
@@ -24,11 +24,11 @@ type ExampleArrays struct {
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	U64 []uint64 `json:"u64"`
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
-	I64    []int64             `json:"i64"`
-	Nested ExampleArraysNested `json:"nested"`
+	I64    []int64               `json:"i64"`
+	Nested Example_Arrays_Nested `json:"nested"`
 }
 
-func (m *ExampleArrays) Serialize(e *sofab.Encoder) {
+func (m *Example_Arrays) Serialize(e *sofab.Encoder) {
 	if len(m.U8) != 0 {
 		sofab.WriteUnsignedArray(e, 0, m.U8)
 	}
@@ -58,7 +58,7 @@ func (m *ExampleArrays) Serialize(e *sofab.Encoder) {
 	e.WriteSequenceEnd()
 }
 
-func (m *ExampleArrays) isDefault() bool {
+func (m *Example_Arrays) isDefault() bool {
 	if !(len(m.U8) == 0) {
 		return false
 	}
@@ -89,7 +89,7 @@ func (m *ExampleArrays) isDefault() bool {
 	return true
 }
 
-func (m *ExampleArrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
+func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	case 0:
 		if kind != sofab.ArrayUnsigned {
@@ -159,7 +159,7 @@ func (m *ExampleArrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int)
 	return nil
 }
 
-func (m *ExampleArrays) ArrayUnsigned(id sofab.ID, _ int, v uint64) error {
+func (m *Example_Arrays) ArrayUnsigned(id sofab.ID, _ int, v uint64) error {
 	switch id {
 	case 0:
 		if v > 255 {
@@ -182,7 +182,7 @@ func (m *ExampleArrays) ArrayUnsigned(id sofab.ID, _ int, v uint64) error {
 	return nil
 }
 
-func (m *ExampleArrays) ArraySigned(id sofab.ID, _ int, v int64) error {
+func (m *Example_Arrays) ArraySigned(id sofab.ID, _ int, v int64) error {
 	switch id {
 	case 1:
 		if v < -128 || v > 127 {
@@ -205,7 +205,7 @@ func (m *ExampleArrays) ArraySigned(id sofab.ID, _ int, v int64) error {
 	return nil
 }
 
-func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
+func (m *Example_Arrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	switch id {
 	case 10:
 		return &m.Nested, nil
@@ -213,8 +213,8 @@ func (m *ExampleArrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	return nil, nil
 }
 
-// ExampleArraysNested is a generated SofaBuffers object.
-type ExampleArraysNested struct {
+// Example_Arrays_Nested is a generated SofaBuffers object.
+type Example_Arrays_Nested struct {
 	sofab.VisitorBase
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
 	Fp32 []float32 `json:"fp32"`
@@ -222,7 +222,7 @@ type ExampleArraysNested struct {
 	Fp64 []float64 `json:"fp64"`
 }
 
-func (m *ExampleArraysNested) Serialize(e *sofab.Encoder) {
+func (m *Example_Arrays_Nested) Serialize(e *sofab.Encoder) {
 	if len(m.Fp32) != 0 {
 		e.WriteFloat32Array(0, m.Fp32)
 	}
@@ -231,7 +231,7 @@ func (m *ExampleArraysNested) Serialize(e *sofab.Encoder) {
 	}
 }
 
-func (m *ExampleArraysNested) isDefault() bool {
+func (m *Example_Arrays_Nested) isDefault() bool {
 	if !(len(m.Fp32) == 0) {
 		return false
 	}
@@ -241,7 +241,7 @@ func (m *ExampleArraysNested) isDefault() bool {
 	return true
 }
 
-func (m *ExampleArraysNested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
+func (m *Example_Arrays_Nested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int) error {
 	switch id {
 	case 0:
 		if kind != sofab.ArrayFp32 {
@@ -263,7 +263,7 @@ func (m *ExampleArraysNested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, coun
 	return nil
 }
 
-func (m *ExampleArraysNested) ArrayFloat32(id sofab.ID, _ int, v float32) error {
+func (m *Example_Arrays_Nested) ArrayFloat32(id sofab.ID, _ int, v float32) error {
 	switch id {
 	case 0:
 		m.Fp32 = append(m.Fp32, v)
@@ -271,7 +271,7 @@ func (m *ExampleArraysNested) ArrayFloat32(id sofab.ID, _ int, v float32) error 
 	return nil
 }
 
-func (m *ExampleArraysNested) ArrayFloat64(id sofab.ID, _ int, v float64) error {
+func (m *Example_Arrays_Nested) ArrayFloat64(id sofab.ID, _ int, v float64) error {
 	switch id {
 	case 1:
 		m.Fp64 = append(m.Fp64, v)
@@ -279,8 +279,8 @@ func (m *ExampleArraysNested) ArrayFloat64(id sofab.ID, _ int, v float64) error 
 	return nil
 }
 
-// ExampleNested is a generated SofaBuffers object.
-type ExampleNested struct {
+// Example_Nested is a generated SofaBuffers object.
+type Example_Nested struct {
 	sofab.VisitorBase
 	sofab.StringCheck
 	F64 float64 `json:"f64"`
@@ -294,7 +294,7 @@ type ExampleNested struct {
 	_acc sofab.PayloadAcc
 }
 
-func (m *ExampleNested) Serialize(e *sofab.Encoder) {
+func (m *Example_Nested) Serialize(e *sofab.Encoder) {
 	if m.F32 != 0 {
 		e.WriteFloat32(0, m.F32)
 	}
@@ -309,7 +309,7 @@ func (m *ExampleNested) Serialize(e *sofab.Encoder) {
 	}
 }
 
-func (m *ExampleNested) isDefault() bool {
+func (m *Example_Nested) isDefault() bool {
 	if !(m.F32 == 0) {
 		return false
 	}
@@ -325,7 +325,7 @@ func (m *ExampleNested) isDefault() bool {
 	return true
 }
 
-func (m *ExampleNested) Float32(id sofab.ID, v float32) error {
+func (m *Example_Nested) Float32(id sofab.ID, v float32) error {
 	switch id {
 	case 0:
 		m.F32 = v
@@ -333,7 +333,7 @@ func (m *ExampleNested) Float32(id sofab.ID, v float32) error {
 	return nil
 }
 
-func (m *ExampleNested) Float64(id sofab.ID, v float64) error {
+func (m *Example_Nested) Float64(id sofab.ID, v float64) error {
 	switch id {
 	case 1:
 		m.F64 = v
@@ -341,7 +341,7 @@ func (m *ExampleNested) Float64(id sofab.ID, v float64) error {
 	return nil
 }
 
-func (m *ExampleNested) FixlenBegin(id sofab.ID, sub sofab.FixlenSubtype, total int) error {
+func (m *Example_Nested) FixlenBegin(id sofab.ID, sub sofab.FixlenSubtype, total int) error {
 	switch id {
 	case 2:
 		if sub != sofab.FixlenStr {
@@ -361,7 +361,7 @@ func (m *ExampleNested) FixlenBegin(id sofab.ID, sub sofab.FixlenSubtype, total 
 	return nil
 }
 
-func (m *ExampleNested) String(id sofab.ID, total, offset int, chunk []byte) error {
+func (m *Example_Nested) String(id sofab.ID, total, offset int, chunk []byte) error {
 	switch id {
 	case 2:
 		_b, _done := m._acc.Take(total, offset, chunk)
@@ -376,7 +376,7 @@ func (m *ExampleNested) String(id sofab.ID, total, offset int, chunk []byte) err
 	return nil
 }
 
-func (m *ExampleNested) Bytes(id sofab.ID, total, offset int, chunk []byte) error {
+func (m *Example_Nested) Bytes(id sofab.ID, total, offset int, chunk []byte) error {
 	switch id {
 	case 3:
 		_b, _done := m._acc.Take(total, offset, chunk)

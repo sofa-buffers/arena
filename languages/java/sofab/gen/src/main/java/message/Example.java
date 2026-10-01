@@ -14,8 +14,8 @@ public class Example {
     public long i32;
     public long u64;
     public long i64;
-    public ExampleNested nested = new ExampleNested();
-    public ExampleArrays arrays = new ExampleArrays();
+    public Example_Nested nested = new Example_Nested();
+    public Example_Arrays arrays = new Example_Arrays();
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
     public List<String> string_array = new ArrayList<>();
 
@@ -28,8 +28,8 @@ public class Example {
         if (this.i32 != 0L) { os.writeSigned(5, this.i32); }
         if (this.u64 != 0L) { os.writeUnsigned(6, this.u64); }
         if (this.i64 != 0L) { os.writeSigned(7, this.i64); }
-        os.writeSequenceBeginLazy(10); (this.nested == null ? new ExampleNested() : this.nested).serialize(os); os.writeSequenceEnd();
-        os.writeSequenceBeginLazy(100); (this.arrays == null ? new ExampleArrays() : this.arrays).serialize(os); os.writeSequenceEnd();
+        os.writeSequenceBeginLazy(10); (this.nested == null ? new Example_Nested() : this.nested).serialize(os); os.writeSequenceEnd();
+        os.writeSequenceBeginLazy(100); (this.arrays == null ? new Example_Arrays() : this.arrays).serialize(os); os.writeSequenceEnd();
         List<String> _t0 = Seq.orEmpty(this.string_array);
         os.writeSequenceBeginLazy(200);
         for (int _i0 = 0; _i0 < _t0.size(); _i0++) { String _e0 = _t0.get(_i0); if (_e0 == null) _e0 = ""; if (!_e0.isEmpty() || _i0 == _t0.size() - 1) os.writeString(_i0, _e0); }
@@ -60,8 +60,8 @@ public class Example {
         this.i32 = 0L;
         this.u64 = 0L;
         this.i64 = 0L;
-        if (this.nested == null) this.nested = new ExampleNested(); else this.nested.reset();
-        if (this.arrays == null) this.arrays = new ExampleArrays(); else this.arrays.reset();
+        if (this.nested == null) this.nested = new Example_Nested(); else this.nested.reset();
+        if (this.arrays == null) this.arrays = new Example_Arrays(); else this.arrays.reset();
         this.string_array = Seq.reset(this.string_array);
     }
     public static final int MAX_SIZE = 732;
@@ -85,14 +85,14 @@ public class Example {
     }
     public static Example decode(byte[] data) {
         Example m = new Example();
-        try { new IStream().feed(data, new ExampleVisitor(m)); }
+        try { new IStream().feed(data, new _Example__Visitor(m)); }
         catch (Exception e) { throw new RuntimeException(e); }
         return m;
     }
     public static DecodeStatus tryDecode(byte[] data, Example out) throws SofabException {
         out.reset();
         IStream is = new IStream();
-        return is.feed(data, new ExampleVisitor(out));
+        return is.feed(data, new _Example__Visitor(out));
     }
     /**
      * An incremental decoder for this message: hold it and feed chunks as
@@ -117,7 +117,7 @@ public class Example {
     public static final class Decoder {
         private final Example m = new Example();
         private final IStream is = new IStream();
-        private final ExampleVisitor v = new ExampleVisitor(m);
+        private final _Example__Visitor v = new _Example__Visitor(m);
 
         /**
          * Feed the next chunk, of any size. Returns {@code COMPLETE} if it
@@ -170,7 +170,7 @@ public class Example {
     }
 }
 
-class ExampleVisitor implements Visitor {
+class _Example__Visitor implements Visitor {
     private final Example m;
     private int cur = 0;
     private static final int _DEAD = -1;
@@ -186,7 +186,7 @@ class ExampleVisitor implements Visitor {
     // or past its array's count is INVALID_MSG, compared by the corelib call
     // that places the element, before the list grows.
     private static final Bound SCHEMA_COUNT_5 = Bound.schema(5);
-    ExampleVisitor(Example msg) { m = msg; }
+    _Example__Visitor(Example msg) { m = msg; }
 
     public void unsigned(int id, long value) {
         // An element of the array arrayBegin armed: its destination is already
@@ -294,7 +294,7 @@ class ExampleVisitor implements Visitor {
         if (subtype == FixlenType.STRING) {
             switch (cur) {
             case 1: switch (id) { case 2: if (total > 32) throw Sofab.invalid("str: string length above schema maxlen 32"); break; default: break; } break;
-            case 4: Seq.checkIndex(id, SCHEMA_COUNT_5); if (total > 64) throw Sofab.invalid("string_array element: string length above schema maxlen 64"); break;
+            case 4: Seq.checkIndex(id, SCHEMA_COUNT_5); if (total > 64) throw Sofab.invalid("string__array element: string length above schema maxlen 64"); break;
             default: break;
             }
         }

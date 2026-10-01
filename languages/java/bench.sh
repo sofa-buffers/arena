@@ -16,6 +16,6 @@ export BENCH_ITERS="${BENCH_ITERS:-2000000}"
 #                        in the timed loop.
 JAVA_TUNE="${JAVA_TUNE:--XX:+UseParallelGC -Xms512m -Xmx512m -XX:+AlwaysPreTouch}"
 
-java $JAVA_TUNE -cp "$HERE/sofab/gen/target/harness.jar" message.Bench
+java $JAVA_TUNE -cp "$HERE/sofab/gen/target/harness.jar" message.harness.Bench
 cooldown_between_impls
 java $JAVA_TUNE -jar "$HERE/protobuf/target/harness.jar"

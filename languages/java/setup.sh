@@ -17,7 +17,8 @@ VER="$(grep -m1 '<version>' "$CORELIB/pom.xml" | sed 's/.*<version>\(.*\)<\/vers
 ( cd "$CORELIB" && mvn -q -DskipTests install )
 
 # (2) sofab: generate the typed message project, drop in the bench driver
-#     (package `message`, so it can call the generated Json.from helper), build.
+#     (package `message.harness`, where sofabgen emits the Json.from helper it
+#     calls — generator#626 moved it there), build.
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang java \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >/dev/null
 
@@ -34,7 +35,7 @@ sed -i \
     -e '/<artifactId>maven-assembly-plugin<\/artifactId>/{n;s#<version>[^<]*</version>#<version>'"$JAVA_MAVEN_ASSEMBLY_PLUGIN"'</version>#;}' \
     "$POM"
 
-cp "$HERE/sofab/Bench.java" "$HERE/sofab/gen/src/main/java/message/Bench.java"
+cp "$HERE/sofab/Bench.java" "$HERE/sofab/gen/src/main/java/message/harness/Bench.java"
 ( cd "$HERE/sofab/gen" && mvn -q -Dsofab.version="$VER" package )
 
 # (3) protobuf: generate Java bindings from the .proto, build the bench project
