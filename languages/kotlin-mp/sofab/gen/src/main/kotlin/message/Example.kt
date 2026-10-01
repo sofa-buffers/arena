@@ -16,8 +16,8 @@ public class Example {
     public var i32: Int = 0
     public var u64: ULong = 0uL
     public var i64: Long = 0L
-    public var nested: ExampleNested = ExampleNested()
-    public var arrays: ExampleArrays = ExampleArrays()
+    public var nested: Example_Nested = Example_Nested()
+    public var arrays: Example_Arrays = Example_Arrays()
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
     public var string_array: MutableList<String> = mutableListOf()
 
@@ -110,7 +110,7 @@ public class Example {
     public class Decoder {
         private val m = Example()
         private val ist = IStream()
-        private val v = ExampleVisitor(m)
+        private val v = _Example__Visitor(m)
 
         /**
          * Feed the next chunk, of any size.
@@ -165,7 +165,7 @@ public class Example {
         public fun decode(data: ByteArray): Example {
             val m = Example()
             val ist = IStream()
-            val st = ist.feed(data, ExampleVisitor(m))
+            val st = ist.feed(data, _Example__Visitor(m))
             check(st == DecodeStatus.COMPLETE) { "Example: stream ended mid-field (" + st + ")" }
             return m
         }
@@ -184,7 +184,7 @@ public class Example {
         public fun tryDecode(data: ByteArray, out: Example): DecodeStatus {
             out.reset()
             val ist = IStream()
-            return ist.feed(data, ExampleVisitor(out))
+            return ist.feed(data, _Example__Visitor(out))
         }
 
         /**
@@ -204,7 +204,7 @@ public class Example {
  * streaming decode half of the message API, reached through [Example.decode],
  * [Example.tryDecode] and [Example.Decoder].
  */
-internal class ExampleVisitor(private val m: Example) : Visitor {
+internal class _Example__Visitor(private val m: Example) : Visitor {
     private var cur = 0
     private var ai = 0                  // index into the primitive array currently being filled
     private var askip = 0               // elements left to discard from a wire-type-contradictory array (S7.3)
@@ -349,7 +349,7 @@ internal class ExampleVisitor(private val m: Example) : Visitor {
         if (subtype == FixlenType.STRING) {
             when (cur) {
                 1 -> when (id) { 2 -> if (total > 32) throw SofabException(SofabError.INVALID_MSG, "str: string length above schema maxlen 32") }
-                4 -> { Seq.checkIndex(id, 5, MAX_DYN_ARRAY_COUNT); if (total > 64) throw SofabException(SofabError.INVALID_MSG, "string_array element: string length above schema maxlen 64") }
+                4 -> { Seq.checkIndex(id, 5, MAX_DYN_ARRAY_COUNT); if (total > 64) throw SofabException(SofabError.INVALID_MSG, "string__array element: string length above schema maxlen 64") }
                 else -> {}
             }
         }

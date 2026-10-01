@@ -37,7 +37,7 @@ func run() int {
 		return 1
 	}
 
-	src := message.NewExample()
+	src := message.Example__New()
 	if err := json.Unmarshal(data, src); err != nil {
 		fmt.Fprintln(os.Stderr, "FAIL: sofab from-json:", err)
 		return 1
@@ -53,7 +53,7 @@ func run() int {
 	sum := sha256.Sum256(blob)
 	sha := hex.EncodeToString(sum[:])
 
-	dec, err := message.DecodeExample(blob)
+	dec, err := message.Example__Decode(blob)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "FAIL: sofab decode:", err)
 		return 1
@@ -79,7 +79,7 @@ func run() int {
 	sink := 0
 	t0 := time.Now()
 	for i := 0; i < iters; i++ {
-		dec, _ := message.DecodeExample(blob)
+		dec, _ := message.Example__Decode(blob)
 		b, _ := dec.Encode()
 		sink += len(b)
 	}

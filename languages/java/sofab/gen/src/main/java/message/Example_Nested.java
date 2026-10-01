@@ -4,7 +4,7 @@ import org.sofabuffers.sofab.*;
 import java.io.IOException;
 import java.util.*;
 
-public class ExampleNested {
+public class Example_Nested {
     public float f32;
     public double f64;
     /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */

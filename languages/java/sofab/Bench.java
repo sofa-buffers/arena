@@ -3,9 +3,12 @@
 // through the generated message.Example type, backed by the real corelib-java
 // runtime. Prints one uniform BENCH line (see docs/BENCH.md).
 //
-// Lives in package `message` so it can use the generated (package-private)
-// Json.from(JsonObject, Example) from-jsonable helper.
-package message;
+// Lives in package `message.harness` so it can use the generated (package-private)
+// Json.from(JsonObject, Example) from-jsonable helper, which sofabgen emits into
+// the harness package (generator#626).
+package message.harness;
+
+import message.Example;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

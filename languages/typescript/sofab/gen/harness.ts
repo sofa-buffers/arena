@@ -6,7 +6,7 @@ const MESSAGES: Record<string, { fromJSON(d: Record<string, unknown>): { encode(
 };
 
 const DECODERS: Record<string, { new (): { feed(chunk: Uint8Array): import("@sofa-buffers/corelib").DecodeStatus; finish(): { toJSON(): Record<string, unknown> } } }> = {
-  "example": M.ExampleDecoder,
+  "example": M.Example__Decoder,
 };
 
 // benchMain - see tests/bench/README.md.
@@ -43,7 +43,7 @@ async function benchMain(w: string, reps: number, input: Buffer): Promise<number
     const obj = M.Example.fromJSON(JSON.parse(input.toString("utf8")));
     const wire = obj.encode(); // setup: the decode input
     let sink = 0;
-    const body = () => { const _d = new M.ExampleDecoder(); _d.feed(wire); sink ^= Number(_d.finish().u8); };
+    const body = () => { const _d = new M.Example__Decoder(); _d.feed(wire); sink ^= Number(_d.finish().u8); };
     for (let i = 0; i < BENCH_WARMUP; i++) body();
     for (let i = 0; i < reps; i++) body();
     process.stderr.write(`sink=${sink} bytes=${wire.length}\n`);

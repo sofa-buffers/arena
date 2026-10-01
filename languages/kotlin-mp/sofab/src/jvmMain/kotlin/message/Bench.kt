@@ -4,7 +4,8 @@
 // corelib-kotlin-mp runtime. Prints one uniform BENCH line (see docs/BENCH.md).
 //
 // Lives in package `message` — and in this module — so it can use the generated
-// (internal) JsonValue/Json from-jsonable helper of commonMain.
+// (internal) _JsonValue/_Json from-jsonable helper of commonMain (the leading
+// underscore is the generator-owned spelling since generator#626).
 package message
 
 import java.nio.file.Files
@@ -24,7 +25,7 @@ public fun main() {
     val path = System.getenv("STATE_JSON")
     val txt = String(Files.readAllBytes(Paths.get(path)), Charsets.UTF_8)
     val src = Example()
-    Json.from(JsonValue.parse(txt).obj(), src)
+    _Json.from(_JsonValue.parse(txt).obj(), src)
 
     // Warm-up round-trip + self-check (outside the timed region).
     val blob = src.encode()

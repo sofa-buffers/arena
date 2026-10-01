@@ -30,8 +30,8 @@ build.gradle.kts      the shared half of BOTH impls' build: KMP plugin, JVM
                       target, toolchain, compiler flags, the benchClasspath task
 settings.gradle.kts   one build, two subprojects (:sofab, :protobuf)
 sofab/
-  cfg.yaml            sofabgen config (emit: project — for the Json helper)
-  gen/                generated commonMain codec (Main.kt + the single-target
+  cfg.yaml            sofabgen config (emit: project — for the _Json helper)
+  gen/                generated commonMain codec (_Main.kt + the single-target
                       scaffolding are pruned by setup.sh; see below)
   src/jvmMain/        the driver, package `message`
 protobuf/
@@ -58,9 +58,9 @@ near the timed loop.
 ## Pruned generated files
 
 `sofab/cfg.yaml` asks for `emit: project` because the sources-only mode does not
-emit the `Json` helper the driver fills the message from. The project mode also
+emit the `_Json` helper the driver fills the message from. The project mode also
 writes a single-target Kotlin/JVM scaffolding and a conformance CLI; `setup.sh`
-deletes both. `Main.kt` in particular is the one generated file that is *not*
+deletes both. `_Main.kt` in particular is the one generated file that is *not*
 platform-free (`System.in`/`System.out`, `exitProcess`), so it could not live in
 `commonMain` anyway. What stays under `gen/` is exactly the commonMain codec.
 

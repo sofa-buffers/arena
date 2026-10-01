@@ -13,7 +13,7 @@ const _E_Int32Array = new Int32Array(0);
 const _E_Float32Array = new Float32Array(0);
 const _E_Float64Array = new Float64Array(0);
 
-export class ExampleArrays {
+export class Example_Arrays {
   /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   u8: Uint8Array = _E_Uint8Array;
   /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
@@ -34,7 +34,7 @@ export class ExampleArrays {
   /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   get i64(): Long[] { return this._i64; }
   set i64(vals: readonly (Long | bigint | number)[]) { this._i64 = vals.map(Long.fromValue); }
-  nested: ExampleArraysNested = new ExampleArraysNested();
+  nested: Example_Arrays_Nested = new Example_Arrays_Nested();
 
   serialize(os: OStream): void {
     if (this.u8.length !== 0) {
@@ -95,28 +95,28 @@ export class ExampleArrays {
     };
   }
 
-  static fromJSON(d: Record<string, unknown>): ExampleArrays {
-    const o = new ExampleArrays();
-    if ("u8" in d) o.u8 = new Uint8Array(d["u8"] as number[]);
-    if ("i8" in d) o.i8 = new Int8Array(d["i8"] as number[]);
-    if ("u16" in d) o.u16 = new Uint16Array(d["u16"] as number[]);
-    if ("i16" in d) o.i16 = new Int16Array(d["i16"] as number[]);
-    if ("u32" in d) o.u32 = new Uint32Array(d["u32"] as number[]);
-    if ("i32" in d) o.i32 = new Int32Array(d["i32"] as number[]);
-    if ("u64" in d) o.u64 = (d["u64"] as (string | number)[]).map((_x0) => BigInt(_x0));
-    if ("i64" in d) o.i64 = (d["i64"] as (string | number)[]).map((_x0) => BigInt(_x0));
-    if ("nested" in d) o.nested = ExampleArraysNested.fromJSON(d["nested"] as Record<string, unknown>);
+  static fromJSON(d: Record<string, unknown>): Example_Arrays {
+    const o = new Example_Arrays();
+    if (Object.prototype.hasOwnProperty.call(d, "u8")) o.u8 = new Uint8Array(d["u8"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "i8")) o.i8 = new Int8Array(d["i8"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "u16")) o.u16 = new Uint16Array(d["u16"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "i16")) o.i16 = new Int16Array(d["i16"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "u32")) o.u32 = new Uint32Array(d["u32"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "i32")) o.i32 = new Int32Array(d["i32"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "u64")) o.u64 = (d["u64"] as (string | number)[]).map((_x0) => BigInt(_x0));
+    if (Object.prototype.hasOwnProperty.call(d, "i64")) o.i64 = (d["i64"] as (string | number)[]).map((_x0) => BigInt(_x0));
+    if (Object.prototype.hasOwnProperty.call(d, "nested")) o.nested = Example_Arrays_Nested.fromJSON(d["nested"] as Record<string, unknown>);
     return o;
   }
 
-  static decode(bytes: Uint8Array): ExampleArrays {
-    const o = new ExampleArrays();
-    _decode(bytes, new _ExampleArraysVis(o, new PayloadAcc()));
+  static decode(bytes: Uint8Array): Example_Arrays {
+    const o = new Example_Arrays();
+    _decode(bytes, new _Example_Arrays__Visitor(o, new PayloadAcc()));
     return o;
   }
 }
 
-export class ExampleArraysNested {
+export class Example_Arrays_Nested {
   /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
   fp32: Float32Array = _E_Float32Array;
   /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
@@ -146,21 +146,21 @@ export class ExampleArraysNested {
     };
   }
 
-  static fromJSON(d: Record<string, unknown>): ExampleArraysNested {
-    const o = new ExampleArraysNested();
-    if ("fp32" in d) o.fp32 = new Float32Array(d["fp32"] as number[]);
-    if ("fp64" in d) o.fp64 = new Float64Array(d["fp64"] as number[]);
+  static fromJSON(d: Record<string, unknown>): Example_Arrays_Nested {
+    const o = new Example_Arrays_Nested();
+    if (Object.prototype.hasOwnProperty.call(d, "fp32")) o.fp32 = new Float32Array(d["fp32"] as number[]);
+    if (Object.prototype.hasOwnProperty.call(d, "fp64")) o.fp64 = new Float64Array(d["fp64"] as number[]);
     return o;
   }
 
-  static decode(bytes: Uint8Array): ExampleArraysNested {
-    const o = new ExampleArraysNested();
-    _decode(bytes, new _ExampleArraysNestedVis(o, new PayloadAcc()));
+  static decode(bytes: Uint8Array): Example_Arrays_Nested {
+    const o = new Example_Arrays_Nested();
+    _decode(bytes, new _Example_Arrays_Nested__Visitor(o, new PayloadAcc()));
     return o;
   }
 }
 
-export class ExampleNested {
+export class Example_Nested {
   f32: number = 0;
   /**
    * Wire bytes of `f32`, captured on decode only when the decoded value is a
@@ -216,18 +216,18 @@ export class ExampleNested {
     };
   }
 
-  static fromJSON(d: Record<string, unknown>): ExampleNested {
-    const o = new ExampleNested();
-    if ("f32" in d) o.f32 = d["f32"] as number;
-    if ("f64" in d) o.f64 = d["f64"] as number;
-    if ("str" in d) o.str = d["str"] as string;
-    if ("bytes_field" in d) o.bytes_field = new Uint8Array(d["bytes_field"] as number[]);
+  static fromJSON(d: Record<string, unknown>): Example_Nested {
+    const o = new Example_Nested();
+    if (Object.prototype.hasOwnProperty.call(d, "f32")) o.f32 = d["f32"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "f64")) o.f64 = d["f64"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "str")) o.str = d["str"] as string;
+    if (Object.prototype.hasOwnProperty.call(d, "bytes_field")) o.bytes_field = new Uint8Array(d["bytes_field"] as number[]);
     return o;
   }
 
-  static decode(bytes: Uint8Array): ExampleNested {
-    const o = new ExampleNested();
-    _decode(bytes, new _ExampleNestedVis(o, new PayloadAcc()));
+  static decode(bytes: Uint8Array): Example_Nested {
+    const o = new Example_Nested();
+    _decode(bytes, new _Example_Nested__Visitor(o, new PayloadAcc()));
     return o;
   }
 }
@@ -246,8 +246,8 @@ export class Example {
   private _i64: Long = Long.ZERO;
   get i64(): Long { return this._i64; }
   set i64(v: Long | bigint | number) { this._i64 = Long.fromValue(v); }
-  nested: ExampleNested = new ExampleNested();
-  arrays: ExampleArrays = new ExampleArrays();
+  nested: Example_Nested = new Example_Nested();
+  arrays: Example_Arrays = new Example_Arrays();
   /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
   string_array: string[] = [];
 
@@ -349,43 +349,43 @@ export class Example {
 
   static fromJSON(d: Record<string, unknown>): Example {
     const o = new Example();
-    if ("u8" in d) o.u8 = d["u8"] as number;
-    if ("i8" in d) o.i8 = d["i8"] as number;
-    if ("u16" in d) o.u16 = d["u16"] as number;
-    if ("i16" in d) o.i16 = d["i16"] as number;
-    if ("u32" in d) o.u32 = d["u32"] as number;
-    if ("i32" in d) o.i32 = d["i32"] as number;
-    if ("u64" in d) o.u64 = Long.fromValue(BigInt(d["u64"] as string | number));
-    if ("i64" in d) o.i64 = Long.fromValue(BigInt(d["i64"] as string | number));
-    if ("nested" in d) o.nested = ExampleNested.fromJSON(d["nested"] as Record<string, unknown>);
-    if ("arrays" in d) o.arrays = ExampleArrays.fromJSON(d["arrays"] as Record<string, unknown>);
-    if ("string_array" in d) o.string_array = d["string_array"] as string[];
+    if (Object.prototype.hasOwnProperty.call(d, "u8")) o.u8 = d["u8"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "i8")) o.i8 = d["i8"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "u16")) o.u16 = d["u16"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "i16")) o.i16 = d["i16"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "u32")) o.u32 = d["u32"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "i32")) o.i32 = d["i32"] as number;
+    if (Object.prototype.hasOwnProperty.call(d, "u64")) o.u64 = Long.fromValue(BigInt(d["u64"] as string | number));
+    if (Object.prototype.hasOwnProperty.call(d, "i64")) o.i64 = Long.fromValue(BigInt(d["i64"] as string | number));
+    if (Object.prototype.hasOwnProperty.call(d, "nested")) o.nested = Example_Nested.fromJSON(d["nested"] as Record<string, unknown>);
+    if (Object.prototype.hasOwnProperty.call(d, "arrays")) o.arrays = Example_Arrays.fromJSON(d["arrays"] as Record<string, unknown>);
+    if (Object.prototype.hasOwnProperty.call(d, "string_array")) o.string_array = d["string_array"] as string[];
     return o;
   }
 
   static decode(bytes: Uint8Array): Example {
     const o = new Example();
-    _decode(bytes, new _ExampleVis(o, new PayloadAcc()));
+    _decode(bytes, new _Example__Visitor(o, new PayloadAcc()));
     return o;
   }
 }
 
-// Dispatch locations for ExampleArrays: one per sequence-framed scope in its tree.
+// Dispatch locations for Example_Arrays: one per sequence-framed scope in its tree.
 // A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 // id space -- so the visitor below keys every hook on (location, id).
-const _L_ExampleArrays = 0;
-const _L_ExampleArrays_nested = 1;
+const _Example_Arrays__Loc = 0;
+const _Example_Arrays__Loc_nested = 1;
 
 /**
- * Flat decode visitor for {@link ExampleArrays}.
+ * Flat decode visitor for {@link Example_Arrays}.
  *
  * corelib-ts's visitor is flat -- one object receives every callback at every
  * depth -- so the scope the walk is currently inside is tracked here, in `_c`,
  * and every hook keys on it. sequenceBegin sets it; sequenceEnd restores the
  * parent, which is static: the scopes form a tree, so no stack is needed.
  */
-class _ExampleArraysVis implements Visitor {
-  private _c = _L_ExampleArrays;
+class _Example_Arrays__Visitor implements Visitor {
+  private _c = _Example_Arrays__Loc;
   private readonly _tt: IntegerArrayTarget = { typed: _E_Uint8Array, minLo: 0, minHi: 0, maxLo: 0, maxHi: 0 };
   private readonly _tl: IntegerArrayTarget = { longs: [], minLo: 0, minHi: 0, maxLo: 0, maxHi: 0 };
   private readonly _tf: FloatArrayTarget = { f32: _E_Float32Array };
@@ -400,24 +400,24 @@ class _ExampleArraysVis implements Visitor {
   private _a0I64: Long[] = [];
   private _a1Fp32: Float32Array = _E_Float32Array;
   private _a1Fp64: Float64Array = _E_Float64Array;
-  constructor(readonly o: ExampleArrays, readonly a: PayloadAcc) {}
+  constructor(readonly o: Example_Arrays, readonly a: PayloadAcc) {}
   sequenceBegin(id: number): boolean {
-    if (this._c !== _L_ExampleArrays) return false;
+    if (this._c !== _Example_Arrays__Loc) return false;
     switch (id) {
-    case 10: { this._c = _L_ExampleArrays_nested; return true; }
+    case 10: { this._c = _Example_Arrays__Loc_nested; return true; }
     default: break;
     }
     return false;
   }
   sequenceEnd(): void {
     switch (this._c) {
-    case _L_ExampleArrays_nested: this._c = _L_ExampleArrays; break;
+    case _Example_Arrays__Loc_nested: this._c = _Example_Arrays__Loc; break;
     default: break;
     }
   }
   arrayBegin(id: number, kind: ArrayKind, count: number): void {
     switch (this._c) {
-      case _L_ExampleArrays: {
+      case _Example_Arrays__Loc: {
         switch (id) {
         case 0: { if (kind !== ArrayKind.Unsigned) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: array count above schema capacity 5"); const _d = new Uint8Array(count); this.o.u8 = _d; this._a0U8 = _d; break; }
         case 1: { if (kind !== ArrayKind.Signed) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: array count above schema capacity 5"); const _d = new Int8Array(count); this.o.i8 = _d; this._a0I8 = _d; break; }
@@ -431,7 +431,7 @@ class _ExampleArraysVis implements Visitor {
         }
         break;
       }
-      case _L_ExampleArrays_nested: {
+      case _Example_Arrays__Loc_nested: {
         switch (id) {
         case 0: { if (kind !== ArrayKind.Fp32) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp32: array count above schema capacity 5"); const _d = new Float32Array(count); this.o.nested.fp32 = _d; this._a1Fp32 = _d; break; }
         case 1: { if (kind !== ArrayKind.Fp64) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp64: array count above schema capacity 5"); const _d = new Float64Array(count); this.o.nested.fp64 = _d; this._a1Fp64 = _d; break; }
@@ -444,7 +444,7 @@ class _ExampleArraysVis implements Visitor {
   }
   arrayBulk(id: number, kind: ArrayKind): ArrayTarget | null {
     switch (this._c) {
-      case _L_ExampleArrays: {
+      case _Example_Arrays__Loc: {
         switch (id) {
         case 0: {
           if (kind !== ArrayKind.Unsigned) break;
@@ -498,7 +498,7 @@ class _ExampleArraysVis implements Visitor {
         }
         break;
       }
-      case _L_ExampleArrays_nested: {
+      case _Example_Arrays__Loc_nested: {
         switch (id) {
         case 0: {
           if (kind !== ArrayKind.Fp32) break;
@@ -520,29 +520,29 @@ class _ExampleArraysVis implements Visitor {
   }
 }
 
-// Dispatch locations for ExampleArraysNested: one per sequence-framed scope in its tree.
+// Dispatch locations for Example_Arrays_Nested: one per sequence-framed scope in its tree.
 // A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 // id space -- so the visitor below keys every hook on (location, id).
-const _L_ExampleArraysNested = 0;
+const _Example_Arrays_Nested__Loc = 0;
 
 /**
- * Flat decode visitor for {@link ExampleArraysNested}.
+ * Flat decode visitor for {@link Example_Arrays_Nested}.
  *
  * corelib-ts's visitor is flat -- one object receives every callback at every
  * depth -- so the scope the walk is currently inside is tracked here, in `_c`,
  * and every hook keys on it. sequenceBegin sets it; sequenceEnd restores the
  * parent, which is static: the scopes form a tree, so no stack is needed.
  */
-class _ExampleArraysNestedVis implements Visitor {
-  private _c = _L_ExampleArraysNested;
+class _Example_Arrays_Nested__Visitor implements Visitor {
+  private _c = _Example_Arrays_Nested__Loc;
   private readonly _tf: FloatArrayTarget = { f32: _E_Float32Array };
   private readonly _td: FloatArrayTarget = { f64: _E_Float64Array };
   private _a0Fp32: Float32Array = _E_Float32Array;
   private _a0Fp64: Float64Array = _E_Float64Array;
-  constructor(readonly o: ExampleArraysNested, readonly a: PayloadAcc) {}
+  constructor(readonly o: Example_Arrays_Nested, readonly a: PayloadAcc) {}
   sequenceBegin(): boolean { return false; }
   arrayBegin(id: number, kind: ArrayKind, count: number): void {
-    if (this._c !== _L_ExampleArraysNested) return;
+    if (this._c !== _Example_Arrays_Nested__Loc) return;
     switch (id) {
     case 0: { if (kind !== ArrayKind.Fp32) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp32: array count above schema capacity 5"); const _d = new Float32Array(count); this.o.fp32 = _d; this._a0Fp32 = _d; break; }
     case 1: { if (kind !== ArrayKind.Fp64) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp64: array count above schema capacity 5"); const _d = new Float64Array(count); this.o.fp64 = _d; this._a0Fp64 = _d; break; }
@@ -550,7 +550,7 @@ class _ExampleArraysNestedVis implements Visitor {
     }
   }
   arrayBulk(id: number, kind: ArrayKind): ArrayTarget | null {
-    if (this._c !== _L_ExampleArraysNested) return null;
+    if (this._c !== _Example_Arrays_Nested__Loc) return null;
     switch (id) {
     case 0: {
       if (kind !== ArrayKind.Fp32) break;
@@ -568,39 +568,39 @@ class _ExampleArraysNestedVis implements Visitor {
   }
 }
 
-// Dispatch locations for ExampleNested: one per sequence-framed scope in its tree.
+// Dispatch locations for Example_Nested: one per sequence-framed scope in its tree.
 // A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 // id space -- so the visitor below keys every hook on (location, id).
-const _L_ExampleNested = 0;
+const _Example_Nested__Loc = 0;
 
 /**
- * Flat decode visitor for {@link ExampleNested}.
+ * Flat decode visitor for {@link Example_Nested}.
  *
  * corelib-ts's visitor is flat -- one object receives every callback at every
  * depth -- so the scope the walk is currently inside is tracked here, in `_c`,
  * and every hook keys on it. sequenceBegin sets it; sequenceEnd restores the
  * parent, which is static: the scopes form a tree, so no stack is needed.
  */
-class _ExampleNestedVis implements Visitor {
-  private _c = _L_ExampleNested;
-  constructor(readonly o: ExampleNested, readonly a: PayloadAcc) {}
+class _Example_Nested__Visitor implements Visitor {
+  private _c = _Example_Nested__Loc;
+  constructor(readonly o: Example_Nested, readonly a: PayloadAcc) {}
   sequenceBegin(): boolean { return false; }
   fp32(id: number, v: number, bits: number): void {
-    if (this._c !== _L_ExampleNested) return;
+    if (this._c !== _Example_Nested__Loc) return;
     switch (id) {
     case 0: { this.o.f32 = v; this.o.f32Fp32Raw = Number.isNaN(v) ? fp32RawBytes(bits) : null; break; }
     default: break;
     }
   }
   fp64(id: number, v: number): void {
-    if (this._c !== _L_ExampleNested) return;
+    if (this._c !== _Example_Nested__Loc) return;
     switch (id) {
     case 1: this.o.f64 = v; break;
     default: break;
     }
   }
   fixlenBegin(id: number, sub: FixlenSubtype, total: number): void {
-    if (this._c !== _L_ExampleNested) return;
+    if (this._c !== _Example_Nested__Loc) return;
     switch (id) {
     case 2: if (sub === FixlenSubtype.String && total > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); break;
     case 3: if (sub === FixlenSubtype.Blob && total > 4) throw new SofabError(SofabErrorCode.InvalidMsg, "bytes_field: blob byte length above schema maxlen 4"); break;
@@ -608,14 +608,14 @@ class _ExampleNestedVis implements Visitor {
     }
   }
   string(id: number, total: number, offset: number, src: Uint8Array, start: number, end: number): void {
-    if (this._c !== _L_ExampleNested) return;
+    if (this._c !== _Example_Nested__Loc) return;
     switch (id) {
     case 2: { if (offset === 0 && end - start === total) { this.o.str = decodeUtf8(src, start, end); } else { const _p = this.a.take(total, offset, src, start, end); if (_p !== null) this.o.str = decodeUtf8(_p); } break; }
     default: break;
     }
   }
   blob(id: number, total: number, offset: number, src: Uint8Array, start: number, end: number): void {
-    if (this._c !== _L_ExampleNested) return;
+    if (this._c !== _Example_Nested__Loc) return;
     switch (id) {
     case 3: { { const _p = this.a.take(total, offset, src, start, end); if (_p !== null) this.o.bytes_field = _p; } break; }
     default: break;
@@ -626,11 +626,11 @@ class _ExampleNestedVis implements Visitor {
 // Dispatch locations for Example: one per sequence-framed scope in its tree.
 // A field id is only unique WITHIN a scope -- a nested sequence opens a fresh
 // id space -- so the visitor below keys every hook on (location, id).
-const _L_Example = 0;
-const _L_Example_nested = 1;
-const _L_Example_arrays = 2;
-const _L_Example_arrays_nested = 3;
-const _L_Example_string_array = 4;
+const _Example__Loc = 0;
+const _Example__Loc_nested = 1;
+const _Example__Loc_arrays = 2;
+const _Example__Loc_arrays_nested = 3;
+const _Example__Loc_string__array = 4;
 
 /**
  * Flat decode visitor for {@link Example}.
@@ -640,8 +640,8 @@ const _L_Example_string_array = 4;
  * and every hook keys on it. sequenceBegin sets it; sequenceEnd restores the
  * parent, which is static: the scopes form a tree, so no stack is needed.
  */
-class _ExampleVis implements Visitor {
-  private _c = _L_Example;
+class _Example__Visitor implements Visitor {
+  private _c = _Example__Loc;
   private _q4: StringSeq | null = null;
   private readonly _tt: IntegerArrayTarget = { typed: _E_Uint8Array, minLo: 0, minHi: 0, maxLo: 0, maxHi: 0 };
   private readonly _tl: IntegerArrayTarget = { longs: [], minLo: 0, minHi: 0, maxLo: 0, maxHi: 0 };
@@ -660,18 +660,18 @@ class _ExampleVis implements Visitor {
   constructor(readonly o: Example, readonly a: PayloadAcc) {}
   sequenceBegin(id: number): boolean {
     switch (this._c) {
-      case _L_Example: {
+      case _Example__Loc: {
         switch (id) {
-        case 10: { this._c = _L_Example_nested; return true; }
-        case 100: { this._c = _L_Example_arrays; return true; }
-        case 200: { const _t: string[] = []; this.o.string_array = _t; this._q4 = new StringSeq(_t, this.a, 5, 64, "string_array", 16384, 262144); this._c = _L_Example_string_array; return true; }
+        case 10: { this._c = _Example__Loc_nested; return true; }
+        case 100: { this._c = _Example__Loc_arrays; return true; }
+        case 200: { const _t: string[] = []; this.o.string_array = _t; this._q4 = new StringSeq(_t, this.a, 5, 64, "string_array", 16384, 262144); this._c = _Example__Loc_string__array; return true; }
         default: break;
         }
         break;
       }
-      case _L_Example_arrays: {
+      case _Example__Loc_arrays: {
         switch (id) {
-        case 10: { this._c = _L_Example_arrays_nested; return true; }
+        case 10: { this._c = _Example__Loc_arrays_nested; return true; }
         default: break;
         }
         break;
@@ -682,15 +682,15 @@ class _ExampleVis implements Visitor {
   }
   sequenceEnd(): void {
     switch (this._c) {
-    case _L_Example_nested: this._c = _L_Example; break;
-    case _L_Example_arrays: this._c = _L_Example; break;
-    case _L_Example_arrays_nested: this._c = _L_Example_arrays; break;
-    case _L_Example_string_array: this._c = _L_Example; break;
+    case _Example__Loc_nested: this._c = _Example__Loc; break;
+    case _Example__Loc_arrays: this._c = _Example__Loc; break;
+    case _Example__Loc_arrays_nested: this._c = _Example__Loc_arrays; break;
+    case _Example__Loc_string__array: this._c = _Example__Loc; break;
     default: break;
     }
   }
   unsigned(id: number, v: number | bigint, lo: number, hi: number): void {
-    if (this._c !== _L_Example) return;
+    if (this._c !== _Example__Loc) return;
     switch (id) {
     case 0: { const _v = v as number; if (_v > 255) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: value outside declared width u8"); this.o.u8 = _v; break; }
     case 2: { const _v = v as number; if (_v > 65535) throw new SofabError(SofabErrorCode.InvalidMsg, "u16: value outside declared width u16"); this.o.u16 = _v; break; }
@@ -700,7 +700,7 @@ class _ExampleVis implements Visitor {
     }
   }
   signed(id: number, v: number | bigint, lo: number, hi: number): void {
-    if (this._c !== _L_Example) return;
+    if (this._c !== _Example__Loc) return;
     switch (id) {
     case 1: { const _v = v as number; if (_v < -128 || _v > 127) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: value outside declared width i8"); this.o.i8 = _v; break; }
     case 3: { const _v = v as number; if (_v < -32768 || _v > 32767) throw new SofabError(SofabErrorCode.InvalidMsg, "i16: value outside declared width i16"); this.o.i16 = _v; break; }
@@ -710,14 +710,14 @@ class _ExampleVis implements Visitor {
     }
   }
   fp32(id: number, v: number, bits: number): void {
-    if (this._c !== _L_Example_nested) return;
+    if (this._c !== _Example__Loc_nested) return;
     switch (id) {
     case 0: { this.o.nested.f32 = v; this.o.nested.f32Fp32Raw = Number.isNaN(v) ? fp32RawBytes(bits) : null; break; }
     default: break;
     }
   }
   fp64(id: number, v: number): void {
-    if (this._c !== _L_Example_nested) return;
+    if (this._c !== _Example__Loc_nested) return;
     switch (id) {
     case 1: this.o.nested.f64 = v; break;
     default: break;
@@ -725,7 +725,7 @@ class _ExampleVis implements Visitor {
   }
   fixlenBegin(id: number, sub: FixlenSubtype, total: number): void {
     switch (this._c) {
-      case _L_Example_nested: {
+      case _Example__Loc_nested: {
         switch (id) {
         case 2: if (sub === FixlenSubtype.String && total > 32) throw new SofabError(SofabErrorCode.InvalidMsg, "str: string byte length above schema maxlen 32"); break;
         case 3: if (sub === FixlenSubtype.Blob && total > 4) throw new SofabError(SofabErrorCode.InvalidMsg, "bytes_field: blob byte length above schema maxlen 4"); break;
@@ -733,7 +733,7 @@ class _ExampleVis implements Visitor {
         }
         break;
       }
-      case _L_Example_string_array: {
+      case _Example__Loc_string__array: {
         this._q4?.begin(id, sub, total);
         break;
       }
@@ -742,14 +742,14 @@ class _ExampleVis implements Visitor {
   }
   string(id: number, total: number, offset: number, src: Uint8Array, start: number, end: number): void {
     switch (this._c) {
-      case _L_Example_nested: {
+      case _Example__Loc_nested: {
         switch (id) {
         case 2: { if (offset === 0 && end - start === total) { this.o.nested.str = decodeUtf8(src, start, end); } else { const _p = this.a.take(total, offset, src, start, end); if (_p !== null) this.o.nested.str = decodeUtf8(_p); } break; }
         default: break;
         }
         break;
       }
-      case _L_Example_string_array: {
+      case _Example__Loc_string__array: {
         this._q4?.element(id, total, offset, src, start, end);
         break;
       }
@@ -757,7 +757,7 @@ class _ExampleVis implements Visitor {
     }
   }
   blob(id: number, total: number, offset: number, src: Uint8Array, start: number, end: number): void {
-    if (this._c !== _L_Example_nested) return;
+    if (this._c !== _Example__Loc_nested) return;
     switch (id) {
     case 3: { { const _p = this.a.take(total, offset, src, start, end); if (_p !== null) this.o.nested.bytes_field = _p; } break; }
     default: break;
@@ -765,7 +765,7 @@ class _ExampleVis implements Visitor {
   }
   arrayBegin(id: number, kind: ArrayKind, count: number): void {
     switch (this._c) {
-      case _L_Example_arrays: {
+      case _Example__Loc_arrays: {
         switch (id) {
         case 0: { if (kind !== ArrayKind.Unsigned) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "u8: array count above schema capacity 5"); const _d = new Uint8Array(count); this.o.arrays.u8 = _d; this._a2U8 = _d; break; }
         case 1: { if (kind !== ArrayKind.Signed) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "i8: array count above schema capacity 5"); const _d = new Int8Array(count); this.o.arrays.i8 = _d; this._a2I8 = _d; break; }
@@ -779,7 +779,7 @@ class _ExampleVis implements Visitor {
         }
         break;
       }
-      case _L_Example_arrays_nested: {
+      case _Example__Loc_arrays_nested: {
         switch (id) {
         case 0: { if (kind !== ArrayKind.Fp32) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp32: array count above schema capacity 5"); const _d = new Float32Array(count); this.o.arrays.nested.fp32 = _d; this._a3Fp32 = _d; break; }
         case 1: { if (kind !== ArrayKind.Fp64) break; if (count > 5) throw new SofabError(SofabErrorCode.InvalidMsg, "fp64: array count above schema capacity 5"); const _d = new Float64Array(count); this.o.arrays.nested.fp64 = _d; this._a3Fp64 = _d; break; }
@@ -792,7 +792,7 @@ class _ExampleVis implements Visitor {
   }
   arrayBulk(id: number, kind: ArrayKind): ArrayTarget | null {
     switch (this._c) {
-      case _L_Example_arrays: {
+      case _Example__Loc_arrays: {
         switch (id) {
         case 0: {
           if (kind !== ArrayKind.Unsigned) break;
@@ -846,7 +846,7 @@ class _ExampleVis implements Visitor {
         }
         break;
       }
-      case _L_Example_arrays_nested: {
+      case _Example__Loc_arrays_nested: {
         switch (id) {
         case 0: {
           if (kind !== ArrayKind.Fp32) break;
@@ -883,13 +883,13 @@ class _ExampleVis implements Visitor {
  * blob copied before it reaches the destination, so a chunk may be reused as
  * soon as `feed` returns.
  */
-export class ExampleDecoder {
+export class Example__Decoder {
   private readonly out: Example;
   private readonly is: IStream;
 
   constructor(out?: Example) {
     this.out = out ?? new Example();
-    this.is = new IStream(new _ExampleVis(this.out, new PayloadAcc()));
+    this.is = new IStream(new _Example__Visitor(this.out, new PayloadAcc()));
   }
 
   /**

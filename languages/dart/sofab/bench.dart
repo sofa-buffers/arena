@@ -36,12 +36,12 @@ Example buildExample() {
     ..i32 = -1000000000
     ..u64 = 10000000000000
     ..i64 = -5000000000000
-    ..nested = (ExampleNested()
+    ..nested = (Example_Nested()
       ..f32 = 3.14
       ..f64 = 3.14159265
       ..str.assignString('Hello, World!')
       ..bytes_field.assign(<int>[0xDE, 0xAD, 0xBE, 0xEF]))
-    ..arrays = (ExampleArrays()
+    ..arrays = (Example_Arrays()
       ..u8.assign(<int>[0, 64, 128, 191, 255])
       ..i8.assign(<int>[-128, -64, 0, 63, 127])
       ..u16.assign(<int>[0, 16384, 32768, 49151, 65535])
@@ -62,7 +62,7 @@ Example buildExample() {
         4611686018427387903,
         9223372036854775807,
       ])
-      ..nested = (ExampleArraysNested()
+      ..nested = (Example_Arrays_Nested()
         ..fp32.assign(<double>[1.0, 2.0, 3.0, -3.4028234663852886e38, 3.4028234663852886e38])
         ..fp64.assign(<double>[1.0, 2.0, 3.0, -1.7976931348623157e308, 1.7976931348623157e308])))
     ..string_array = <String>[

@@ -66,7 +66,7 @@ fn jsonWriteBytes(b: []const u8, w: *std.Io.Writer) !void {
     try w.writeByte(']');
 }
 
-fn toJson_ExampleArrays(o: *const message.ExampleArrays, w: *std.Io.Writer) std.Io.Writer.Error!void {
+fn toJson_Example_Arrays(o: *const message.Example_Arrays, w: *std.Io.Writer) std.Io.Writer.Error!void {
     try w.writeByte('{');
     try w.writeAll("\"u8\":");
     try w.writeByte('[');
@@ -125,12 +125,12 @@ fn toJson_ExampleArrays(o: *const message.ExampleArrays, w: *std.Io.Writer) std.
     }
     try w.writeByte(']');
     try w.writeAll(",\"nested\":");
-    try toJson_ExampleArraysNested(&o.nested, w);
+    try toJson_Example_Arrays_Nested(&o.nested, w);
     try w.writeByte('}');
 }
 
-fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.ExampleArrays {
-    var o: message.ExampleArrays = .{};
+fn fromJson_Example_Arrays(alloc: std.mem.Allocator, v: std.json.Value) message.Example_Arrays {
+    var o: message.Example_Arrays = .{};
     const obj = switch (v) {
         .object => |ob| ob,
         else => return o,
@@ -207,11 +207,11 @@ fn fromJson_ExampleArrays(alloc: std.mem.Allocator, v: std.json.Value) message.E
         },
         else => {},
     };
-    if (obj.get("nested")) |x| o.nested = fromJson_ExampleArraysNested(alloc, x);
+    if (obj.get("nested")) |x| o.nested = fromJson_Example_Arrays_Nested(alloc, x);
     return o;
 }
 
-fn toJson_ExampleArraysNested(o: *const message.ExampleArraysNested, w: *std.Io.Writer) std.Io.Writer.Error!void {
+fn toJson_Example_Arrays_Nested(o: *const message.Example_Arrays_Nested, w: *std.Io.Writer) std.Io.Writer.Error!void {
     try w.writeByte('{');
     try w.writeAll("\"fp32\":");
     try w.writeByte('[');
@@ -230,8 +230,8 @@ fn toJson_ExampleArraysNested(o: *const message.ExampleArraysNested, w: *std.Io.
     try w.writeByte('}');
 }
 
-fn fromJson_ExampleArraysNested(alloc: std.mem.Allocator, v: std.json.Value) message.ExampleArraysNested {
-    var o: message.ExampleArraysNested = .{};
+fn fromJson_Example_Arrays_Nested(alloc: std.mem.Allocator, v: std.json.Value) message.Example_Arrays_Nested {
+    var o: message.Example_Arrays_Nested = .{};
     const obj = switch (v) {
         .object => |ob| ob,
         else => return o,
@@ -258,7 +258,7 @@ fn fromJson_ExampleArraysNested(alloc: std.mem.Allocator, v: std.json.Value) mes
     return o;
 }
 
-fn toJson_ExampleNested(o: *const message.ExampleNested, w: *std.Io.Writer) std.Io.Writer.Error!void {
+fn toJson_Example_Nested(o: *const message.Example_Nested, w: *std.Io.Writer) std.Io.Writer.Error!void {
     try w.writeByte('{');
     try w.writeAll("\"f32\":");
     try w.print("{d}", .{o.f32});
@@ -271,8 +271,8 @@ fn toJson_ExampleNested(o: *const message.ExampleNested, w: *std.Io.Writer) std.
     try w.writeByte('}');
 }
 
-fn fromJson_ExampleNested(alloc: std.mem.Allocator, v: std.json.Value) message.ExampleNested {
-    var o: message.ExampleNested = .{};
+fn fromJson_Example_Nested(alloc: std.mem.Allocator, v: std.json.Value) message.Example_Nested {
+    var o: message.Example_Nested = .{};
     const obj = switch (v) {
         .object => |ob| ob,
         else => return o,
@@ -303,9 +303,9 @@ fn toJson_Example(o: *const message.Example, w: *std.Io.Writer) std.Io.Writer.Er
     try w.writeAll(",\"i64\":");
     try w.print("{d}", .{o.i64});
     try w.writeAll(",\"nested\":");
-    try toJson_ExampleNested(&o.nested, w);
+    try toJson_Example_Nested(&o.nested, w);
     try w.writeAll(",\"arrays\":");
-    try toJson_ExampleArrays(&o.arrays, w);
+    try toJson_Example_Arrays(&o.arrays, w);
     try w.writeAll(",\"string_array\":");
     try w.writeByte('[');
     for (o.string_array, 0..) |_e0, _i0| {
@@ -330,8 +330,8 @@ fn fromJson_Example(alloc: std.mem.Allocator, v: std.json.Value) message.Example
     if (obj.get("i32")) |x| o.i32 = @intCast(jsonI64(x));
     if (obj.get("u64")) |x| o.u64 = jsonU64(x);
     if (obj.get("i64")) |x| o.i64 = jsonI64(x);
-    if (obj.get("nested")) |x| o.nested = fromJson_ExampleNested(alloc, x);
-    if (obj.get("arrays")) |x| o.arrays = fromJson_ExampleArrays(alloc, x);
+    if (obj.get("nested")) |x| o.nested = fromJson_Example_Nested(alloc, x);
+    if (obj.get("arrays")) |x| o.arrays = fromJson_Example_Arrays(alloc, x);
     if (obj.get("string_array")) |x| switch (x) {
         .array => |a0| {
             const s0 = alloc.alloc([]const u8, a0.items.len) catch @panic("oom");

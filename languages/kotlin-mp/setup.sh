@@ -51,11 +51,11 @@ VER="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$CORELIB/build.gradle.kts" | head -
 # `emit: project` is generated for the Json helper the driver fills from (see
 # sofab/cfg.yaml), and brings along a single-target Kotlin/JVM scaffolding plus a
 # conformance CLI. Drop both: this row builds its own Kotlin Multiplatform
-# project, and Main.kt is the one generated file that is NOT platform-free
+# project, and _Main.kt is the one generated file that is NOT platform-free
 # (System.in/out, exitProcess), so it cannot live in commonMain. What stays under
 # gen/ is exactly the commonMain codec.
 rm -f "$HERE/sofab/gen/build.gradle.kts" "$HERE/sofab/gen/settings.gradle.kts" \
-      "$HERE/sofab/gen/README.md" "$HERE/sofab/gen/src/main/kotlin/message/Main.kt"
+      "$HERE/sofab/gen/README.md" "$HERE/sofab/gen/src/main/kotlin/message/_Main.kt"
 
 # (3) protobuf: Square Wire's compiler CLI is this row's protoc — it turns the
 #     .proto into Kotlin Multiplatform sources directly (no Java anywhere in the

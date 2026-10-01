@@ -4,7 +4,7 @@ import org.sofabuffers.sofab.*;
 import java.io.IOException;
 import java.util.*;
 
-public class ExampleArrays {
+public class Example_Arrays {
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
     public byte[] u8 = Seq.EMPTY_BYTES;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
@@ -21,7 +21,7 @@ public class ExampleArrays {
     public long[] u64 = Seq.EMPTY_LONGS;
     /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
     public long[] i64 = Seq.EMPTY_LONGS;
-    public ExampleArraysNested nested = new ExampleArraysNested();
+    public Example_Arrays_Nested nested = new Example_Arrays_Nested();
 
     public void serialize(OStream os) throws IOException {
         if (this.u8 != null && this.u8.length != 0) {
@@ -48,7 +48,7 @@ public class ExampleArrays {
         if (this.i64 != null && this.i64.length != 0) {
             os.writeArraySigned(7, this.i64);
         }
-        os.writeSequenceBeginLazy(10); (this.nested == null ? new ExampleArraysNested() : this.nested).serialize(os); os.writeSequenceEnd();
+        os.writeSequenceBeginLazy(10); (this.nested == null ? new Example_Arrays_Nested() : this.nested).serialize(os); os.writeSequenceEnd();
     }
     /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
     boolean isDefault() {
@@ -73,7 +73,7 @@ public class ExampleArrays {
         this.i32 = Seq.EMPTY_INTS;
         this.u64 = Seq.EMPTY_LONGS;
         this.i64 = Seq.EMPTY_LONGS;
-        if (this.nested == null) this.nested = new ExampleArraysNested(); else this.nested.reset();
+        if (this.nested == null) this.nested = new Example_Arrays_Nested(); else this.nested.reset();
     }
 }
 

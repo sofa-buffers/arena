@@ -7,7 +7,7 @@ import 'package:sofa_buffers_corelib/sofa_buffers_corelib.dart' as sofab;
 double _f32FromBits(int bits) =>
     (ByteData(4)..setUint32(0, bits, Endian.little)).getFloat32(0, Endian.little);
 
-class ExampleArrays {
+class Example_Arrays {
   /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   final sofab.InlineInt64Array u8 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(0, 255));
   /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
@@ -24,7 +24,7 @@ class ExampleArrays {
   final sofab.InlineInt64Array u64 = sofab.InlineInt64Array(5);
   /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   final sofab.InlineInt64Array i64 = sofab.InlineInt64Array(5);
-  ExampleArraysNested nested = ExampleArraysNested();
+  Example_Arrays_Nested nested = Example_Arrays_Nested();
 
   void serialize(sofab.Encoder e) {
     if (u8.length != 0) { e.writeUnsignedArray(0, u8.storage, u8.length); }
@@ -61,9 +61,9 @@ class ExampleArrays {
   }
 }
 
-class _ExampleArraysVisitor extends sofab.MessageVisitor {
-  _ExampleArraysVisitor(this.o);
-  final ExampleArrays o;
+class _Example_Arrays__Visitor extends sofab.MessageVisitor {
+  _Example_Arrays__Visitor(this.o);
+  final Example_Arrays o;
   @override
   sofab.InlineInt64Array? onUnsignedArray(int id, int count) {
     switch (id) {
@@ -104,13 +104,13 @@ class _ExampleArraysVisitor extends sofab.MessageVisitor {
   sofab.MessageVisitor? onSequenceStart(int id) {
     switch (id) {
       case 10:
-        return _ExampleArraysNestedVisitor(o.nested);
+        return _Example_Arrays_Nested__Visitor(o.nested);
     }
     return null;
   }
 }
 
-class ExampleArraysNested {
+class Example_Arrays_Nested {
   /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
   final sofab.InlineFloat32Array fp32 = sofab.InlineFloat32Array(5);
   /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
@@ -137,9 +137,9 @@ class ExampleArraysNested {
   }
 }
 
-class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
-  _ExampleArraysNestedVisitor(this.o);
-  final ExampleArraysNested o;
+class _Example_Arrays_Nested__Visitor extends sofab.MessageVisitor {
+  _Example_Arrays_Nested__Visitor(this.o);
+  final Example_Arrays_Nested o;
   @override
   sofab.InlineFloat32Array? onFp32Array(int id, int count) {
     switch (id) {
@@ -160,7 +160,7 @@ class _ExampleArraysNestedVisitor extends sofab.MessageVisitor {
   }
 }
 
-class ExampleNested {
+class Example_Nested {
   double f32 = 0.0;
   int? f32Fp32Bits;
   double f64 = 0.0;
@@ -197,9 +197,9 @@ class ExampleNested {
   }
 }
 
-class _ExampleNestedVisitor extends sofab.MessageVisitor {
-  _ExampleNestedVisitor(this.o);
-  final ExampleNested o;
+class _Example_Nested__Visitor extends sofab.MessageVisitor {
+  _Example_Nested__Visitor(this.o);
+  final Example_Nested o;
   @override
   void onFp32(int id, double value) {
     switch (id) {
@@ -256,8 +256,8 @@ class Example {
   int i32 = 0;
   int u64 = 0;
   int i64 = 0;
-  ExampleNested nested = ExampleNested();
-  ExampleArrays arrays = ExampleArrays();
+  Example_Nested nested = Example_Nested();
+  Example_Arrays arrays = Example_Arrays();
   /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
   List<sofab.InlineString> string_array = <sofab.InlineString>[];
 
@@ -354,7 +354,7 @@ class Example {
   /// Decodes into a destination the caller guarantees is already at its
   /// defaults, so [decode]'s fresh instance skips the redundant reset.
   static sofab.DecodeStatus _decodeInto(Uint8List data, Example out) {
-    return sofab.Decoder.decode(data, _ExampleVisitor(out));
+    return sofab.Decoder.decode(data, _Example__Visitor(out));
   }
 
   /// Best-effort one-shot decode (the 90 % case): returns the message with
@@ -372,9 +372,9 @@ class Example {
   /// [out] is [reset] first, for the reason [tryDecode] resets: an absent
   /// field fires no callback, so a value left over from an earlier decode
   /// would survive.
-  static ExampleDecoder decoder(Example out) {
+  static Example__Decoder decoder(Example out) {
     out.reset();
-    return ExampleDecoder._(out);
+    return Example__Decoder._(out);
   }
 }
 
@@ -393,9 +393,9 @@ class Example {
 /// chunk may be reused as soon as [feed] returns. A destination is complete
 /// once a feed reports `complete`; after `incomplete` or a refusal its
 /// contents are unspecified.
-class ExampleDecoder {
-  ExampleDecoder._(this._out) {
-    _d = sofab.Decoder(_ExampleVisitor(_out));
+class Example__Decoder {
+  Example__Decoder._(this._out) {
+    _d = sofab.Decoder(_Example__Visitor(_out));
   }
 
   final Example _out;
@@ -418,8 +418,8 @@ class ExampleDecoder {
       _d.feed(const <int>[]) == sofab.DecodeStatus.complete ? _out : null;
 }
 
-class _ExampleVisitor extends sofab.MessageVisitor {
-  _ExampleVisitor(this.o);
+class _Example__Visitor extends sofab.MessageVisitor {
+  _Example__Visitor(this.o);
   final Example o;
   @override
   void onUnsigned(int id, int value) {
@@ -465,9 +465,9 @@ class _ExampleVisitor extends sofab.MessageVisitor {
   sofab.MessageVisitor? onSequenceStart(int id) {
     switch (id) {
       case 10:
-        return _ExampleNestedVisitor(o.nested);
+        return _Example_Nested__Visitor(o.nested);
       case 100:
-        return _ExampleArraysVisitor(o.arrays);
+        return _Example_Arrays__Visitor(o.arrays);
       case 200:
         o.string_array.clear();
         return sofab.StringSeq(o.string_array, 5, 64, rcap: 16384, relemMax: 262144);

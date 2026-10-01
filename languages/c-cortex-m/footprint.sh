@@ -63,15 +63,15 @@ $CC $CFLAGS $LDFLAGS "$TMP/baseline.c" -o "$TMP/baseline.elf" >/dev/null
 
 # --- sofab: generated object API + corelib-c-cpp codec --------------------------
 cat > "$TMP/drv_sofab.c" <<'EOF'
-#include "example.h"
+#include "example_sofab.h"
 #define HARNESS __attribute__((section(".harness")))
 HARNESS static fullscale_example_t msg;
 HARNESS static uint8_t buf[512];
 HARNESS volatile size_t sink;
 int main(void) {
     size_t used = 0;
-    fullscale_example_encode(&msg, buf, sizeof buf, &used);
-    fullscale_example_decode(&msg, buf, used);
+    fullscale_example__encode(&msg, buf, sizeof buf, &used);
+    fullscale_example__decode(&msg, buf, used);
     sink = used;
     return 0;
 }

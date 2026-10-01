@@ -2,7 +2,7 @@
 
 #include <float.h>
 #include <string.h>
-#include "example.h"   /* generated from schema/message.sofab.yaml by sofabgen (--lang c) */
+#include "example_sofab.h"   /* generated from schema/message.sofab.yaml by sofabgen (--lang c) */
 #include "sha256.h"
 
 static void fill(fullscale_example_t *m)
@@ -27,7 +27,7 @@ static void fill(fullscale_example_t *m)
     m->nested.bytes_field[1] = 0xAD;
     m->nested.bytes_field[2] = 0xBE;
     m->nested.bytes_field[3] = 0xEF;
-    m->nested.bytes_field_len = 4;  /* sofabgen >= v0.17.1 sized-blob API: encode the true length */
+    m->nested.bytes_field__len = 4;  /* sofabgen >= v0.17.1 sized-blob API: encode the true length */
 
     /* Fill arrays FullScaleSeqStructOfArrays (field id 100) */
     {
@@ -59,16 +59,16 @@ static void fill(fullscale_example_t *m)
         /* sofabgen >= 2026-07-28: a fixed `count` array carries its own length,
            so an element count of 0 encodes an EMPTY sequence no matter what the
            storage holds. Every array is filled to its full count here. */
-        m->arrays.u8_len  = 5;
-        m->arrays.i8_len  = 5;
-        m->arrays.u16_len = 5;
-        m->arrays.i16_len = 5;
-        m->arrays.u32_len = 5;
-        m->arrays.i32_len = 5;
-        m->arrays.u64_len = 5;
-        m->arrays.i64_len = 5;
-        m->arrays.nested.fp32_len = 5;
-        m->arrays.nested.fp64_len = 5;
+        m->arrays.u8__len  = 5;
+        m->arrays.i8__len  = 5;
+        m->arrays.u16__len = 5;
+        m->arrays.i16__len = 5;
+        m->arrays.u32__len = 5;
+        m->arrays.i32__len = 5;
+        m->arrays.u64__len = 5;
+        m->arrays.i64__len = 5;
+        m->arrays.nested.fp32__len = 5;
+        m->arrays.nested.fp64__len = 5;
     }
 
     /* Fill string array (field id 200) */
@@ -88,9 +88,9 @@ int main(void)
     fill(&msg);
 
     /* One round-trip up front: capture the serialized size + sha, verify correctness. */
-    uint8_t buffer[FULLSCALE_EXAMPLE_MAX_SIZE];
+    uint8_t buffer[FULLSCALE_EXAMPLE__MAX_SIZE];
     size_t serialized = 0;
-    if (fullscale_example_encode(&msg, buffer, sizeof(buffer), &serialized) != SOFAB_RET_OK) {
+    if (fullscale_example__encode(&msg, buffer, sizeof(buffer), &serialized) != SOFAB_RET_OK) {
         fprintf(stderr, "FAIL: sofab encode\n");
         return 1;
     }
@@ -102,13 +102,13 @@ int main(void)
     /* self-check: decode, then re-encode and assert identical bytes */
     fullscale_example_t check;
     memset(&check, 0, sizeof(check));
-    if (fullscale_example_decode(&check, buffer, serialized) != SOFAB_RET_OK) {
+    if (fullscale_example__decode(&check, buffer, serialized) != SOFAB_RET_OK) {
         fprintf(stderr, "FAIL: sofab decode\n");
         return 1;
     }
-    uint8_t rebuf[FULLSCALE_EXAMPLE_MAX_SIZE];
+    uint8_t rebuf[FULLSCALE_EXAMPLE__MAX_SIZE];
     size_t reused = 0;
-    if (fullscale_example_encode(&check, rebuf, sizeof(rebuf), &reused) != SOFAB_RET_OK ||
+    if (fullscale_example__encode(&check, rebuf, sizeof(rebuf), &reused) != SOFAB_RET_OK ||
         reused != serialized || memcmp(rebuf, buffer, serialized) != 0) {
         fprintf(stderr, "FAIL: sofab round-trip self-check\n");
         return 1;
@@ -123,8 +123,8 @@ int main(void)
     const double t0 = bench_seconds();
     for (i = 0; i < iters; i++) {
         size_t used;
-        fullscale_example_encode(&msg, buffer, sizeof(buffer), &used);
-        fullscale_example_decode(&dec, buffer, used);
+        fullscale_example__encode(&msg, buffer, sizeof(buffer), &used);
+        fullscale_example__decode(&dec, buffer, used);
     }
     const double t1 = bench_seconds();
     bench_instr_stop();
