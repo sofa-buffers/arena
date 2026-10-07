@@ -179,14 +179,14 @@ export class Example_Nested {
   bytes_field: Uint8Array = new Uint8Array();
 
   serialize(os: OStream): void {
-    if (this.f32 !== 0) {
+    if (this.f32 !== 0 || 1 / this.f32 < 0) {
       if (Number.isNaN(this.f32) && this.f32Fp32Raw !== null && this.f32Fp32Raw.length === 4) {
         os.writeFixlen(0, this.f32Fp32Raw, FixlenSubtype.Fp32);
       } else {
         os.writeFp32(0, this.f32);
       }
     }
-    if (this.f64 !== 0) {
+    if (this.f64 !== 0 || 1 / this.f64 < 0) {
       os.writeFp64(1, this.f64);
     }
     if (this.str !== "") {
@@ -200,8 +200,8 @@ export class Example_Nested {
   // True iff serialize would write no child at all, i.e. this object equals its
   // declared default -- compared per field and recursively, never as a byte image.
   isDefault(): boolean {
-    if (!(this.f32 === 0)) return false;
-    if (!(this.f64 === 0)) return false;
+    if (!(this.f32 === 0 && 1 / this.f32 > 0)) return false;
+    if (!(this.f64 === 0 && 1 / this.f64 > 0)) return false;
     if (!(this.str === "")) return false;
     if (!(this.bytes_field.length === 0)) return false;
     return true;

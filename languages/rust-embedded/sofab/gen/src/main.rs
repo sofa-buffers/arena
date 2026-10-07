@@ -3,10 +3,149 @@ use sofabuffers_generated as message;
 use std::io::{Read, Write};
 use std::hint::black_box;
 
+/// A parsed JSON value that deserializes like serde_json's own, except that a
+/// float position also takes the strings "inf" and "-inf".
+struct Json(serde_json::Value);
+
+impl<'de> serde::de::IntoDeserializer<'de, serde_json::Error> for Json {
+    type Deserializer = Json;
+    fn into_deserializer(self) -> Json {
+        self
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for Json {
+    type Error = serde_json::Error;
+
+    fn deserialize_any<V: serde::de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
+        use serde_json::Value;
+        match self.0 {
+            Value::Null => v.visit_unit(),
+            Value::Bool(b) => v.visit_bool(b),
+            Value::Number(n) => {
+                if let Some(u) = n.as_u64() {
+                    v.visit_u64(u)
+                } else if let Some(i) = n.as_i64() {
+                    v.visit_i64(i)
+                } else {
+                    v.visit_f64(n.as_f64().unwrap_or(0.0))
+                }
+            }
+            Value::String(s) => v.visit_string(s),
+            Value::Array(a) => v.visit_seq(serde::de::value::SeqDeserializer::new(a.into_iter().map(Json))),
+            Value::Object(o) => v.visit_map(serde::de::value::MapDeserializer::new(
+                o.into_iter().map(|(k, x)| (k, Json(x))),
+            )),
+        }
+    }
+
+    fn deserialize_f32<V: serde::de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
+        self.deserialize_f64(v)
+    }
+
+    fn deserialize_f64<V: serde::de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
+        match self.0.as_str() {
+            Some("inf") => v.visit_f64(f64::INFINITY),
+            Some("-inf") => v.visit_f64(f64::NEG_INFINITY),
+            _ => self.deserialize_any(v),
+        }
+    }
+
+    fn deserialize_option<V: serde::de::Visitor<'de>>(self, v: V) -> Result<V::Value, Self::Error> {
+        if self.0.is_null() {
+            v.visit_none()
+        } else {
+            v.visit_some(self)
+        }
+    }
+
+    fn deserialize_newtype_struct<V: serde::de::Visitor<'de>>(
+        self,
+        _name: &'static str,
+        v: V,
+    ) -> Result<V::Value, Self::Error> {
+        v.visit_newtype_struct(self)
+    }
+
+    /// An enum is `{"variant": value}`, or the bare variant name for a unit one.
+    fn deserialize_enum<V: serde::de::Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        v: V,
+    ) -> Result<V::Value, Self::Error> {
+        use serde::de::Error;
+        match self.0 {
+            serde_json::Value::String(s) => v.visit_enum(JsonEnum(s, None)),
+            serde_json::Value::Object(o) if o.len() == 1 => {
+                let (k, x) = o.into_iter().next().unwrap();
+                v.visit_enum(JsonEnum(k, Some(Json(x))))
+            }
+            _ => Err(serde_json::Error::custom("expected an enum")),
+        }
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 char str string bytes byte_buf
+        unit unit_struct seq tuple tuple_struct map struct identifier ignored_any
+    }
+}
+
+struct JsonEnum(String, Option<Json>);
+
+impl<'de> serde::de::EnumAccess<'de> for JsonEnum {
+    type Error = serde_json::Error;
+    type Variant = Json;
+
+    fn variant_seed<S: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: S,
+    ) -> Result<(S::Value, Json), Self::Error> {
+        let name = serde::de::value::StringDeserializer::<serde_json::Error>::new(self.0);
+        Ok((seed.deserialize(name)?, self.1.unwrap_or(Json(serde_json::Value::Null))))
+    }
+}
+
+impl<'de> serde::de::VariantAccess<'de> for Json {
+    type Error = serde_json::Error;
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn newtype_variant_seed<S: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: S,
+    ) -> Result<S::Value, Self::Error> {
+        seed.deserialize(self)
+    }
+
+    fn tuple_variant<V: serde::de::Visitor<'de>>(
+        self,
+        _len: usize,
+        v: V,
+    ) -> Result<V::Value, Self::Error> {
+        serde::Deserializer::deserialize_seq(self, v)
+    }
+
+    fn struct_variant<V: serde::de::Visitor<'de>>(
+        self,
+        _fields: &'static [&'static str],
+        v: V,
+    ) -> Result<V::Value, Self::Error> {
+        serde::Deserializer::deserialize_map(self, v)
+    }
+}
+
+fn from_json<T: serde::de::DeserializeOwned>(input: &[u8]) -> T {
+    let tree: serde_json::Value = serde_json::from_slice(input).expect("json");
+    serde::Deserialize::deserialize(Json(tree)).expect("json")
+}
+
 #[inline(never)]
 #[no_mangle]
 pub fn run_encode_example(obj: &message::Example) -> usize {
-    let out = black_box(obj).encode();
+    let out = black_box(obj).encode().expect("encode");
     black_box(&out);
     out.len()
 }
@@ -22,7 +161,7 @@ pub fn run_decode_example(wire: &[u8]) -> message::Example {
 fn bench_main(w: &str, input: &[u8]) -> i32 {
     if w == "encode_example" || w == "decode_example" {
         let obj: message::Example = serde_json::from_slice(input).expect("json");
-        let wire = obj.encode(); // setup: the decode input (not collected)
+        let wire = obj.encode().expect("encode"); // setup: the decode input (not collected)
         let mut sink: u64 = 0;
         if w == "encode_example" {
             sink = sink.wrapping_add(run_encode_example(&obj) as u64);
@@ -52,8 +191,35 @@ fn main() {
     match name {
         "example" => {
             if mode == "encode" {
-                let obj: message::Example = serde_json::from_slice(&input).expect("json");
-                std::io::stdout().write_all(&obj.encode()).unwrap();
+                let obj: message::Example = from_json(&input);
+                match obj.encode() {
+                    Ok(b) => std::io::stdout().write_all(&b).unwrap(),
+                    Err(e) => { eprintln!("encode error: {:?}", e); std::process::exit(1); }
+                }
+            } else if mode == "streamencode" {
+                let obj: message::Example = from_json(&input);
+                let win: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+                if win == 0 {
+                    match obj.encode() {
+                        Ok(b) => std::io::stdout().write_all(&b).unwrap(),
+                        Err(e) => { eprintln!("encode error: {:?}", e); std::process::exit(1); }
+                    }
+                } else {
+                    let mut out: Vec<u8> = Vec::new();
+                    let mut buf = vec![0u8; win.max(sofab::MIN_OUTPUT_BUFFER)];
+                    {
+                        let mut os = match sofab::OStream::with_flush(&mut buf, 0, |d: &[u8]| out.extend_from_slice(d)) {
+                            Ok(os) => os,
+                            Err(_) => { eprintln!("window refused"); std::process::exit(1); }
+                        };
+                        if let Err(e) = obj.serialize(&mut os) {
+                            eprintln!("encode error: {:?}", e);
+                            std::process::exit(1);
+                        }
+                        let _ = os.flush();
+                    }
+                    std::io::stdout().write_all(&out).unwrap();
+                }
             } else if mode == "decode" {
                 let obj = match message::Example::try_decode(&input) {
                     Ok(o) => o,
@@ -62,10 +228,19 @@ fn main() {
                 println!("{}", serde_json::to_string(&obj).unwrap());
             } else if mode == "streamdecode" {
                 let mut dec = message::Example::decoder();
-                for b in &input {
-                    match dec.feed(&[*b]) {
+                let csz: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
+                let step = if csz > 0 { csz } else { input.len().max(1) };
+                for chunk in input.chunks(step) {
+                    match dec.feed(chunk) {
                         Ok(_) => {}
-                        Err(e) => { eprintln!("decode error: {:?}", e); std::process::exit(1); }
+                        Err(e) => {
+                            let again = match dec.finish() {
+                                Ok(_) => "none".to_string(),
+                                Err(a) => format!("{:?}", a),
+                            };
+                            eprintln!("decode error: {:?} [finish={}]", e, again);
+                            std::process::exit(1);
+                        }
                     }
                 }
                 let obj = match dec.finish() {

@@ -52,6 +52,17 @@ public class Main {
                 JsonObject j = JsonParser.parseString(new String(input, StandardCharsets.UTF_8)).getAsJsonObject();
                 message.Example obj = new message.Example(); Json.from(j, obj);
                 System.out.write(obj.encode());
+            } else if (mode.equals("streamencode")) {
+                JsonObject j = JsonParser.parseString(new String(input, StandardCharsets.UTF_8)).getAsJsonObject();
+                message.Example obj = new message.Example(); Json.from(j, obj);
+                int win = args.length > 2 ? Integer.parseInt(args[2]) : 0;
+                if (win == 0) {
+                    System.out.write(obj.encode());
+                } else {
+                    ByteArrayOutputStream so = new ByteArrayOutputStream();
+                    obj.encodeTo(new org.sofabuffers.sofab.OStream(new byte[Math.max(win, org.sofabuffers.sofab.Sofab.MIN_OUTPUT_BUFFER)], 0, so::write));
+                    System.out.write(so.toByteArray());
+                }
             } else if (mode.equals("decode")) {
                 message.Example obj = message.Example.decode(input);
                 StringBuilder sb = new StringBuilder(); Json.to(obj, sb);

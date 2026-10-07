@@ -2,6 +2,7 @@
 // JSON encode/decode harness: harness encode|decode <message> (stdin -> stdout).
 const std = @import("std");
 const message = @import("message.zig");
+const sofab = @import("sofab");
 
 // -- JSON value readers (tolerant: a missing/mistyped member keeps the default)
 fn jsonU64(v: std.json.Value) u64 {
@@ -401,6 +402,21 @@ pub fn main(init: std.process.Init) !void {
             const v = try std.json.parseFromSliceLeaky(std.json.Value, alloc, input, .{});
             const obj = fromJson_Example(alloc, v);
             try out.writeAll(try obj.encode(alloc));
+        } else if (std.mem.eql(u8, mode, "streamencode")) {
+            const v = try std.json.parseFromSliceLeaky(std.json.Value, alloc, input, .{});
+            const obj = fromJson_Example(alloc, v);
+            const win: usize = if (args.next()) |a| (std.fmt.parseInt(usize, a, 10) catch 0) else 0;
+            if (win == 0) {
+                try out.writeAll(try obj.encode(alloc));
+            } else {
+                var sink: sofab.CollectingSink = .{ .alloc = alloc };
+                defer sink.deinit();
+                const scratch = try alloc.alloc(u8, @max(win, sofab.MIN_OUTPUT_BUFFER));
+                var os = sofab.OStream.initFlush(scratch, 0, &sink, sofab.CollectingSink.push);
+                try obj.serialize(&os);
+                _ = os.flush();
+                try out.writeAll(try sink.toOwnedSlice());
+            }
         } else if (std.mem.eql(u8, mode, "decode")) {
             const obj = try message.Example.decode(alloc, input);
             try toJson_Example(&obj, out);
@@ -408,8 +424,11 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, mode, "streamdecode")) {
             var obj: message.Example = .{};
             var dec = message.Example.decoder(&obj, alloc);
-            for (input) |b| {
-                _ = dec.feed(&[_]u8{b}) catch |e| {
+            const csz: usize = if (args.next()) |a| (std.fmt.parseInt(usize, a, 10) catch 1) else 1;
+            const step: usize = if (csz > 0) csz else @max(input.len, 1);
+            var off: usize = 0;
+            while (off < input.len) : (off += step) {
+                _ = dec.feed(input[off..@min(off + step, input.len)]) catch |e| {
                     var fin: []const u8 = "RETURNED";
                     dec.finish() catch |fe| {
                         fin = @errorName(fe);

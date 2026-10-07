@@ -117,14 +117,14 @@ public sealed class Example_Nested {
     public byte[] bytes_field = global::System.Array.Empty<byte>();
 
     public void Serialize(global::sofab.OStream os) {
-        if (this.f32 != 0) { os.WriteFp32(0, this.f32); }
-        if (this.f64 != 0) { os.WriteFp64(1, this.f64); }
+        if (global::System.BitConverter.SingleToInt32Bits(this.f32) != 0) { os.WriteFp32(0, this.f32); }
+        if (global::System.BitConverter.DoubleToInt64Bits(this.f64) != 0L) { os.WriteFp64(1, this.f64); }
         if (this.str != "") { os.WriteString(2, this.str ?? ""); }
         if (this.bytes_field != null && this.bytes_field.Length != 0) { os.WriteBlob(3, this.bytes_field); }
     }
     public bool IsDefault() {
-        if (!(this.f32 == 0)) return false;
-        if (!(this.f64 == 0)) return false;
+        if (!(global::System.BitConverter.SingleToInt32Bits(this.f32) == 0)) return false;
+        if (!(global::System.BitConverter.DoubleToInt64Bits(this.f64) == 0L)) return false;
         if (!(this.str == "")) return false;
         if (!(this.bytes_field == null || this.bytes_field.Length == 0)) return false;
         return true;

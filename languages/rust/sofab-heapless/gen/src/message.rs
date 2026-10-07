@@ -77,32 +77,33 @@ impl Default for Example_Arrays {
 }
 
 impl Example_Arrays {
-    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) {
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
         if !self.u8.is_empty() {
-            let _ = os.write_array_unsigned(0, &self.u8);
+            os.write_array_unsigned(0, &self.u8)?;
         }
         if !self.i8.is_empty() {
-            let _ = os.write_array_signed(1, &self.i8);
+            os.write_array_signed(1, &self.i8)?;
         }
         if !self.u16.is_empty() {
-            let _ = os.write_array_unsigned(2, &self.u16);
+            os.write_array_unsigned(2, &self.u16)?;
         }
         if !self.i16.is_empty() {
-            let _ = os.write_array_signed(3, &self.i16);
+            os.write_array_signed(3, &self.i16)?;
         }
         if !self.u32.is_empty() {
-            let _ = os.write_array_unsigned(4, &self.u32);
+            os.write_array_unsigned(4, &self.u32)?;
         }
         if !self.i32.is_empty() {
-            let _ = os.write_array_signed(5, &self.i32);
+            os.write_array_signed(5, &self.i32)?;
         }
         if !self.u64.is_empty() {
-            let _ = os.write_array_unsigned(6, &self.u64);
+            os.write_array_unsigned(6, &self.u64)?;
         }
         if !self.i64.is_empty() {
-            let _ = os.write_array_signed(7, &self.i64);
+            os.write_array_signed(7, &self.i64)?;
         }
-        let _ = os.write_sequence_begin_lazy(10); self.nested.serialize(os); let _ = os.write_sequence_end();
+        os.write_sequence_begin_lazy(10)?; self.nested.serialize(os)?; os.write_sequence_end()?;
+        Ok(())
     }
 }
 
@@ -127,13 +128,14 @@ impl Default for Example_Arrays_Nested {
 }
 
 impl Example_Arrays_Nested {
-    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) {
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
         if !self.fp32.is_empty() {
-            let _ = os.write_array_fp32(0, &self.fp32);
+            os.write_array_fp32(0, &self.fp32)?;
         }
         if !self.fp64.is_empty() {
-            let _ = os.write_array_fp64(1, &self.fp64);
+            os.write_array_fp64(1, &self.fp64)?;
         }
+        Ok(())
     }
 }
 
@@ -162,11 +164,12 @@ impl Default for Example_Nested {
 }
 
 impl Example_Nested {
-    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) {
-        if self.f32 != 0.0 { let _ = os.write_fp32(0, self.f32); }
-        if self.f64 != 0.0 { let _ = os.write_fp64(1, self.f64); }
-        if !self.str.is_empty() { let _ = os.write_str(2, &self.str); }
-        if !self.bytes_field.is_empty() { let _ = os.write_blob(3, &self.bytes_field); }
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
+        if self.f32.to_bits() != 0x0 { os.write_fp32(0, self.f32)?; }
+        if self.f64.to_bits() != 0x0 { os.write_fp64(1, self.f64)?; }
+        if !self.str.is_empty() { os.write_str(2, &self.str)?; }
+        if !self.bytes_field.is_empty() { os.write_blob(3, &self.bytes_field)?; }
+        Ok(())
     }
 }
 
@@ -210,26 +213,27 @@ impl Default for Example {
 impl Example {
     /// Worst-case encoded size of this message, derived from the schema.
     pub const MAX_SIZE: usize = 732;
-    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) {
-        if self.u8 != 0 { let _ = os.write_unsigned(0, self.u8 as sofab::Unsigned); }
-        if self.i8 != 0 { let _ = os.write_signed(1, self.i8 as sofab::Signed); }
-        if self.u16 != 0 { let _ = os.write_unsigned(2, self.u16 as sofab::Unsigned); }
-        if self.i16 != 0 { let _ = os.write_signed(3, self.i16 as sofab::Signed); }
-        if self.u32 != 0 { let _ = os.write_unsigned(4, self.u32 as sofab::Unsigned); }
-        if self.i32 != 0 { let _ = os.write_signed(5, self.i32 as sofab::Signed); }
-        if self.u64 != 0 { let _ = os.write_unsigned(6, self.u64 as sofab::Unsigned); }
-        if self.i64 != 0 { let _ = os.write_signed(7, self.i64 as sofab::Signed); }
-        let _ = os.write_sequence_begin_lazy(10); self.nested.serialize(os); let _ = os.write_sequence_end();
-        let _ = os.write_sequence_begin_lazy(100); self.arrays.serialize(os); let _ = os.write_sequence_end();
-        let _ = os.write_sequence_begin_lazy(200);
-        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() || _i0 + 1 == self.string_array.len() { let _ = os.write_str(_i0 as sofab::Id, _e0); } }
-        let _ = os.write_sequence_end();
+    pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
+        if self.u8 != 0 { os.write_unsigned(0, self.u8 as sofab::Unsigned)?; }
+        if self.i8 != 0 { os.write_signed(1, self.i8 as sofab::Signed)?; }
+        if self.u16 != 0 { os.write_unsigned(2, self.u16 as sofab::Unsigned)?; }
+        if self.i16 != 0 { os.write_signed(3, self.i16 as sofab::Signed)?; }
+        if self.u32 != 0 { os.write_unsigned(4, self.u32 as sofab::Unsigned)?; }
+        if self.i32 != 0 { os.write_signed(5, self.i32 as sofab::Signed)?; }
+        if self.u64 != 0 { os.write_unsigned(6, self.u64 as sofab::Unsigned)?; }
+        if self.i64 != 0 { os.write_signed(7, self.i64 as sofab::Signed)?; }
+        os.write_sequence_begin_lazy(10)?; self.nested.serialize(os)?; os.write_sequence_end()?;
+        os.write_sequence_begin_lazy(100)?; self.arrays.serialize(os)?; os.write_sequence_end()?;
+        os.write_sequence_begin_lazy(200)?;
+        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() || _i0 + 1 == self.string_array.len() { os.write_str(_i0 as sofab::Id, _e0)?; } }
+        os.write_sequence_end()?;
+        Ok(())
     }
-    pub fn encode(&self) -> Vec<u8> {
+    pub fn encode(&self) -> Result<Vec<u8>, sofab::Error> {
         let mut buf = vec![0u8; Self::MAX_SIZE];
-        let used = { let mut os = sofab::OStream::new(&mut buf); self.serialize(&mut os); os.bytes_used() };
+        let used = { let mut os = sofab::OStream::new(&mut buf); self.serialize(&mut os)?; os.bytes_used() };
         buf.truncate(used);
-        buf
+        Ok(buf)
     }
     pub fn decode(data: &[u8]) -> Self {
         _Example__Decode::decode(data)

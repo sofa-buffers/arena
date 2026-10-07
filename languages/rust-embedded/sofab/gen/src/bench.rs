@@ -24,13 +24,13 @@ fn main() {
     let src: Example = serde_json::from_slice(&raw).expect("parse state.json into Example");
 
     // Warm-up round-trip + self-check (outside the timed region).
-    let blob = src.encode();
+    let blob = src.encode().expect("sofab encode");
     let serialized = blob.len();
     // Byte-wise hex so it works across sha2 versions: 0.11's digest returns a
     // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
     let sha: String = Sha256::digest(&blob).iter().map(|b| format!("{b:02x}")).collect();
     let decoded = Example::decode(&blob);
-    if decoded.encode() != blob {
+    if decoded.encode().expect("sofab re-encode") != blob {
         eprintln!("FAIL: sofab round-trip self-check");
         std::process::exit(1);
     }
@@ -47,7 +47,7 @@ fn main() {
     for _ in 0..iters {
         let used = {
             let mut os = OStream::new(&mut buf);
-            src.serialize(&mut os);
+            src.serialize(&mut os).expect("sofab serialize");
             os.bytes_used()
         };
         let dec = Example::decode(&buf[..used]);

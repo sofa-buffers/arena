@@ -4,6 +4,7 @@ package message
 
 import (
 	"github.com/sofa-buffers/corelib-go"
+	"math"
 )
 
 // Example_Arrays is a generated SofaBuffers object.
@@ -295,10 +296,10 @@ type Example_Nested struct {
 }
 
 func (m *Example_Nested) Serialize(e *sofab.Encoder) {
-	if m.F32 != 0 {
+	if math.Float32bits(m.F32) != 0x0 {
 		e.WriteFloat32(0, m.F32)
 	}
-	if m.F64 != 0 {
+	if math.Float64bits(m.F64) != 0x0 {
 		e.WriteFloat64(1, m.F64)
 	}
 	if m.Str != "" {
@@ -310,10 +311,10 @@ func (m *Example_Nested) Serialize(e *sofab.Encoder) {
 }
 
 func (m *Example_Nested) isDefault() bool {
-	if !(m.F32 == 0) {
+	if !(math.Float32bits(m.F32) == 0x0) {
 		return false
 	}
-	if !(m.F64 == 0) {
+	if !(math.Float64bits(m.F64) == 0x0) {
 		return false
 	}
 	if !(m.Str == "") {

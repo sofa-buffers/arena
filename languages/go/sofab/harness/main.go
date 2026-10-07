@@ -3,13 +3,19 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"example.com/gen/message"
 	"fmt"
+	"github.com/sofa-buffers/corelib-go"
 	"io"
+	"math"
 	"os"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 // benchAlignSink holds the buffer benchAlignSpan allocated last, so the
@@ -168,7 +174,7 @@ func benchMain(w string, in []byte) int {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|bench> [Message|workload]")
+		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|streamencode|bench> [Message|workload]")
 		os.Exit(2)
 	}
 	mode := os.Args[1]
@@ -189,7 +195,7 @@ func main() {
 	case "example":
 		if mode == "encode" {
 			obj := message.Example__New()
-			if err := json.Unmarshal(in, obj); err != nil {
+			if err := unmarshalJSON(in, obj); err != nil {
 				fail(err)
 			}
 			b, err := obj.Encode()
@@ -202,17 +208,47 @@ func main() {
 			if err != nil {
 				fail(err)
 			}
-			out, _ := json.Marshal(obj)
+			out, _ := marshalJSON(obj)
 			os.Stdout.Write(out)
 			fmt.Fprintln(os.Stdout)
 		} else if mode == "streamdecode" {
-			obj, err := message.Example__DecodeFrom(&dripReader{b: in})
+			obj, err := message.Example__DecodeFrom(&dripReader{b: in, n: chunkArg()})
 			if err != nil {
-				fail(err)
+				d := sofab.NewDecoder(message.Example__New())
+				d.FeedFrom(&dripReader{b: in, n: chunkArg()}, make([]byte, 4096))
+				_, again := d.Feed(nil)
+				fail(fmt.Errorf("%v [finish=%s]", err, verdictName(again)))
 			}
-			out, _ := json.Marshal(obj)
+			out, _ := marshalJSON(obj)
 			os.Stdout.Write(out)
 			fmt.Fprintln(os.Stdout)
+		} else if mode == "streamencode" {
+			obj := message.Example__New()
+			if err := unmarshalJSON(in, obj); err != nil {
+				fail(err)
+			}
+			var out bytes.Buffer
+			if w := windowArg(); w == 0 {
+				if err := obj.EncodeTo(&out); err != nil {
+					fail(err)
+				}
+			} else {
+				if w < sofab.MinOutputBuffer {
+					w = sofab.MinOutputBuffer
+				}
+				e, err := sofab.NewEncoderSink(make([]byte, w), 0, func(_ *sofab.Encoder, b []byte) error {
+					out.Write(b)
+					return nil
+				})
+				if err != nil {
+					fail(err)
+				}
+				obj.Serialize(e)
+				if err := e.Flush(); err != nil {
+					fail(err)
+				}
+			}
+			os.Stdout.Write(out.Bytes())
 		} else {
 			fail(fmt.Errorf("unknown mode %q", mode))
 		}
@@ -221,18 +257,250 @@ func main() {
 	}
 }
 
+// verdictName names the category a decoder answered with, `none` when it
+// answered nothing -- which, after a refusal, is itself the failure.
+func verdictName(err error) string {
+	switch {
+	case err == nil:
+		return "none"
+	case errors.Is(err, sofab.ErrLimitExceeded):
+		return "LimitExceeded"
+	case errors.Is(err, sofab.ErrInvalidMsg):
+		return "InvalidMessage"
+	}
+	return err.Error()
+}
+
+// infAt is a position the input spelled in a way encoding/json cannot carry: a float
+// written "inf" or "-inf", or a string written with \xNN escapes for bytes that
+// are not UTF-8 (raw is then those bytes).
+type infAt struct {
+	path []any // map keys (string) and slice indexes (int) from the root
+	neg  bool
+	raw  *string
+}
+
+func jsonName(sf reflect.StructField) string {
+	name, _, _ := strings.Cut(sf.Tag.Get("json"), ",")
+	return name
+}
+
+// scrubInf replaces each infinity spelling at a float position of type t with
+// 0 and records where it was.
+func scrubInf(v any, t reflect.Type, path []any, out *[]infAt) any {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch x := v.(type) {
+	case map[string]any:
+		if t.Kind() != reflect.Struct {
+			return v
+		}
+		for i := 0; i < t.NumField(); i++ {
+			name := jsonName(t.Field(i))
+			if e, ok := x[name]; ok && name != "" {
+				x[name] = scrubInf(e, t.Field(i).Type, append(append([]any{}, path...), name), out)
+			}
+		}
+	case []any:
+		if t.Kind() != reflect.Slice && t.Kind() != reflect.Array {
+			return v
+		}
+		for i, e := range x {
+			x[i] = scrubInf(e, t.Elem(), append(append([]any{}, path...), i), out)
+		}
+	case string:
+		if t.Kind() == reflect.String {
+			var raw strings.Builder
+			has := false
+			for _, r := range x {
+				if r >= 0xF700 && r <= 0xF7FF {
+					raw.WriteByte(byte(r - 0xF700))
+					has = true
+				} else {
+					raw.WriteRune(r)
+				}
+			}
+			if has {
+				s := raw.String()
+				*out = append(*out, infAt{path: path, raw: &s})
+				return ""
+			}
+		}
+		if (x == "inf" || x == "-inf") && (t.Kind() == reflect.Float32 || t.Kind() == reflect.Float64) {
+			*out = append(*out, infAt{path: path, neg: x == "-inf"})
+			return json.Number("0")
+		}
+	}
+	return v
+}
+
+// jsonTree is the value as encoding/json would render it, except that a float
+// with no JSON number (an infinity, a NaN) becomes the string "inf", "-inf"
+// or "nan". Only marshalJSON uses it, when json.Marshal has refused.
+func jsonTree(v reflect.Value) any {
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		if v.IsNil() {
+			return nil
+		}
+		return jsonTree(v.Elem())
+	case reflect.Struct:
+		m := map[string]any{}
+		for i := 0; i < v.NumField(); i++ {
+			if name := jsonName(v.Type().Field(i)); name != "" && name != "-" {
+				m[name] = jsonTree(v.Field(i))
+			}
+		}
+		return m
+	case reflect.Slice, reflect.Array:
+		if v.Kind() == reflect.Slice && v.IsNil() {
+			return nil
+		}
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return v.Interface()
+		}
+		out := make([]any, v.Len())
+		for i := range out {
+			out[i] = jsonTree(v.Index(i))
+		}
+		return out
+	case reflect.Float32, reflect.Float64:
+		f := v.Float()
+		switch {
+		case math.IsNaN(f):
+			return "nan"
+		case math.IsInf(f, 1):
+			return "inf"
+		case math.IsInf(f, -1):
+			return "-inf"
+		}
+		bits := 64
+		if v.Kind() == reflect.Float32 {
+			bits = 32
+		}
+		return json.Number(strconv.FormatFloat(f, 'g', -1, bits))
+	}
+	return v.Interface()
+}
+
+// marshalJSON is json.Marshal plus the output half of the infinity spelling:
+// the same strings unmarshalJSON reads, so a decoded +-inf can be printed.
+func marshalJSON(obj any) ([]byte, error) {
+	out, err := json.Marshal(obj)
+	if err == nil {
+		return out, nil
+	}
+	return json.Marshal(jsonTree(reflect.ValueOf(obj)))
+}
+
+// byteEscapes rewrites each \xNN in the input, which JSON has no such escape for, to
+// \uF7NN so the text still parses; scrubInf turns those back into the bytes.
+func byteEscapes(in []byte) []byte {
+	var out []byte
+	for i := 0; i < len(in); i++ {
+		switch {
+		case in[i] == '\\' && i+1 < len(in) && in[i+1] == '\\':
+			out = append(out, '\\', '\\')
+			i++
+		case in[i] == '\\' && i+3 < len(in) && in[i+1] == 'x':
+			out = append(out, '\\', 'u', 'F', '7', in[i+2], in[i+3])
+			i += 3
+		default:
+			out = append(out, in[i])
+		}
+	}
+	return out
+}
+
+func unmarshalJSON(in []byte, obj any) error {
+	in = byteEscapes(in)
+	dec := json.NewDecoder(bytes.NewReader(in))
+	dec.UseNumber() // keeps a 64-bit integer exact while the tree is rewritten
+	var tree any
+	if err := dec.Decode(&tree); err != nil {
+		return json.Unmarshal(in, obj)
+	}
+	var infs []infAt
+	tree = scrubInf(tree, reflect.TypeOf(obj), nil, &infs)
+	clean, err := json.Marshal(tree)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(clean, obj); err != nil {
+		return err
+	}
+	for _, at := range infs {
+		rv := reflect.ValueOf(obj)
+		for _, p := range at.path {
+			for rv.Kind() == reflect.Pointer {
+				rv = rv.Elem()
+			}
+			switch k := p.(type) {
+			case string:
+				for i := 0; i < rv.NumField(); i++ {
+					if jsonName(rv.Type().Field(i)) == k {
+						rv = rv.Field(i)
+						break
+					}
+				}
+			case int:
+				rv = rv.Index(k)
+			}
+		}
+		if at.raw != nil {
+			rv.SetString(*at.raw)
+			continue
+		}
+		sign := 1
+		if at.neg {
+			sign = -1
+		}
+		rv.SetFloat(math.Inf(sign))
+	}
+	return nil
+}
+
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "error:", err)
 	os.Exit(1)
 }
 
-// dripReader delivers one byte per Read, so `streamdecode` drives the
-// decoder across a boundary at every single position in the message. A
-// bytes.Reader would hand the whole thing over in one Read and prove only
-// that the signature compiles.
+// chunkArg is `streamdecode`'s optional third argument: the bytes per Read,
+// 1 by default, 0 for the whole message in one Read.
+func chunkArg() int {
+	if len(os.Args) > 3 {
+		n, err := strconv.Atoi(os.Args[3])
+		if err != nil || n < 0 {
+			fail(fmt.Errorf("bad chunk size %q", os.Args[3]))
+		}
+		return n
+	}
+	return 1
+}
+
+// windowArg is `streamencode`'s third argument: the encode buffer size in
+// bytes, 0 for the generated EncodeTo with its own scratch.
+func windowArg() int {
+	if len(os.Args) > 3 {
+		n, err := strconv.Atoi(os.Args[3])
+		if err != nil || n < 0 {
+			fail(fmt.Errorf("bad window size %q", os.Args[3]))
+		}
+		return n
+	}
+	return 0
+}
+
+// dripReader delivers at most n bytes per Read (one by default), so
+// `streamdecode` drives the decoder across a boundary at every single
+// position in the message. A bytes.Reader would hand the whole thing over
+// in one Read and prove only that the signature compiles. n == 0 delivers
+// everything at once.
 type dripReader struct {
 	b []byte
 	i int
+	n int
 }
 
 func (r *dripReader) Read(p []byte) (int, error) {
@@ -242,7 +510,14 @@ func (r *dripReader) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	p[0] = r.b[r.i]
-	r.i++
-	return 1, nil
+	n := r.n
+	if n == 0 {
+		n = len(r.b)
+	}
+	if n > len(p) {
+		n = len(p)
+	}
+	n = copy(p[:n], r.b[r.i:])
+	r.i += n
+	return n, nil
 }

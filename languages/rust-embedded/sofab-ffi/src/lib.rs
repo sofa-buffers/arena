@@ -9,7 +9,7 @@ use msgs::Example;
 use sofab::OStream;
 
 /// Encode a (default-constructed) Example into `buf`, decode it back; returns
-/// the encoded length. The values don't matter for footprint — only the code
+/// the encoded length (0 on error). The values don't matter for footprint — only the code
 /// paths reached by serialize/decode do, and those are value-independent.
 ///
 /// # Safety
@@ -21,7 +21,9 @@ pub unsafe extern "C" fn sofab_roundtrip(buf: *mut u8, cap: usize) -> usize {
     // message (and transitively the decode), shrinking the delta to ~nothing.
     let msg = core::hint::black_box(Example::default());
     let mut os = OStream::new(out);
-    msg.serialize(&mut os);
+    if msg.serialize(&mut os).is_err() {
+        return 0;
+    }
     let used = os.bytes_used();
     let dec = Example::decode(core::slice::from_raw_parts(buf, used));
     core::hint::black_box(&dec);

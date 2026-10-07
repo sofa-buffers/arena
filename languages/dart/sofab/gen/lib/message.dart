@@ -170,10 +170,10 @@ class Example_Nested {
   final sofab.InlineBytes bytes_field = sofab.InlineBytes(4);
 
   void serialize(sofab.Encoder e) {
-    if (f32 != 0.0) {
+    if (f32 != 0.0 || f32.isNegative) {
       if (f32.isNaN && f32Fp32Bits != null) { e.writeFp32Bits(0, f32Fp32Bits!); } else { e.writeFp32(0, f32); }
     }
-    if (f64 != 0.0) { e.writeFp64(1, f64); }
+    if (f64 != 0.0 || f64.isNegative) { e.writeFp64(1, f64); }
     if (str.length != 0) { e.writeStringUtf8(2, str.storage, str.length); }
     if (bytes_field.length != 0) { e.writeBlob(3, bytes_field.storage, bytes_field.length); }
   }

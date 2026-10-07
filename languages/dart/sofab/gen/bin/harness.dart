@@ -38,7 +38,7 @@ Example_Arrays _Example_Arrays__FromJson(Map<String, dynamic> j) {
   if (j.containsKey('u32')) { m.u32.assign(<int>[for (final _b in (j['u32'] as List)) (_b as num).toInt()]); }
   if (j.containsKey('i32')) { m.i32.assign(<int>[for (final _b in (j['i32'] as List)) (_b as num).toInt()]); }
   if (j.containsKey('u64')) { m.u64.assign(<int>[for (final _b in (j['u64'] as List)) (_b is String ? BigInt.parse(_b) : BigInt.from(_exact64(_b))).toSigned(64).toInt()]); }
-  if (j.containsKey('i64')) { m.i64.assign(<int>[for (final _b in (j['i64'] as List)) (_b as num).toInt()]); }
+  if (j.containsKey('i64')) { m.i64.assign(<int>[for (final _b in (j['i64'] as List)) (_b is String ? BigInt.parse(_b) : BigInt.from(_exact64(_b))).toSigned(64).toInt()]); }
   if (j.containsKey('nested')) { m.nested = _Example_Arrays_Nested__FromJson(j['nested'] as Map<String, dynamic>); }
   return m;
 }
@@ -132,9 +132,15 @@ void _Example__BenchOp(bool enc, Example obj, typed.Uint8List wire) {
   }
 }
 
+Object? _nonFinite(Object? o) => o is double
+    ? (o.isNaN ? 'nan' : (o.isNegative ? '-inf' : 'inf'))
+    : throw convert.JsonUnsupportedObjectError(o);
+
+String _showJSON(Object? v) => convert.jsonEncode(v, toEncodable: _nonFinite);
+
 void main(List<String> args) {
   if (args.isEmpty) {
-    io.stderr.writeln('usage: harness <encode|decode|streamdecode|trydecode|recode|bench> [Message|workload]');
+    io.stderr.writeln('usage: harness <encode|decode|streamdecode|streamencode|trydecode|recode|bench> [Message|workload]');
     io.exit(2);
   }
   final mode = args[0];
@@ -148,6 +154,17 @@ void main(List<String> args) {
       if (mode == 'encode') {
         final obj = _Example__FromJson(convert.jsonDecode(convert.utf8.decode(input)) as Map<String, dynamic>);
         io.stdout.add(obj.encode());
+      } else if (mode == 'streamencode') {
+        final obj = _Example__FromJson(convert.jsonDecode(convert.utf8.decode(input)) as Map<String, dynamic>);
+        final win = args.length > 2 ? int.parse(args[2]) : 0;
+        if (win == 0) {
+          io.stdout.add(obj.encode());
+        } else {
+          final sink = typed.BytesBuilder(copy: true);
+          obj.encodeTo(sofab.Encoder(sink.add,
+              buffer: typed.Uint8List(win < sofab.minOutputBuffer ? sofab.minOutputBuffer : win)));
+          io.stdout.add(sink.toBytes());
+        }
       } else if (mode == 'decode') {
         final obj = Example();
         final st = Example.tryDecode(input, obj);
@@ -155,7 +172,7 @@ void main(List<String> args) {
           io.stderr.writeln('decode failed: ${st.name}');
           io.exit(1);
         }
-        io.stdout.writeln(convert.jsonEncode(_Example__ToJson(obj)));
+        io.stdout.writeln(_showJSON(_Example__ToJson(obj)));
       } else if (mode == 'streamdecode') {
         final out = Example();
         final dec = Example.decoder(out);
@@ -178,12 +195,12 @@ void main(List<String> args) {
           io.stderr.writeln('decode failed: ${dec.feed(const <int>[]).name}');
           io.exit(1);
         }
-        io.stdout.writeln(convert.jsonEncode(_Example__ToJson(obj)));
+        io.stdout.writeln(_showJSON(_Example__ToJson(obj)));
       } else if (mode == 'trydecode') {
         final obj = Example();
         final st = Example.tryDecode(input, obj);
         io.stdout.writeln(st.name.toUpperCase());
-        io.stdout.writeln(convert.jsonEncode(_Example__ToJson(obj)));
+        io.stdout.writeln(_showJSON(_Example__ToJson(obj)));
       } else if (mode == 'recode') {
         final obj = Example();
         final st = Example.tryDecode(input, obj);

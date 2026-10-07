@@ -211,6 +211,7 @@ internal class _Example__Visitor(private val m: Example) : Visitor {
     private var afill = 0               // elements still expected by an armed native-array fill (S7.3)
     private var atgt = 0                // which destination the armed fill writes into
     private var abulk: Any? = null      // destination offered to Visitor.arrayBulk, null when not offered
+    private var afv: IntArray? = null   // raw-bits view of the fp32 array being filled (Seq.fp32BitsView)
     private var stk = IntArray(16)      // sequence scope stack
     private var sp = 0
     private val acc = PayloadAcc()      // reassembly of a string/blob payload split across chunks
@@ -292,14 +293,14 @@ internal class _Example__Visitor(private val m: Example) : Visitor {
         }
     }
 
-    override fun fp32(id: Int, value: Float) {
+    override fun fp32Bits(id: Int, bits: Int) {
         // An element of the array arrayBegin armed: its destination is already
         // resolved, so it is stored against that target rather than routed by
         // (scope, id) again. Self-terminating on the announced count.
         if (afill != 0) {
             afill--
             when (atgt) {
-                1 -> { m.arrays.nested.fp32[ai] = value; ai++ }
+                1 -> { Seq.putFp32Bits(m.arrays.nested.fp32, afv, ai, bits); ai++ }
             }
             return
         }
@@ -308,7 +309,7 @@ internal class _Example__Visitor(private val m: Example) : Visitor {
         if (askip > 0) { askip--; return }
         when (cur) {
             1 -> when (id) {
-                0 -> { m.nested.f32 = value }
+                0 -> { m.nested.f32 = Float.fromBits(bits); m.nested.f32Fp32Bits = Seq.fp32NaNBits(bits) }
             }
             else -> {}
         }
@@ -435,7 +436,7 @@ internal class _Example__Visitor(private val m: Example) : Visitor {
                 7 -> if (kind == ArrayKind.SIGNED) { if (count > 5) throw SofabException(SofabError.INVALID_MSG, "i64: array count above schema capacity 5"); askip = 0; afill = count; atgt = 4; m.arrays.i64 = LongArray(count); abulk = m.arrays.i64 }
             }
             3 -> when (id) {
-                0 -> if (kind == ArrayKind.FP32) { if (count > 5) throw SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp32 = FloatArray(count) }
+                0 -> if (kind == ArrayKind.FP32) { if (count > 5) throw SofabException(SofabError.INVALID_MSG, "fp32: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp32 = FloatArray(count); afv = Seq.fp32BitsView(m.arrays.nested.fp32) }
                 1 -> if (kind == ArrayKind.FP64) { if (count > 5) throw SofabException(SofabError.INVALID_MSG, "fp64: array count above schema capacity 5"); askip = 0; afill = count; atgt = 1; m.arrays.nested.fp64 = DoubleArray(count) }
             }
             else -> {}

@@ -8,6 +8,14 @@ import org.sofabuffers.sofab.*
 
 public class Example_Nested {
     public var f32: Float = 0.0f
+    /**
+     * Wire bits of [f32], kept on decode only when the decoded value is a NaN, so that
+     * a signaling NaN re-encodes bit for bit where a Float is a double (Kotlin/JS).
+     *
+     * Not part of the value: serialize uses them only while the value is still a NaN, so
+     * assigning the field always wins, and they never reach equality or JSON.
+     */
+    public var f32Fp32Bits: Int? = null
     public var f64: Double = 0.0
     /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
     public var str: String = ""
@@ -16,16 +24,16 @@ public class Example_Nested {
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {
-        if (this.f32 != 0.0f) os.writeFp32(0, this.f32)
-        if (this.f64 != 0.0) os.writeFp64(1, this.f64)
+        if (this.f32.toRawBits() != 0) os.writeFp32(0, this.f32, this.f32Fp32Bits)
+        if (this.f64.toRawBits() != 0L) os.writeFp64(1, this.f64)
         if (this.str.isNotEmpty()) os.writeString(2, this.str)
         if (this.bytes_field.isNotEmpty()) os.writeBlob(3, this.bytes_field)
     }
 
     /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
     internal fun isDefault(): Boolean {
-        if (this.f32 != 0.0f) return false
-        if (this.f64 != 0.0) return false
+        if (this.f32.toRawBits() != 0) return false
+        if (this.f64.toRawBits() != 0L) return false
         if (this.str.isNotEmpty()) return false
         if (this.bytes_field.isNotEmpty()) return false
         return true
@@ -34,6 +42,7 @@ public class Example_Nested {
     /** Restore every field to its declared default, in place; call before reusing an instance as a decode destination. */
     public fun reset() {
         this.f32 = 0.0f
+        this.f32Fp32Bits = null
         this.f64 = 0.0
         this.str = ""
         this.bytes_field = Seq.EMPTY_BYTES

@@ -13,15 +13,15 @@ public class Example_Nested {
     public byte[] bytes_field = Seq.EMPTY_BYTES;
 
     public void serialize(OStream os) throws IOException {
-        if (this.f32 != 0f) { os.writeFp32(0, this.f32); }
-        if (this.f64 != 0) { os.writeFp64(1, this.f64); }
+        if (java.lang.Float.floatToRawIntBits(this.f32) != 0) { os.writeFp32(0, this.f32); }
+        if (java.lang.Double.doubleToRawLongBits(this.f64) != 0L) { os.writeFp64(1, this.f64); }
         if ((this.str == null || !this.str.isEmpty())) { os.writeString(2, this.str == null ? "" : this.str); }
         if (this.bytes_field == null || this.bytes_field.length != 0) { os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
     }
     /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
     boolean isDefault() {
-        if (this.f32 != 0f) return false;
-        if (this.f64 != 0) return false;
+        if (java.lang.Float.floatToRawIntBits(this.f32) != 0) return false;
+        if (java.lang.Double.doubleToRawLongBits(this.f64) != 0L) return false;
         if ((this.str == null || !this.str.isEmpty())) return false;
         if (this.bytes_field == null || this.bytes_field.length != 0) return false;
         return true;

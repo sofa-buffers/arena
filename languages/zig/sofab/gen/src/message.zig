@@ -117,8 +117,8 @@ pub const Example_Nested = struct {
 
     /// Write this value's fields to `os` (sparse-canonical encoding).
     pub fn serialize(self: *const Example_Nested, os: *sofab.OStream) sofab.Error!void {
-        if (self.f32 != 0.0) try os.writeFp32(0, self.f32);
-        if (self.f64 != 0.0) try os.writeFp64(1, self.f64);
+        if (@as(u32, @bitCast(self.f32)) != 0x0) try os.writeFp32(0, self.f32);
+        if (@as(u64, @bitCast(self.f64)) != 0x0) try os.writeFp64(1, self.f64);
         if (self.str.len != 0) try os.writeString(2, self.str);
         if (self.bytes_field.len != 0) try os.writeBlob(3, self.bytes_field);
     }
@@ -126,8 +126,8 @@ pub const Example_Nested = struct {
     /// True when every field equals its declared default, compared per field
     /// and recursively -- i.e. when serialize would write no child at all (S2).
     pub fn isDefault(self: *const Example_Nested) bool {
-        if (self.f32 != 0.0) return false;
-        if (self.f64 != 0.0) return false;
+        if (@as(u32, @bitCast(self.f32)) != 0x0) return false;
+        if (@as(u64, @bitCast(self.f64)) != 0x0) return false;
         if (self.str.len != 0) return false;
         if (self.bytes_field.len != 0) return false;
         return true;
@@ -192,15 +192,15 @@ pub const Example = struct {
         return true;
     }
 
-    /// Encode into a fresh buffer allocated from `alloc`.
+    /// Encode into a fresh buffer allocated from `alloc`, sized to MAX_SIZE and
+    /// trimmed to the bytes written. A value filled past its declared bound does
+    /// not fit: error.BufferFull, nothing returned.
     pub fn encode(self: *const Example, alloc: std.mem.Allocator) (sofab.Error || std.mem.Allocator.Error)![]u8 {
-        var sink: sofab.CollectingSink = .{ .alloc = alloc };
-        defer sink.deinit();
-        var scratch: [512]u8 = undefined;
-        var os = sofab.OStream.initFlush(&scratch, 0, &sink, sofab.CollectingSink.push);
+        const buf = try alloc.alloc(u8, MAX_SIZE);
+        errdefer alloc.free(buf);
+        var os = sofab.OStream.init(buf);
         try self.serialize(&os);
-        _ = os.flush();
-        return sink.toOwnedSlice();
+        return alloc.realloc(buf, os.bytesUsed());
     }
 
     /// Decode a complete message. The result OWNS its bytes: strings, blobs
