@@ -16,9 +16,9 @@ namespace fullscale {
 
 struct Example_Nested : sofab::Message {
     double f64 = 0.0;
-    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
     std::string str = "";
-    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
     std::vector<std::uint8_t> bytes_field = {};
     float f32 = 0.0f;
 
@@ -68,14 +68,20 @@ struct Example_Nested : sofab::Message {
      * Called by @ref encode / @ref encodeTo, and directly when writing into a
      * stream you own. Fields equal to their default are omitted.
      *
+     * A value past its schema bound in a growable member -- a std::string or
+     * std::vector longer than its `maxlen` or `count` -- is refused: the
+     * stream latches InvalidArgument (@c ok() turns false) and this returns
+     * at once. A fixed-capacity member (FixedString, FixedBytes, InlineVector)
+     * carries its bound as its capacity and clamps on assignment instead.
+     *
      * @param _os Stream to write to.
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &_os) const noexcept override {
         if (std::bit_cast<std::uint32_t>(f32) != 0x0u) { (void)_os.write(0, f32); }
         if (std::bit_cast<std::uint64_t>(f64) != 0x0ull) { (void)_os.write(1, f64); }
-        if (!str.empty()) { (void)_os.write(2, str); }
-        if (!bytes_field.empty()) { (void)_os.write(3, bytes_field.data(), static_cast<std::int32_t>(bytes_field.size())); }
+        if (!str.empty()) { if (str.size() > 32) { return _os.rejectArgument(); } (void)_os.write(2, str); }
+        if (!bytes_field.empty()) { if (bytes_field.size() > 4) { return _os.rejectArgument(); } (void)_os.write(3, bytes_field.data(), static_cast<std::int32_t>(bytes_field.size())); }
         return _os.writeIf(0, false, false);
     }
 
@@ -109,9 +115,9 @@ struct Example_Nested : sofab::Message {
 };
 
 struct Example_Arrays_Nested : sofab::Message {
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<float> fp32 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<double> fp64 = {};
 
     /**
@@ -156,14 +162,22 @@ struct Example_Arrays_Nested : sofab::Message {
      * Called by @ref encode / @ref encodeTo, and directly when writing into a
      * stream you own. Fields equal to their default are omitted.
      *
+     * A value past its schema bound in a growable member -- a std::string or
+     * std::vector longer than its `maxlen` or `count` -- is refused: the
+     * stream latches InvalidArgument (@c ok() turns false) and this returns
+     * at once. A fixed-capacity member (FixedString, FixedBytes, InlineVector)
+     * carries its bound as its capacity and clamps on assignment instead.
+     *
      * @param _os Stream to write to.
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &_os) const noexcept override {
         if (!fp32.empty()) {
+            if (fp32.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(0, fp32);
         }
         if (!fp64.empty()) {
+            if (fp64.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(1, fp64);
         }
         return _os.writeIf(0, false, false);
@@ -193,21 +207,21 @@ struct Example_Arrays_Nested : sofab::Message {
 };
 
 struct Example_Arrays : sofab::Message {
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::uint8_t> u8 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::int8_t> i8 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::uint16_t> u16 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::int16_t> i16 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::uint32_t> u32 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::int32_t> i32 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::uint64_t> u64 = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     std::vector<std::int64_t> i64 = {};
     Example_Arrays_Nested nested = {};
 
@@ -267,32 +281,46 @@ struct Example_Arrays : sofab::Message {
      * Called by @ref encode / @ref encodeTo, and directly when writing into a
      * stream you own. Fields equal to their default are omitted.
      *
+     * A value past its schema bound in a growable member -- a std::string or
+     * std::vector longer than its `maxlen` or `count` -- is refused: the
+     * stream latches InvalidArgument (@c ok() turns false) and this returns
+     * at once. A fixed-capacity member (FixedString, FixedBytes, InlineVector)
+     * carries its bound as its capacity and clamps on assignment instead.
+     *
      * @param _os Stream to write to.
      * @return The result of the writes.
      */
     sofab::OStreamImpl::Result serialize(sofab::OStreamImpl &_os) const noexcept override {
         if (!u8.empty()) {
+            if (u8.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(0, u8);
         }
         if (!i8.empty()) {
+            if (i8.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(1, i8);
         }
         if (!u16.empty()) {
+            if (u16.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(2, u16);
         }
         if (!i16.empty()) {
+            if (i16.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(3, i16);
         }
         if (!u32.empty()) {
+            if (u32.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(4, u32);
         }
         if (!i32.empty()) {
+            if (i32.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(5, i32);
         }
         if (!u64.empty()) {
+            if (u64.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(6, u64);
         }
         if (!i64.empty()) {
+            if (i64.size() > 5) { return _os.rejectArgument(); }
             (void)_os.write(7, i64);
         }
         (void)_os.writeLazy(10, nested);
@@ -349,7 +377,7 @@ struct Example : sofab::Message {
     std::int64_t i64 = 0;
     Example_Nested nested = {};
     Example_Arrays arrays = {};
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
     std::vector<std::string> string_array = {};
     std::uint32_t u32 = 0;
     std::int32_t i32 = 0;
@@ -393,8 +421,9 @@ struct Example : sofab::Message {
     /**
      * @brief Encode this message into a new byte vector.
      * @return The encoded bytes. Empty if the message encodes to nothing,
-     *         and also empty if the encode was refused -- use encodeTo() when
-     *         the two need telling apart.
+     *         and also empty if the encode was refused (a value past its
+     *         schema bound, see @ref serialize) -- use encodeTo() when the
+     *         two need telling apart.
      */
     std::vector<std::uint8_t> encode() const {
         std::vector<std::uint8_t> _out(_maxSize);
@@ -408,8 +437,9 @@ struct Example : sofab::Message {
      * @brief Encode this message into caller-provided storage (no allocation).
      * @param _dst Destination buffer.
      * @param _cap Capacity of @p _dst in bytes.
-     * @return Bytes written, or 0 if the message does not fit in @p _cap;
-     *         in which case @p _dst holds however much was written first.
+     * @return Bytes written, or 0 if the message does not fit in @p _cap or
+     *         was refused (a value past its schema bound, see @ref serialize);
+     *         then @p _dst holds however much was written first.
      */
     std::size_t encodeTo(std::uint8_t *_dst, std::size_t _cap) const noexcept {
         sofab::OStreamView _os{_dst, _cap};
@@ -486,6 +516,12 @@ struct Example : sofab::Message {
      * Called by @ref encode / @ref encodeTo, and directly when writing into a
      * stream you own. Fields equal to their default are omitted.
      *
+     * A value past its schema bound in a growable member -- a std::string or
+     * std::vector longer than its `maxlen` or `count` -- is refused: the
+     * stream latches InvalidArgument (@c ok() turns false) and this returns
+     * at once. A fixed-capacity member (FixedString, FixedBytes, InlineVector)
+     * carries its bound as its capacity and clamps on assignment instead.
+     *
      * @param _os Stream to write to.
      * @return The result of the writes.
      */
@@ -500,8 +536,9 @@ struct Example : sofab::Message {
         if (i64 != 0) { (void)_os.write(7, i64); }
         (void)_os.writeLazy(10, nested);
         (void)_os.writeLazy(100, arrays);
+        if (string_array.size() > 5) { return _os.rejectArgument(); }
         (void)_os.sequenceBeginLazy(200);
-        { const std::size_t _n0 = string_array.size(); for (std::size_t _i0 = 0; _i0 < _n0; ++_i0) { const auto &_e0 = string_array[_i0]; if (!_e0.empty() || _i0 + 1 == _n0) { (void)_os.write(static_cast<sofab::id>(_i0), _e0); } } }
+        { const std::size_t _n0 = string_array.size(); for (std::size_t _i0 = 0; _i0 < _n0; ++_i0) { const auto &_e0 = string_array[_i0]; if (_e0.size() > 64) { return _os.rejectArgument(); } if (!_e0.empty() || _i0 + 1 == _n0) { (void)_os.write(static_cast<sofab::id>(_i0), _e0); } } }
         (void)_os.sequenceEnd();
         return _os.writeIf(0, false, false);
     }

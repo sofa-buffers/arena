@@ -110,16 +110,20 @@ pub const Example_Arrays_Nested = struct {
 pub const Example_Nested = struct {
     f32: f32 = 0.0,
     f64: f64 = 0.0,
-    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
     str: []const u8 = "",
-    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
     bytes_field: []const u8 = "",
 
-    /// Write this value's fields to `os` (sparse-canonical encoding).
+    /// Write this value's fields to `os` (sparse-canonical encoding). A value
+    /// past its schema bound fails with error.InvalidArgument before that value
+    /// is written; fields and elements before it may already be in `os`.
     pub fn serialize(self: *const Example_Nested, os: *sofab.OStream) sofab.Error!void {
         if (@as(u32, @bitCast(self.f32)) != 0x0) try os.writeFp32(0, self.f32);
         if (@as(u64, @bitCast(self.f64)) != 0x0) try os.writeFp64(1, self.f64);
+        if (self.str.len > 32) return error.InvalidArgument;
         if (self.str.len != 0) try os.writeString(2, self.str);
+        if (self.bytes_field.len > 4) return error.InvalidArgument;
         if (self.bytes_field.len != 0) try os.writeBlob(3, self.bytes_field);
     }
 
@@ -146,13 +150,15 @@ pub const Example = struct {
     i64: i64 = 0,
     nested: Example_Nested = .{},
     arrays: Example_Arrays = .{},
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
     string_array: []const []const u8 = &.{},
 
     /// Worst-case encoded size of this message, derived from the schema.
     pub const MAX_SIZE: usize = 732;
 
-    /// Write this value's fields to `os` (sparse-canonical encoding).
+    /// Write this value's fields to `os` (sparse-canonical encoding). A value
+    /// past its schema bound fails with error.InvalidArgument before that value
+    /// is written; fields and elements before it may already be in `os`.
     pub fn serialize(self: *const Example, os: *sofab.OStream) sofab.Error!void {
         if (self.u8 != 0) try os.writeUnsigned(0, self.u8);
         if (self.i8 != 0) try os.writeSigned(1, self.i8);
@@ -168,8 +174,10 @@ pub const Example = struct {
         try os.writeSequenceBeginLazy(100);
         try self.arrays.serialize(os);
         try os.writeSequenceEnd();
+        if (self.string_array.len > 5) return error.InvalidArgument;
         try os.writeSequenceBeginLazy(200);
         for (self.string_array, 0..) |_e0, _i0| {
+            if (_e0.len > 64) return error.InvalidArgument;
             if (_e0.len != 0 or _i0 == self.string_array.len - 1) try os.writeString(@intCast(_i0), _e0);
         }
         try os.writeSequenceEnd();
@@ -193,8 +201,9 @@ pub const Example = struct {
     }
 
     /// Encode into a fresh buffer allocated from `alloc`, sized to MAX_SIZE and
-    /// trimmed to the bytes written. A value filled past its declared bound does
-    /// not fit: error.BufferFull, nothing returned.
+    /// trimmed to the bytes written. A value past its schema bound (a string or
+    /// blob over maxlen, an array over count) is refused with
+    /// error.InvalidArgument, nothing returned.
     pub fn encode(self: *const Example, alloc: std.mem.Allocator) (sofab.Error || std.mem.Allocator.Error)![]u8 {
         const buf = try alloc.alloc(u8, MAX_SIZE);
         errdefer alloc.free(buf);

@@ -145,9 +145,9 @@ impl Example_Arrays_Nested {
 pub struct Example_Nested {
     pub f32: f32,
     pub f64: f64,
-    /// Schema bound: maxlen 32 -- the capacity is in the type; a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 32 -- the capacity is in the type, so the field never holds a longer value; a longer one on the wire is INVALID.
     pub str: heapless::String<32>,
-    /// Schema bound: maxlen 4 -- the capacity is in the type; a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 4 -- the capacity is in the type, so the field never holds a longer value; a longer one on the wire is INVALID.
     pub bytes_field: heapless::Vec<u8, 4>,
 }
 

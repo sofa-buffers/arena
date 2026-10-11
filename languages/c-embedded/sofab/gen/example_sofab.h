@@ -45,11 +45,11 @@
 typedef struct {
     double f64;
     /**
-     * Schema bound: maxlen 32 -- the capacity is in the type; a longer value is INVALID, never truncated.
+     * Schema bound: maxlen 32 -- the capacity is in the type; a value that fills it without a terminator is longer, and encode refuses it (SOFAB_RET_E_ARGUMENT). Over 32 on the wire is INVALID.
      */
     char str[33];
     /**
-     * Schema bound: maxlen 4 -- bytes_field__len carries the length; a longer value is INVALID, never truncated.
+     * Schema bound: maxlen 4 -- bytes_field__len carries the length; encode clamps bytes_field__len to at most 4. Over 4 on the wire is INVALID.
      */
     uint8_t bytes_field__len; uint8_t bytes_field[4];
     float f32;
@@ -57,46 +57,46 @@ typedef struct {
 
 typedef struct {
     /**
-     * Schema bound: count 5 is a capacity; fp32__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; fp32__len carries the length -- elements set without it encode an EMPTY array; encode clamps fp32__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint32_t fp32__len; float fp32[5];
     /**
-     * Schema bound: count 5 is a capacity; fp64__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; fp64__len carries the length -- elements set without it encode an EMPTY array; encode clamps fp64__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint64_t fp64__len; double fp64[5];
 } fullscale_example___arrays___nested_t;
 
 typedef struct {
     /**
-     * Schema bound: count 5 is a capacity; u8__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; u8__len carries the length -- elements set without it encode an EMPTY array; encode clamps u8__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint8_t u8__len; uint8_t u8[5];
     /**
-     * Schema bound: count 5 is a capacity; i8__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; i8__len carries the length -- elements set without it encode an EMPTY array; encode clamps i8__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint8_t i8__len; int8_t i8[5];
     /**
-     * Schema bound: count 5 is a capacity; u16__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; u16__len carries the length -- elements set without it encode an EMPTY array; encode clamps u16__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint16_t u16__len; uint16_t u16[5];
     /**
-     * Schema bound: count 5 is a capacity; i16__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; i16__len carries the length -- elements set without it encode an EMPTY array; encode clamps i16__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint16_t i16__len; int16_t i16[5];
     /**
-     * Schema bound: count 5 is a capacity; u32__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; u32__len carries the length -- elements set without it encode an EMPTY array; encode clamps u32__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint32_t u32__len; uint32_t u32[5];
     /**
-     * Schema bound: count 5 is a capacity; i32__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; i32__len carries the length -- elements set without it encode an EMPTY array; encode clamps i32__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint32_t i32__len; int32_t i32[5];
     /**
-     * Schema bound: count 5 is a capacity; u64__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; u64__len carries the length -- elements set without it encode an EMPTY array; encode clamps u64__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint64_t u64__len; uint64_t u64[5];
     /**
-     * Schema bound: count 5 is a capacity; i64__len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID.
+     * Schema bound: count 5 is a capacity; i64__len carries the length -- elements set without it encode an EMPTY array; encode clamps i64__len to at most 5. Over 5 on the wire is INVALID.
      */
     uint64_t i64__len; int64_t i64[5];
     fullscale_example___arrays___nested_t nested;
@@ -112,7 +112,7 @@ typedef struct {
     fullscale_example___nested_t nested;
     fullscale_example___arrays_t arrays;
     /**
-     * Schema bound: count 5 is a capacity; string_array.len carries the length -- elements set without it encode an EMPTY array. Over 5 is INVALID. Element maxlen 64, same rule.
+     * Schema bound: count 5 is a capacity; string_array.len carries the length -- elements set without it encode an EMPTY array; encode clamps string_array.len to at most 5. Over 5 on the wire is INVALID. Element maxlen 64: an element that fills its storage without a terminator is refused at encode.
      */
     fullscale_example___string_array__elems_t string_array;
     uint32_t u32;

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import math
 from dataclasses import dataclass, field
-from sofab import Binding, Decoder, Encoder, Field, FixlenSubtype, SofaDecodeError, SofaIncompleteError, Status, Visitor, WireType, reserve_leaf
+from sofab import Binding as _Binding, Decoder as _Decoder, Encoder as _Encoder, Field as _Field, FixlenSubtype as _FixlenSubtype, SofaArgumentError as _SofaArgumentError, SofaDecodeError as _SofaDecodeError, SofaIncompleteError as _SofaIncompleteError, Status as _Status, Visitor as _Visitor, WireType as _WireType, reserve_leaf
 
 # Bytes of reassembly space, derived from the schema and the decode limits.
 #
@@ -27,21 +27,21 @@ REASSEMBLY = MAX_FIELD_SPAN + 65536
 
 @dataclass
 class Example_Arrays:
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     u8: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     i8: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     u16: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     i16: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     u32: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     i32: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     u64: list[int] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     i64: list[int] = field(default_factory=list)
     nested: Example_Arrays_Nested = field(default_factory=lambda: Example_Arrays_Nested())
 
@@ -71,23 +71,23 @@ class Example_Arrays:
             return False
         return True
 
-    def serialize(self, e: Encoder) -> None:
+    def serialize(self, e: _Encoder) -> None:
         if len(self.u8) != 0:
-            e.write_unsigned_array(0, self.u8)
+            e.write_u8_array(0, self.u8, 5)
         if len(self.i8) != 0:
-            e.write_signed_array(1, self.i8)
+            e.write_i8_array(1, self.i8, 5)
         if len(self.u16) != 0:
-            e.write_unsigned_array(2, self.u16)
+            e.write_u16_array(2, self.u16, 5)
         if len(self.i16) != 0:
-            e.write_signed_array(3, self.i16)
+            e.write_i16_array(3, self.i16, 5)
         if len(self.u32) != 0:
-            e.write_unsigned_array(4, self.u32)
+            e.write_u32_array(4, self.u32, 5)
         if len(self.i32) != 0:
-            e.write_signed_array(5, self.i32)
+            e.write_i32_array(5, self.i32, 5)
         if len(self.u64) != 0:
-            e.write_unsigned_array(6, self.u64)
+            e.write_u64_array(6, self.u64, 5)
         if len(self.i64) != 0:
-            e.write_signed_array(7, self.i64)
+            e.write_i64_array(7, self.i64, 5)
         e.write_sequence_begin_lazy(10)
         self.nested.serialize(e)
         e.write_sequence_end()
@@ -132,12 +132,15 @@ class Example_Arrays:
         """Encode into a buffer this call allocates and owns.
 
         The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
-        so any conformant value fits. A value filled past a declared
-        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
-        truncated, and nothing is returned.
+        so any conformant value fits. A value past its declared bound -- a
+        string or blob over ``maxlen``, an array over ``count``, an integer,
+        enum or bitfield (a field or an array element) outside its declared
+        width -- raises :class:`sofab.SofaArgumentError` instead of being
+        truncated, and nothing is returned. Should a value still not fit,
+        :class:`sofab.SofaBufferError` is raised, never a short message.
         """
         buf = bytearray(Example_Arrays.MAX_SIZE)
-        e = Encoder.over_buffer(buf, 0)
+        e = _Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
         # prefix once more before bytes() copies it again.
@@ -177,13 +180,13 @@ class Example_Arrays:
         """
         o = cls()
         v = _Example_Arrays__Visitor(o)
-        d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        d = _Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
-        if st is Status.INVALID:
-            raise SofaDecodeError(d.error or "invalid message")
-        if st is Status.INCOMPLETE:
-            raise SofaIncompleteError(d.error or "truncated message")
+        if st is _Status.INVALID:
+            raise _SofaDecodeError(d.error or "invalid message")
+        if st is _Status.INCOMPLETE:
+            raise _SofaIncompleteError(d.error or "truncated message")
         # COMPLETE, so the destination table's slots are final: one pass
         # moves them onto the message. It runs AFTER the two refusals, so
         # a decode that did not complete builds nothing.
@@ -192,9 +195,9 @@ class Example_Arrays:
 
 @dataclass
 class Example_Arrays_Nested:
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     fp32: list[float] = field(default_factory=list)
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     fp64: list[float] = field(default_factory=list)
 
     # Worst-case encoded size, derived from the schema: no value of this
@@ -209,11 +212,11 @@ class Example_Arrays_Nested:
             return False
         return True
 
-    def serialize(self, e: Encoder) -> None:
+    def serialize(self, e: _Encoder) -> None:
         if len(self.fp32) != 0:
-            e.write_float32_array(0, self.fp32)
+            e.write_float32_array_bounded(0, self.fp32, 5)
         if len(self.fp64) != 0:
-            e.write_float64_array(1, self.fp64)
+            e.write_float64_array_bounded(1, self.fp64, 5)
 
     def to_jsonable(self) -> dict:
         return {
@@ -234,12 +237,15 @@ class Example_Arrays_Nested:
         """Encode into a buffer this call allocates and owns.
 
         The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
-        so any conformant value fits. A value filled past a declared
-        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
-        truncated, and nothing is returned.
+        so any conformant value fits. A value past its declared bound -- a
+        string or blob over ``maxlen``, an array over ``count``, an integer,
+        enum or bitfield (a field or an array element) outside its declared
+        width -- raises :class:`sofab.SofaArgumentError` instead of being
+        truncated, and nothing is returned. Should a value still not fit,
+        :class:`sofab.SofaBufferError` is raised, never a short message.
         """
         buf = bytearray(Example_Arrays_Nested.MAX_SIZE)
-        e = Encoder.over_buffer(buf, 0)
+        e = _Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
         # prefix once more before bytes() copies it again.
@@ -273,22 +279,22 @@ class Example_Arrays_Nested:
         INCOMPLETE stays distinguishable from INVALID.
         """
         o = cls()
-        d = Decoder(visitor=_Example_Arrays_Nested__Visitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        d = _Decoder(visitor=_Example_Arrays_Nested__Visitor(o), max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
-        if st is Status.INVALID:
-            raise SofaDecodeError(d.error or "invalid message")
-        if st is Status.INCOMPLETE:
-            raise SofaIncompleteError(d.error or "truncated message")
+        if st is _Status.INVALID:
+            raise _SofaDecodeError(d.error or "invalid message")
+        if st is _Status.INCOMPLETE:
+            raise _SofaIncompleteError(d.error or "truncated message")
         return o
 
 @dataclass
 class Example_Nested:
     f32: float = 0.0
     f64: float = 0.0
-    #: Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    #: Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
     str: str = ""
-    #: Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    #: Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
     bytes_field: bytes = b""
 
     # Worst-case encoded size, derived from the schema: no value of this
@@ -303,19 +309,19 @@ class Example_Nested:
             return False
         if not (self.str == ""):
             return False
-        if not (bytes(self.bytes_field) == b""):
+        if not (self.bytes_field == b""):
             return False
         return True
 
-    def serialize(self, e: Encoder) -> None:
+    def serialize(self, e: _Encoder) -> None:
         if self.f32 != 0.0 or math.copysign(1.0, self.f32) < 0.0:
             e.write_float32(0, self.f32)
         if self.f64 != 0.0 or math.copysign(1.0, self.f64) < 0.0:
             e.write_float64(1, self.f64)
         if self.str != "":
-            e.write_string(2, self.str)
-        if bytes(self.bytes_field) != b"":
-            e.write_bytes(3, bytes(self.bytes_field))
+            e.write_string_bounded(2, self.str, 32)
+        if self.bytes_field != b"":
+            e.write_bytes_bounded(3, self.bytes_field, 4)
 
     def to_jsonable(self) -> dict:
         return {
@@ -342,12 +348,15 @@ class Example_Nested:
         """Encode into a buffer this call allocates and owns.
 
         The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
-        so any conformant value fits. A value filled past a declared
-        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
-        truncated, and nothing is returned.
+        so any conformant value fits. A value past its declared bound -- a
+        string or blob over ``maxlen``, an array over ``count``, an integer,
+        enum or bitfield (a field or an array element) outside its declared
+        width -- raises :class:`sofab.SofaArgumentError` instead of being
+        truncated, and nothing is returned. Should a value still not fit,
+        :class:`sofab.SofaBufferError` is raised, never a short message.
         """
         buf = bytearray(Example_Nested.MAX_SIZE)
-        e = Encoder.over_buffer(buf, 0)
+        e = _Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
         # prefix once more before bytes() copies it again.
@@ -387,13 +396,13 @@ class Example_Nested:
         """
         o = cls()
         v = _Example_Nested__Visitor(o)
-        d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        d = _Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
-        if st is Status.INVALID:
-            raise SofaDecodeError(d.error or "invalid message")
-        if st is Status.INCOMPLETE:
-            raise SofaIncompleteError(d.error or "truncated message")
+        if st is _Status.INVALID:
+            raise _SofaDecodeError(d.error or "invalid message")
+        if st is _Status.INCOMPLETE:
+            raise _SofaIncompleteError(d.error or "truncated message")
         # COMPLETE, so the destination table's slots are final: one pass
         # moves them onto the message. It runs AFTER the two refusals, so
         # a decode that did not complete builds nothing.
@@ -413,7 +422,7 @@ class Example:
     i64: int = 0
     nested: Example_Nested = field(default_factory=lambda: Example_Nested())
     arrays: Example_Arrays = field(default_factory=lambda: Example_Arrays())
-    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    #: Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
     string_array: list[str] = field(default_factory=list)
 
     # Worst-case encoded size, derived from the schema: no value of this
@@ -446,33 +455,36 @@ class Example:
             return False
         return True
 
-    def serialize(self, e: Encoder) -> None:
+    def serialize(self, e: _Encoder) -> None:
         if self.u8 != 0:
-            e.write_unsigned(0, int(self.u8))
+            e.write_u8(0, self.u8)
         if self.i8 != 0:
-            e.write_signed(1, int(self.i8))
+            e.write_i8(1, self.i8)
         if self.u16 != 0:
-            e.write_unsigned(2, int(self.u16))
+            e.write_u16(2, self.u16)
         if self.i16 != 0:
-            e.write_signed(3, int(self.i16))
+            e.write_i16(3, self.i16)
         if self.u32 != 0:
-            e.write_unsigned(4, int(self.u32))
+            e.write_u32(4, self.u32)
         if self.i32 != 0:
-            e.write_signed(5, int(self.i32))
+            e.write_i32(5, self.i32)
         if self.u64 != 0:
-            e.write_unsigned(6, int(self.u64))
+            e.write_unsigned(6, self.u64)
         if self.i64 != 0:
-            e.write_signed(7, int(self.i64))
+            e.write_signed(7, self.i64)
         e.write_sequence_begin_lazy(10)
         self.nested.serialize(e)
         e.write_sequence_end()
         e.write_sequence_begin_lazy(100)
         self.arrays.serialize(e)
         e.write_sequence_end()
+        _n0 = len(self.string_array)
+        if _n0 > 5:
+            raise _SofaArgumentError("string_array: array over count 5")
         e.write_sequence_begin_lazy(200)
         for _i0, _e0 in enumerate(self.string_array):
-            if _e0 != "" or _i0 == len(self.string_array) - 1:
-                e.write_string(_i0, _e0)
+            if _e0 != "" or _i0 == _n0 - 1:
+                e.write_string_bounded(_i0, _e0, 64)
         e.write_sequence_end()
 
     def to_jsonable(self) -> dict:
@@ -521,12 +533,15 @@ class Example:
         """Encode into a buffer this call allocates and owns.
 
         The buffer is exactly ``MAX_SIZE`` bytes -- the schema's worst case --
-        so any conformant value fits. A value filled past a declared
-        count/maxlen raises :class:`sofab.SofaBufferError` instead of being
-        truncated, and nothing is returned.
+        so any conformant value fits. A value past its declared bound -- a
+        string or blob over ``maxlen``, an array over ``count``, an integer,
+        enum or bitfield (a field or an array element) outside its declared
+        width -- raises :class:`sofab.SofaArgumentError` instead of being
+        truncated, and nothing is returned. Should a value still not fit,
+        :class:`sofab.SofaBufferError` is raised, never a short message.
         """
         buf = bytearray(Example.MAX_SIZE)
-        e = Encoder.over_buffer(buf, 0)
+        e = _Encoder.over_buffer(buf, 0)
         self.serialize(e)
         # Through a memoryview: slicing the bytearray itself would copy the
         # prefix once more before bytes() copies it again.
@@ -566,13 +581,13 @@ class Example:
         """
         o = cls()
         v = _Example__Visitor(o)
-        d = Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        d = _Decoder(visitor=v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                     reassembly=MAX_FIELD_SPAN)
         st = d.feed(data)
-        if st is Status.INVALID:
-            raise SofaDecodeError(d.error or "invalid message")
-        if st is Status.INCOMPLETE:
-            raise SofaIncompleteError(d.error or "truncated message")
+        if st is _Status.INVALID:
+            raise _SofaDecodeError(d.error or "invalid message")
+        if st is _Status.INCOMPLETE:
+            raise _SofaIncompleteError(d.error or "truncated message")
         # COMPLETE, so the destination table's slots are final: one pass
         # moves them onto the message. It runs AFTER the two refusals, so
         # a decode that did not complete builds nothing.
@@ -606,12 +621,12 @@ class _StreamDecoder:
     def __init__(self, msg_cls, vis_cls, reassembly=REASSEMBLY) -> None:
         self.message = msg_cls()
         self._v = vis_cls(self.message)
-        self._d = Decoder(visitor=self._v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
+        self._d = _Decoder(visitor=self._v, max_dyn_array_count=65536, max_dyn_string_len=1048576, max_dyn_blob_len=4194304,
                           reassembly=reassembly)
 
-    def feed(self, chunk) -> Status:
+    def feed(self, chunk) -> _Status:
         st = self._d.feed(chunk)
-        if st is Status.COMPLETE:
+        if st is _Status.COMPLETE:
             # The fields the destination table carries land on the message
             # here, in one pass, rather than one callback at a time during
             # the walk. Everything the visitor handles is already on it.
@@ -632,11 +647,11 @@ class _StreamDecoder:
 # option of those shapes. Every other union is a one-of table: the decoder
 # writes the held option's id into its `which_at` slot, and a re-selected
 # option starts again from the `default=` / `default_id=` its rows state.
-_Example_Arrays__Bind__nested = (Binding(closed=True)
+_Example_Arrays__Bind__nested = (_Binding(closed=True)
     .float32_array(0, at=48, cap=5, count_at=53)
     .float64_array(1, at=54, cap=5, count_at=59)
 )
-_Example_Arrays__Bind = (Binding(closed=True)
+_Example_Arrays__Bind = (_Binding(closed=True)
     .unsigned_array(0, at=0, cap=5, count_at=5, elem_max=255)
     .signed_array(1, at=6, cap=5, count_at=11, elem_min=-128, elem_max=127)
     .unsigned_array(2, at=12, cap=5, count_at=17, elem_max=65535)
@@ -655,7 +670,7 @@ _Example_Arrays__Objects = _Example_Arrays__Bind.tree_objects_required
 # array replaces the default, and a zero count slot could not say so.
 _Example_Arrays__Fill = b"\xff" * (_Example_Arrays__Words * 8)
 
-class _Example_Arrays__Visitor(Visitor):
+class _Example_Arrays__Visitor(_Visitor):
     """Decode handler for :class:`Example_Arrays`: a destination table and nothing else.
 
     Every id this schema declares is on the table, so the decoder writes each
@@ -716,7 +731,7 @@ class _Example_Arrays__Visitor(Visitor):
 # this visitor, so nothing ever dispatches against it.
 _Example_Arrays_Nested__Loc = 0
 
-class _Example_Arrays_Nested__Visitor(Visitor):
+class _Example_Arrays_Nested__Visitor(_Visitor):
     """Flat decode visitor for :class:`Example_Arrays_Nested`.
 
     corelib-py's visitor is flat -- one object receives every callback at every
@@ -751,7 +766,7 @@ class _Example_Arrays_Nested__Visitor(Visitor):
             if fid == 1:
                 self._o.fp64 = value
 
-    def on_field(self, fld: Field) -> bool:
+    def on_field(self, fld: _Field) -> bool:
         """Accept or decline a field at its HEADER, before its value is read.
 
         An id is declined when the header's wire type -- or, for a fixlen one,
@@ -769,10 +784,10 @@ class _Example_Arrays_Nested__Visitor(Visitor):
             if fld.id not in {0, 1}:
                 return False  # not one of this scope's own ids: walked, not read
             if fld.id == 0:
-                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP32:
+                if fld.type != _WireType.ARRAY_FIXLEN or fld.subtype != _FixlenSubtype.FP32:
                     return False  # fp32: header is not the declared type -- skip it
             elif fld.id == 1:
-                if fld.type != WireType.ARRAY_FIXLEN or fld.subtype != FixlenSubtype.FP64:
+                if fld.type != _WireType.ARRAY_FIXLEN or fld.subtype != _FixlenSubtype.FP64:
                     return False  # fp64: header is not the declared type -- skip it
         return True
 
@@ -807,7 +822,7 @@ class _Example_Arrays_Nested__Visitor(Visitor):
 # option of those shapes. Every other union is a one-of table: the decoder
 # writes the held option's id into its `which_at` slot, and a re-selected
 # option starts again from the `default=` / `default_id=` its rows state.
-_Example_Nested__Bind = (Binding(closed=True)
+_Example_Nested__Bind = (_Binding(closed=True)
     .float32(0, at=0, count_at=1)
     .float64(1, at=2, count_at=3)
     .string(2, at=0, maxlen=32, count_at=4)
@@ -821,7 +836,7 @@ _Example_Nested__Objects = _Example_Nested__Bind.tree_objects_required
 # array replaces the default, and a zero count slot could not say so.
 _Example_Nested__Fill = b"\xff" * (_Example_Nested__Words * 8)
 
-class _Example_Nested__Visitor(Visitor):
+class _Example_Nested__Visitor(_Visitor):
     """Decode handler for :class:`Example_Nested`: a destination table and nothing else.
 
     Every id this schema declares is on the table, so the decoder writes each
@@ -878,11 +893,11 @@ class _Example_Nested__Visitor(Visitor):
 # option of those shapes. Every other union is a one-of table: the decoder
 # writes the held option's id into its `which_at` slot, and a re-selected
 # option starts again from the `default=` / `default_id=` its rows state.
-_Example__Bind__arrays__nested = (Binding(closed=True)
+_Example__Bind__arrays__nested = (_Binding(closed=True)
     .float32_array(0, at=70, cap=5, count_at=75)
     .float64_array(1, at=76, cap=5, count_at=81)
 )
-_Example__Bind__arrays = (Binding(closed=True)
+_Example__Bind__arrays = (_Binding(closed=True)
     .unsigned_array(0, at=22, cap=5, count_at=27, elem_max=255)
     .signed_array(1, at=28, cap=5, count_at=33, elem_min=-128, elem_max=127)
     .unsigned_array(2, at=34, cap=5, count_at=39, elem_max=65535)
@@ -893,13 +908,13 @@ _Example__Bind__arrays = (Binding(closed=True)
     .signed_array(7, at=64, cap=5, count_at=69)
     .sequence(10, child=_Example__Bind__arrays__nested)
 )
-_Example__Bind__nested = (Binding(closed=True)
+_Example__Bind__nested = (_Binding(closed=True)
     .float32(0, at=16, count_at=17)
     .float64(1, at=18, count_at=19)
     .string(2, at=0, maxlen=32, count_at=20)
     .bytes(3, at=1, maxlen=4, count_at=21)
 )
-_Example__Bind = (Binding()
+_Example__Bind = (_Binding()
     .unsigned(0, at=0, count_at=1, max_value=255)
     .signed(1, at=2, count_at=3, min_value=-128, max_value=127)
     .unsigned(2, at=4, count_at=5, max_value=65535)
@@ -927,7 +942,7 @@ _Example__Fill = b"\xff" * (_Example__Words * 8)
 _Example__Loc = 0
 _Example__Loc__string_array = 4
 
-class _Example__Visitor(Visitor):
+class _Example__Visitor(_Visitor):
     """Flat decode visitor for :class:`Example`.
 
     corelib-py's visitor is flat -- one object receives every callback at every
@@ -1011,7 +1026,7 @@ class _Example__Visitor(Visitor):
         if c == _Example__Loc__string_array:
             self._o.string_array[fid] = value
 
-    def on_field(self, fld: Field) -> bool:
+    def on_field(self, fld: _Field) -> bool:
         """Accept or decline a field at its HEADER, before its value is read.
 
         An id is declined when the header's wire type -- or, for a fixlen one,
@@ -1028,7 +1043,7 @@ class _Example__Visitor(Visitor):
         if c == _Example__Loc:
             return False  # every id handled here is framed as a sequence: unknown or mistyped (S7.3)
         elif c == _Example__Loc__string_array:
-            if fld.subtype != FixlenSubtype.STRING:
+            if fld.subtype != _FixlenSubtype.STRING:
                 return False  # string_array: header is not the declared type -- skip it
             reserve_leaf(self._o.string_array, fld.id, "", 5, 65536)
         return True

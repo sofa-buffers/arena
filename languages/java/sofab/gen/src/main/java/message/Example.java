@@ -16,23 +16,34 @@ public class Example {
     public long i64;
     public Example_Nested nested = new Example_Nested();
     public Example_Arrays arrays = new Example_Arrays();
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule. */
     public List<String> string_array = new ArrayList<>();
 
+    /**
+     * Write every field that differs from its default into {@code os}.
+     *
+     * @throws SofabException with {@code ARGUMENT} when a field holds a value
+     *         past its schema bound (a string or blob over its maxlen in
+     *         UTF-8 bytes, an array over its count, an integer, enum or
+     *         bitfield outside its declared width); the value is never
+     *         written, clamped or masked
+     * @throws IOException on buffer overflow or sink failure
+     */
     public void serialize(OStream os) throws IOException {
-        if (this.u8 != 0L) { os.writeUnsigned(0, this.u8); }
-        if (this.i8 != 0L) { os.writeSigned(1, this.i8); }
-        if (this.u16 != 0L) { os.writeUnsigned(2, this.u16); }
-        if (this.i16 != 0L) { os.writeSigned(3, this.i16); }
-        if (this.u32 != 0L) { os.writeUnsigned(4, this.u32); }
-        if (this.i32 != 0L) { os.writeSigned(5, this.i32); }
+        if (this.u8 != 0L) { if (this.u8 < 0 || this.u8 > 255L) throw new SofabException(SofabError.ARGUMENT, "u8: value outside declared width u8"); os.writeUnsigned(0, this.u8); }
+        if (this.i8 != 0L) { if (this.i8 < -128L || this.i8 > 127L) throw new SofabException(SofabError.ARGUMENT, "i8: value outside declared width i8"); os.writeSigned(1, this.i8); }
+        if (this.u16 != 0L) { if (this.u16 < 0 || this.u16 > 65535L) throw new SofabException(SofabError.ARGUMENT, "u16: value outside declared width u16"); os.writeUnsigned(2, this.u16); }
+        if (this.i16 != 0L) { if (this.i16 < -32768L || this.i16 > 32767L) throw new SofabException(SofabError.ARGUMENT, "i16: value outside declared width i16"); os.writeSigned(3, this.i16); }
+        if (this.u32 != 0L) { if (this.u32 < 0 || this.u32 > 4294967295L) throw new SofabException(SofabError.ARGUMENT, "u32: value outside declared width u32"); os.writeUnsigned(4, this.u32); }
+        if (this.i32 != 0L) { if (this.i32 < -2147483648L || this.i32 > 2147483647L) throw new SofabException(SofabError.ARGUMENT, "i32: value outside declared width i32"); os.writeSigned(5, this.i32); }
         if (this.u64 != 0L) { os.writeUnsigned(6, this.u64); }
         if (this.i64 != 0L) { os.writeSigned(7, this.i64); }
         os.writeSequenceBeginLazy(10); (this.nested == null ? new Example_Nested() : this.nested).serialize(os); os.writeSequenceEnd();
         os.writeSequenceBeginLazy(100); (this.arrays == null ? new Example_Arrays() : this.arrays).serialize(os); os.writeSequenceEnd();
         List<String> _t0 = Seq.orEmpty(this.string_array);
+        if (_t0.size() > 5) throw new SofabException(SofabError.ARGUMENT, "string_array: array count above schema capacity 5");
         os.writeSequenceBeginLazy(200);
-        for (int _i0 = 0; _i0 < _t0.size(); _i0++) { String _e0 = _t0.get(_i0); if (_e0 == null) _e0 = ""; if (!_e0.isEmpty() || _i0 == _t0.size() - 1) os.writeString(_i0, _e0); }
+        for (int _i0 = 0; _i0 < _t0.size(); _i0++) { String _e0 = _t0.get(_i0); if (_e0 == null) _e0 = ""; if (!_e0.isEmpty() || _i0 == _t0.size() - 1) os.writeString(_i0, _e0, 64); }
         os.writeSequenceEnd();
     }
     /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
@@ -65,6 +76,12 @@ public class Example {
         this.string_array = Seq.reset(this.string_array);
     }
     public static final int MAX_SIZE = 732;
+    /**
+     * Encode this message into a new array.
+     *
+     * @throws RuntimeException wrapping the {@link SofabException} that
+     *         {@link #serialize} raises; no bytes are returned then
+     */
     public byte[] encode() {
         try {
             OStream os = OStream.overScratch(MAX_SIZE);
@@ -78,6 +95,9 @@ public class Example {
      * <p>With a {@code FlushSink} on {@code os} the buffer may be smaller
      * than the message: it is drained as it fills, so what bounds memory is
      * the buffer, not the message.
+     *
+     * <p>A field past its schema bound makes {@link #serialize} throw; with
+     * a sink, bytes of the fields before it may already have been drained.
      */
     public void encodeTo(OStream os) throws IOException {
         serialize(os);

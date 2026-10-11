@@ -18,7 +18,7 @@ public class Example {
     public var i64: Long = 0L
     public var nested: Example_Nested = Example_Nested()
     public var arrays: Example_Arrays = Example_Arrays()
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule. */
     public var string_array: MutableList<String> = mutableListOf()
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
@@ -34,8 +34,9 @@ public class Example {
         os.writeSequenceBeginLazy(10); this.nested.serialize(os); os.writeSequenceEnd()
         os.writeSequenceBeginLazy(100); this.arrays.serialize(os); os.writeSequenceEnd()
         val _t0: MutableList<String> = this.string_array
+        if (_t0.size > 5) throw SofabException(SofabError.ARGUMENT, "string_array: more than count 5 elements")
         os.writeSequenceBeginLazy(200)
-        for (_i0 in 0 until _t0.size) { val _e0 = _t0[_i0]; if (_e0.isNotEmpty() || _i0 == _t0.size - 1) os.writeString(_i0, _e0) }
+        for (_i0 in 0 until _t0.size) { val _e0 = _t0[_i0]; if (_e0.isNotEmpty() || _i0 == _t0.size - 1) os.writeString(_i0, _e0, 64) }
         os.writeSequenceEnd()
     }
 
@@ -74,8 +75,12 @@ public class Example {
      * The complete message as bytes.
      *
      * The schema bounds this message, so one exactly-sized buffer holds it
-     * and no flush can occur: a value filled past its own declared bound
-     * does not fit and is REPORTED (buffer-full) rather than emitted short.
+     * and no flush can occur.
+     *
+     * @throws SofabException [SofabError.ARGUMENT] when a value is past its schema
+     *   bound -- a string or blob over `maxlen` bytes, an array over `count`, an enum
+     *   or bitfield outside its declared width -- or a string holds an unpaired
+     *   surrogate. Such a value is refused, never clamped.
      */
     public fun encode(): ByteArray {
         val buf = ByteArray(MAX_SIZE)
@@ -90,6 +95,11 @@ public class Example {
      * With a [FlushSink] on [os] the buffer may be smaller than the message:
      * it is drained as it fills, so what bounds memory is the buffer rather
      * than the message.
+     *
+     * @throws SofabException [SofabError.ARGUMENT] when a value is past its schema
+     *   bound -- a string or blob over `maxlen` bytes, an array over `count`, an enum
+     *   or bitfield outside its declared width -- or a string holds an unpaired
+     *   surrogate. Such a value is refused, never clamped.
      */
     public fun encodeTo(os: OStream) {
         serialize(os)

@@ -7,48 +7,56 @@ package message
 import org.sofabuffers.sofab.*
 
 public class Example_Arrays {
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var u8: UByteArray = Seq.EMPTY_UBYTES
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var i8: ByteArray = Seq.EMPTY_BYTES
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var u16: UShortArray = Seq.EMPTY_USHORTS
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var i16: ShortArray = Seq.EMPTY_SHORTS
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var u32: UIntArray = Seq.EMPTY_UINTS
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var i32: IntArray = Seq.EMPTY_INTS
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var u64: ULongArray = Seq.EMPTY_ULONGS
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var i64: LongArray = Seq.EMPTY_LONGS
     public var nested: Example_Arrays_Nested = Example_Arrays_Nested()
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {
         if (this.u8.isNotEmpty()) {
+            if (this.u8.size > 5) throw SofabException(SofabError.ARGUMENT, "u8: more than count 5 elements")
             os.writeArrayUnsigned(0, this.u8.asByteArray())
         }
         if (this.i8.isNotEmpty()) {
+            if (this.i8.size > 5) throw SofabException(SofabError.ARGUMENT, "i8: more than count 5 elements")
             os.writeArraySigned(1, this.i8)
         }
         if (this.u16.isNotEmpty()) {
+            if (this.u16.size > 5) throw SofabException(SofabError.ARGUMENT, "u16: more than count 5 elements")
             os.writeArrayUnsigned(2, this.u16.asShortArray())
         }
         if (this.i16.isNotEmpty()) {
+            if (this.i16.size > 5) throw SofabException(SofabError.ARGUMENT, "i16: more than count 5 elements")
             os.writeArraySigned(3, this.i16)
         }
         if (this.u32.isNotEmpty()) {
+            if (this.u32.size > 5) throw SofabException(SofabError.ARGUMENT, "u32: more than count 5 elements")
             os.writeArrayUnsigned(4, this.u32.asIntArray())
         }
         if (this.i32.isNotEmpty()) {
+            if (this.i32.size > 5) throw SofabException(SofabError.ARGUMENT, "i32: more than count 5 elements")
             os.writeArraySigned(5, this.i32)
         }
         if (this.u64.isNotEmpty()) {
+            if (this.u64.size > 5) throw SofabException(SofabError.ARGUMENT, "u64: more than count 5 elements")
             os.writeArrayUnsigned(6, this.u64.asLongArray())
         }
         if (this.i64.isNotEmpty()) {
+            if (this.i64.size > 5) throw SofabException(SofabError.ARGUMENT, "i64: more than count 5 elements")
             os.writeArraySigned(7, this.i64)
         }
         os.writeSequenceBeginLazy(10); this.nested.serialize(os); os.writeSequenceEnd()
