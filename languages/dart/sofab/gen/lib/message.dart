@@ -8,33 +8,33 @@ double _f32FromBits(int bits) =>
     (ByteData(4)..setUint32(0, bits, Endian.little)).getFloat32(0, Endian.little);
 
 class Example_Arrays {
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array u8 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(0, 255));
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array i8 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(-128, 127));
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array u16 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(0, 65535));
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array i16 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(-32768, 32767));
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array u32 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(0, 4294967295));
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array i32 = sofab.InlineInt64Array(5, range: const sofab.ElemRange(-2147483648, 2147483647));
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array u64 = sofab.InlineInt64Array(5);
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineInt64Array i64 = sofab.InlineInt64Array(5);
   Example_Arrays_Nested nested = Example_Arrays_Nested();
 
   void serialize(sofab.Encoder e) {
-    if (u8.length != 0) { e.writeUnsignedArray(0, u8.storage, u8.length); }
-    if (i8.length != 0) { e.writeSignedArray(1, i8.storage, i8.length); }
-    if (u16.length != 0) { e.writeUnsignedArray(2, u16.storage, u16.length); }
-    if (i16.length != 0) { e.writeSignedArray(3, i16.storage, i16.length); }
-    if (u32.length != 0) { e.writeUnsignedArray(4, u32.storage, u32.length); }
-    if (i32.length != 0) { e.writeSignedArray(5, i32.storage, i32.length); }
-    if (u64.length != 0) { e.writeUnsignedArray(6, u64.storage, u64.length); }
-    if (i64.length != 0) { e.writeSignedArray(7, i64.storage, i64.length); }
+    if (u8.length != 0) { if (u8.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u8: over count 5'); e.writeUnsignedArrayInRange(0, u8.storage, u8.length, 0, 255); }
+    if (i8.length != 0) { if (i8.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i8: over count 5'); e.writeSignedArrayInRange(1, i8.storage, i8.length, -128, 127); }
+    if (u16.length != 0) { if (u16.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u16: over count 5'); e.writeUnsignedArrayInRange(2, u16.storage, u16.length, 0, 65535); }
+    if (i16.length != 0) { if (i16.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i16: over count 5'); e.writeSignedArrayInRange(3, i16.storage, i16.length, -32768, 32767); }
+    if (u32.length != 0) { if (u32.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u32: over count 5'); e.writeUnsignedArrayInRange(4, u32.storage, u32.length, 0, 4294967295); }
+    if (i32.length != 0) { if (i32.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i32: over count 5'); e.writeSignedArrayInRange(5, i32.storage, i32.length, -2147483648, 2147483647); }
+    if (u64.length != 0) { if (u64.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u64: over count 5'); e.writeUnsignedArray(6, u64.storage, u64.length); }
+    if (i64.length != 0) { if (i64.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i64: over count 5'); e.writeSignedArray(7, i64.storage, i64.length); }
     e.beginSequenceLazy(10); nested.serialize(e); e.endSequence();
   }
 
@@ -111,14 +111,14 @@ class _Example_Arrays__Visitor extends sofab.MessageVisitor {
 }
 
 class Example_Arrays_Nested {
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineFloat32Array fp32 = sofab.InlineFloat32Array(5);
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
   final sofab.InlineFloat64Array fp64 = sofab.InlineFloat64Array(5);
 
   void serialize(sofab.Encoder e) {
-    if (fp32.length != 0) { e.writeFp32Array(0, fp32.storage, fp32.length); }
-    if (fp64.length != 0) { e.writeFp64Array(1, fp64.storage, fp64.length); }
+    if (fp32.length != 0) { if (fp32.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'fp32: over count 5'); e.writeFp32Array(0, fp32.storage, fp32.length); }
+    if (fp64.length != 0) { if (fp64.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'fp64: over count 5'); e.writeFp64Array(1, fp64.storage, fp64.length); }
   }
 
   /// Restores every field to its declared default, in place.
@@ -164,9 +164,9 @@ class Example_Nested {
   double f32 = 0.0;
   int? f32Fp32Bits;
   double f64 = 0.0;
-  /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+  /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
   final sofab.InlineString str = sofab.InlineString(32);
-  /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+  /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
   final sofab.InlineBytes bytes_field = sofab.InlineBytes(4);
 
   void serialize(sofab.Encoder e) {
@@ -174,8 +174,8 @@ class Example_Nested {
       if (f32.isNaN && f32Fp32Bits != null) { e.writeFp32Bits(0, f32Fp32Bits!); } else { e.writeFp32(0, f32); }
     }
     if (f64 != 0.0 || f64.isNegative) { e.writeFp64(1, f64); }
-    if (str.length != 0) { e.writeStringUtf8(2, str.storage, str.length); }
-    if (bytes_field.length != 0) { e.writeBlob(3, bytes_field.storage, bytes_field.length); }
+    if (str.length != 0) { if (str.length > 32) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'str: over maxlen 32'); e.writeStringUtf8(2, str.storage, str.length); }
+    if (bytes_field.length != 0) { if (bytes_field.length > 4) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'bytes_field: over maxlen 4'); e.writeBlob(3, bytes_field.storage, bytes_field.length); }
   }
 
   /// Restores every field to its declared default, in place.
@@ -258,23 +258,25 @@ class Example {
   int i64 = 0;
   Example_Nested nested = Example_Nested();
   Example_Arrays arrays = Example_Arrays();
-  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+  /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
   List<sofab.InlineString> string_array = <sofab.InlineString>[];
 
   void serialize(sofab.Encoder e) {
-    if (u8 != 0) { e.writeUnsigned(0, u8); }
-    if (i8 != 0) { e.writeSigned(1, i8); }
-    if (u16 != 0) { e.writeUnsigned(2, u16); }
-    if (i16 != 0) { e.writeSigned(3, i16); }
-    if (u32 != 0) { e.writeUnsigned(4, u32); }
-    if (i32 != 0) { e.writeSigned(5, i32); }
+    if (u8 != 0) { if (u8 < 0 || u8 > 255) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u8: outside its declared width'); e.writeUnsigned(0, u8); }
+    if (i8 != 0) { if (i8 < -128 || i8 > 127) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i8: outside its declared width'); e.writeSigned(1, i8); }
+    if (u16 != 0) { if (u16 < 0 || u16 > 65535) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u16: outside its declared width'); e.writeUnsigned(2, u16); }
+    if (i16 != 0) { if (i16 < -32768 || i16 > 32767) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i16: outside its declared width'); e.writeSigned(3, i16); }
+    if (u32 != 0) { if (u32 < 0 || u32 > 4294967295) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'u32: outside its declared width'); e.writeUnsigned(4, u32); }
+    if (i32 != 0) { if (i32 < -2147483648 || i32 > 2147483647) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'i32: outside its declared width'); e.writeSigned(5, i32); }
     if (u64 != 0) { e.writeUnsigned(6, u64); }
     if (i64 != 0) { e.writeSigned(7, i64); }
     e.beginSequenceLazy(10); nested.serialize(e); e.endSequence();
     e.beginSequenceLazy(100); arrays.serialize(e); e.endSequence();
+    if (string_array.length > 5) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'string_array: over count 5');
     e.beginSequenceLazy(200);
     for (var _i0 = 0; _i0 < string_array.length; _i0++) {
       final _e0 = string_array[_i0];
+      if (_e0.length > 64) throw const sofab.SofabException(sofab.SofabError.invalidArgument, 'string_array: element over maxlen 64');
       if (_e0.length != 0 || _i0 == string_array.length - 1) e.writeStringUtf8(_i0, _e0.storage, _e0.length);
     }
     e.endSequence();
@@ -315,9 +317,14 @@ class Example {
   /// Serializes this message into a buffer this call allocates and owns.
   ///
   /// The buffer is exactly [maxSize] bytes -- the schema's worst case -- so any
-  /// conformant value fits. A value filled past a declared count/maxlen does
-  /// not, and throws [sofab.SofabException] (`bufferFull`) rather than being
-  /// handed back truncated.
+  /// conformant value fits.
+  ///
+  /// A value past what the schema declares -- a string or blob longer than its
+  /// `maxlen` in UTF-8 bytes, an array longer than its `count`, an integer,
+  /// enum or bitfield (a field or an array element) outside its declared
+  /// width -- throws
+  /// [sofab.SofabException] (`invalidArgument`); nothing is returned, and the
+  /// value is never truncated or masked.
   Uint8List encode() {
     final buf = Uint8List(maxSize);
     final e = sofab.Encoder.overBuffer(buf, depth: maxDepth);
@@ -331,6 +338,9 @@ class Example {
   /// The encoder's buffer may be smaller than the message: it is drained
   /// through the flush callback as it fills, so what bounds memory is the
   /// buffer, not the message.
+  ///
+  /// A value past a schema bound throws as [encode] does; what the encoder
+  /// had already flushed to its sink by then is not a message.
   void encodeTo(sofab.Encoder e) {
     serialize(e);
     e.flush();

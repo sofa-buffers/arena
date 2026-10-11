@@ -15,7 +15,7 @@ type Example struct {
 	I64    int64          `json:"i64"`
 	Nested Example_Nested `json:"nested"`
 	Arrays Example_Arrays `json:"arrays"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
 	StringArray []string `json:"string_array"`
 	U32         uint32   `json:"u32"`
 	I32         int32    `json:"i32"`
@@ -56,9 +56,17 @@ func (m *Example) Serialize(e *sofab.Encoder) {
 	e.WriteSequenceBeginLazy(100)
 	m.Arrays.Serialize(e)
 	e.WriteSequenceEnd()
+	if len(m.StringArray) > 5 {
+		e.RejectArgument()
+		return
+	}
 	e.WriteSequenceBeginLazy(200)
 	for _i0, _e0 := range m.StringArray {
 		if _e0 != "" || _i0 == len(m.StringArray)-1 {
+			if len(_e0) > 64 {
+				e.RejectArgument()
+				return
+			}
 			e.WriteString(sofab.ID(_i0), _e0)
 		}
 	}
@@ -183,7 +191,7 @@ var _Example__EncOpts = []sofab.Option{sofab.WithMaxDepth(Example__MaxDepth)}
 //
 // The buffer is exactly Example__MaxSize bytes -- the schema's worst case -- so a
 // conformant value always fits. A value filled past a declared count/maxlen
-// does not, and is reported rather than truncated.
+// is refused with sofab.ErrArgument before any byte is returned.
 func (m *Example) Encode() ([]byte, error) {
 	buf := make([]byte, Example__MaxSize)
 	e, err := sofab.NewEncoderBuffer(buf, 0, _Example__EncOpts...)

@@ -5,16 +5,28 @@ import java.io.IOException;
 import java.util.*;
 
 public class Example_Arrays_Nested {
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public float[] fp32 = Seq.EMPTY_FLOATS;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public double[] fp64 = Seq.EMPTY_DOUBLES;
 
+    /**
+     * Write every field that differs from its default into {@code os}.
+     *
+     * @throws SofabException with {@code ARGUMENT} when a field holds a value
+     *         past its schema bound (a string or blob over its maxlen in
+     *         UTF-8 bytes, an array over its count, an integer, enum or
+     *         bitfield outside its declared width); the value is never
+     *         written, clamped or masked
+     * @throws IOException on buffer overflow or sink failure
+     */
     public void serialize(OStream os) throws IOException {
         if (this.fp32 != null && this.fp32.length != 0) {
+            if (this.fp32.length > 5) throw new SofabException(SofabError.ARGUMENT, "fp32: array count above schema capacity 5");
             os.writeArrayFp32(0, this.fp32);
         }
         if (this.fp64 != null && this.fp64.length != 0) {
+            if (this.fp64.length > 5) throw new SofabException(SofabError.ARGUMENT, "fp64: array count above schema capacity 5");
             os.writeArrayFp64(1, this.fp64);
         }
     }

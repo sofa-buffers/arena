@@ -10,48 +10,80 @@ import (
 // Example_Arrays is a generated SofaBuffers object.
 type Example_Arrays struct {
 	sofab.VisitorBase
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	U8 []uint8 `json:"u8"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	I8 []int8 `json:"i8"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	U16 []uint16 `json:"u16"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	I16 []int16 `json:"i16"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	U32 []uint32 `json:"u32"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	I32 []int32 `json:"i32"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	U64 []uint64 `json:"u64"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	I64    []int64               `json:"i64"`
 	Nested Example_Arrays_Nested `json:"nested"`
 }
 
 func (m *Example_Arrays) Serialize(e *sofab.Encoder) {
 	if len(m.U8) != 0 {
+		if len(m.U8) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteUnsignedArray(e, 0, m.U8)
 	}
 	if len(m.I8) != 0 {
+		if len(m.I8) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteSignedArray(e, 1, m.I8)
 	}
 	if len(m.U16) != 0 {
+		if len(m.U16) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteUnsignedArray(e, 2, m.U16)
 	}
 	if len(m.I16) != 0 {
+		if len(m.I16) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteSignedArray(e, 3, m.I16)
 	}
 	if len(m.U32) != 0 {
+		if len(m.U32) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteUnsignedArray(e, 4, m.U32)
 	}
 	if len(m.I32) != 0 {
+		if len(m.I32) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteSignedArray(e, 5, m.I32)
 	}
 	if len(m.U64) != 0 {
+		if len(m.U64) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteUnsignedArray(e, 6, m.U64)
 	}
 	if len(m.I64) != 0 {
+		if len(m.I64) > 5 {
+			e.RejectArgument()
+			return
+		}
 		sofab.WriteSignedArray(e, 7, m.I64)
 	}
 	e.WriteSequenceBeginLazy(10)
@@ -217,17 +249,25 @@ func (m *Example_Arrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 // Example_Arrays_Nested is a generated SofaBuffers object.
 type Example_Arrays_Nested struct {
 	sofab.VisitorBase
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	Fp32 []float32 `json:"fp32"`
-	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	Fp64 []float64 `json:"fp64"`
 }
 
 func (m *Example_Arrays_Nested) Serialize(e *sofab.Encoder) {
 	if len(m.Fp32) != 0 {
+		if len(m.Fp32) > 5 {
+			e.RejectArgument()
+			return
+		}
 		e.WriteFloat32Array(0, m.Fp32)
 	}
 	if len(m.Fp64) != 0 {
+		if len(m.Fp64) > 5 {
+			e.RejectArgument()
+			return
+		}
 		e.WriteFloat64Array(1, m.Fp64)
 	}
 }
@@ -285,9 +325,9 @@ type Example_Nested struct {
 	sofab.VisitorBase
 	sofab.StringCheck
 	F64 float64 `json:"f64"`
-	// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+	// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
 	Str string `json:"str"`
-	// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+	// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
 	BytesField []byte  `json:"bytes_field"`
 	F32        float32 `json:"f32"`
 	// _acc assembles a string or blob payload the codec delivers in pieces
@@ -303,9 +343,17 @@ func (m *Example_Nested) Serialize(e *sofab.Encoder) {
 		e.WriteFloat64(1, m.F64)
 	}
 	if m.Str != "" {
+		if len(m.Str) > 32 {
+			e.RejectArgument()
+			return
+		}
 		e.WriteString(2, m.Str)
 	}
 	if len(m.BytesField) != 0 {
+		if len(m.BytesField) > 4 {
+			e.RejectArgument()
+			return
+		}
 		e.WriteBytes(3, m.BytesField)
 	}
 }

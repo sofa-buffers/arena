@@ -40,21 +40,21 @@ impl std::error::Error for DecodeError {}
 #[serde(default)]
 #[allow(non_camel_case_types)] // spelled from the schema path
 pub struct Example_Arrays {
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub u8: Vec<u8>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub i8: Vec<i8>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub u16: Vec<u16>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub i16: Vec<i16>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub u32: Vec<u32>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub i32: Vec<i32>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub u64: Vec<u64>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub i64: Vec<i64>,
     pub nested: Example_Arrays_Nested,
 }
@@ -77,29 +77,41 @@ impl Default for Example_Arrays {
 }
 
 impl Example_Arrays {
+    /// Write every field into `os`. A value past its schema bound -- a string or
+    /// blob over its `maxlen` in UTF-8 bytes, an array over its `count` -- is
+    /// refused with `sofab::Error::Argument` before any of it is written; a flush
+    /// sink may already hold the fields written ahead of it.
     pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
         if !self.u8.is_empty() {
+            if self.u8.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_unsigned(0, &self.u8)?;
         }
         if !self.i8.is_empty() {
+            if self.i8.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_signed(1, &self.i8)?;
         }
         if !self.u16.is_empty() {
+            if self.u16.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_unsigned(2, &self.u16)?;
         }
         if !self.i16.is_empty() {
+            if self.i16.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_signed(3, &self.i16)?;
         }
         if !self.u32.is_empty() {
+            if self.u32.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_unsigned(4, &self.u32)?;
         }
         if !self.i32.is_empty() {
+            if self.i32.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_signed(5, &self.i32)?;
         }
         if !self.u64.is_empty() {
+            if self.u64.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_unsigned(6, &self.u64)?;
         }
         if !self.i64.is_empty() {
+            if self.i64.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_signed(7, &self.i64)?;
         }
         os.write_sequence_begin_lazy(10)?; self.nested.serialize(os)?; os.write_sequence_end()?;
@@ -111,9 +123,9 @@ impl Example_Arrays {
 #[serde(default)]
 #[allow(non_camel_case_types)] // spelled from the schema path
 pub struct Example_Arrays_Nested {
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub fp32: Vec<f32>,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     pub fp64: Vec<f64>,
 }
 
@@ -128,11 +140,17 @@ impl Default for Example_Arrays_Nested {
 }
 
 impl Example_Arrays_Nested {
+    /// Write every field into `os`. A value past its schema bound -- a string or
+    /// blob over its `maxlen` in UTF-8 bytes, an array over its `count` -- is
+    /// refused with `sofab::Error::Argument` before any of it is written; a flush
+    /// sink may already hold the fields written ahead of it.
     pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
         if !self.fp32.is_empty() {
+            if self.fp32.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_fp32(0, &self.fp32)?;
         }
         if !self.fp64.is_empty() {
+            if self.fp64.len() > 5 { return Err(sofab::Error::Argument); }
             os.write_array_fp64(1, &self.fp64)?;
         }
         Ok(())
@@ -145,9 +163,9 @@ impl Example_Arrays_Nested {
 pub struct Example_Nested {
     pub f32: f32,
     pub f64: f64,
-    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
     pub str: String,
-    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
     pub bytes_field: Vec<u8>,
 }
 
@@ -164,10 +182,16 @@ impl Default for Example_Nested {
 }
 
 impl Example_Nested {
+    /// Write every field into `os`. A value past its schema bound -- a string or
+    /// blob over its `maxlen` in UTF-8 bytes, an array over its `count` -- is
+    /// refused with `sofab::Error::Argument` before any of it is written; a flush
+    /// sink may already hold the fields written ahead of it.
     pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
         if self.f32.to_bits() != 0x0 { os.write_fp32(0, self.f32)?; }
         if self.f64.to_bits() != 0x0 { os.write_fp64(1, self.f64)?; }
+        if self.str.len() > 32 { return Err(sofab::Error::Argument); }
         if !self.str.is_empty() { os.write_str(2, &self.str)?; }
+        if self.bytes_field.len() > 4 { return Err(sofab::Error::Argument); }
         if !self.bytes_field.is_empty() { os.write_blob(3, &self.bytes_field)?; }
         Ok(())
     }
@@ -187,7 +211,7 @@ pub struct Example {
     pub i64: i64,
     pub nested: Example_Nested,
     pub arrays: Example_Arrays,
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
     pub string_array: Vec<String>,
 }
 
@@ -213,6 +237,10 @@ impl Default for Example {
 impl Example {
     /// Worst-case encoded size of this message, derived from the schema.
     pub const MAX_SIZE: usize = 732;
+    /// Write every field into `os`. A value past its schema bound -- a string or
+    /// blob over its `maxlen` in UTF-8 bytes, an array over its `count` -- is
+    /// refused with `sofab::Error::Argument` before any of it is written; a flush
+    /// sink may already hold the fields written ahead of it.
     pub fn serialize<_F: sofab::Flush>(&self, os: &mut sofab::OStream<'_, _F>) -> Result<(), sofab::Error> {
         if self.u8 != 0 { os.write_unsigned(0, self.u8 as sofab::Unsigned)?; }
         if self.i8 != 0 { os.write_signed(1, self.i8 as sofab::Signed)?; }
@@ -224,11 +252,17 @@ impl Example {
         if self.i64 != 0 { os.write_signed(7, self.i64 as sofab::Signed)?; }
         os.write_sequence_begin_lazy(10)?; self.nested.serialize(os)?; os.write_sequence_end()?;
         os.write_sequence_begin_lazy(100)?; self.arrays.serialize(os)?; os.write_sequence_end()?;
+        if self.string_array.len() > 5 { return Err(sofab::Error::Argument); }
         os.write_sequence_begin_lazy(200)?;
-        for (_i0, _e0) in self.string_array.iter().enumerate() { if !_e0.is_empty() || _i0 + 1 == self.string_array.len() { os.write_str(_i0 as sofab::Id, _e0)?; } }
+        for (_i0, _e0) in self.string_array.iter().enumerate() {
+            if _e0.len() > 64 { return Err(sofab::Error::Argument); }
+            if !_e0.is_empty() || _i0 + 1 == self.string_array.len() { os.write_str(_i0 as sofab::Id, _e0)?; }
+        }
         os.write_sequence_end()?;
         Ok(())
     }
+    /// Encode the message. A value past its schema bound is refused with
+    /// `sofab::Error::Argument` (see `serialize`), and no bytes are returned.
     pub fn encode(&self) -> Result<Vec<u8>, sofab::Error> {
         let mut buf = vec![0u8; Self::MAX_SIZE];
         let used = { let mut os = sofab::OStream::new(&mut buf); self.serialize(&mut os)?; os.bytes_used() };

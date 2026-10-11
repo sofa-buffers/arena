@@ -17,16 +17,17 @@ public class Example_Nested {
      */
     public var f32Fp32Bits: Int? = null
     public var f64: Double = 0.0
-    /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
+    /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it. */
     public var str: String = ""
-    /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated. */
+    /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it. */
     public var bytes_field: ByteArray = Seq.EMPTY_BYTES
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {
         if (this.f32.toRawBits() != 0) os.writeFp32(0, this.f32, this.f32Fp32Bits)
         if (this.f64.toRawBits() != 0L) os.writeFp64(1, this.f64)
-        if (this.str.isNotEmpty()) os.writeString(2, this.str)
+        if (this.str.isNotEmpty()) os.writeString(2, this.str, 32)
+        if (this.bytes_field.size > 4) throw SofabException(SofabError.ARGUMENT, "bytes_field: longer than maxlen 4 bytes")
         if (this.bytes_field.isNotEmpty()) os.writeBlob(3, this.bytes_field)
     }
 

@@ -5,62 +5,70 @@ namespace Sofabuffers;
 
 public sealed class Example_Arrays {
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public byte[] u8 = global::System.Array.Empty<byte>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public sbyte[] i8 = global::System.Array.Empty<sbyte>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public ushort[] u16 = global::System.Array.Empty<ushort>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public short[] i16 = global::System.Array.Empty<short>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public uint[] u32 = global::System.Array.Empty<uint>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public int[] i32 = global::System.Array.Empty<int>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public ulong[] u64 = global::System.Array.Empty<ulong>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public long[] i64 = global::System.Array.Empty<long>();
     public Example_Arrays_Nested nested = new();
 
     public void Serialize(global::sofab.OStream os) {
         if (this.u8 != null && this.u8.Length != 0) {
+            if (this.u8.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "u8: array count above schema capacity 5");
             os.WriteArrayUnsigned(0, this.u8);
         }
         if (this.i8 != null && this.i8.Length != 0) {
+            if (this.i8.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "i8: array count above schema capacity 5");
             os.WriteArraySigned(1, this.i8);
         }
         if (this.u16 != null && this.u16.Length != 0) {
+            if (this.u16.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "u16: array count above schema capacity 5");
             os.WriteArrayUnsigned(2, this.u16);
         }
         if (this.i16 != null && this.i16.Length != 0) {
+            if (this.i16.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "i16: array count above schema capacity 5");
             os.WriteArraySigned(3, this.i16);
         }
         if (this.u32 != null && this.u32.Length != 0) {
+            if (this.u32.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "u32: array count above schema capacity 5");
             os.WriteArrayUnsigned(4, this.u32);
         }
         if (this.i32 != null && this.i32.Length != 0) {
+            if (this.i32.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "i32: array count above schema capacity 5");
             os.WriteArraySigned(5, this.i32);
         }
         if (this.u64 != null && this.u64.Length != 0) {
+            if (this.u64.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "u64: array count above schema capacity 5");
             os.WriteArrayUnsigned(6, this.u64);
         }
         if (this.i64 != null && this.i64.Length != 0) {
+            if (this.i64.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "i64: array count above schema capacity 5");
             os.WriteArraySigned(7, this.i64);
         }
         os.WriteSequenceBeginLazy(10); (this.nested ?? new Example_Arrays_Nested()).Serialize(os); os.WriteSequenceEnd();
@@ -81,19 +89,21 @@ public sealed class Example_Arrays {
 
 public sealed class Example_Arrays_Nested {
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public float[] fp32 = global::System.Array.Empty<float>();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
     /// </summary>
     public double[] fp64 = global::System.Array.Empty<double>();
 
     public void Serialize(global::sofab.OStream os) {
         if (this.fp32 != null && this.fp32.Length != 0) {
+            if (this.fp32.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "fp32: array count above schema capacity 5");
             os.WriteArrayFp32(0, this.fp32);
         }
         if (this.fp64 != null && this.fp64.Length != 0) {
+            if (this.fp64.Length > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "fp64: array count above schema capacity 5");
             os.WriteArrayFp64(1, this.fp64);
         }
     }
@@ -108,19 +118,19 @@ public sealed class Example_Nested {
     public float f32;
     public double f64;
     /// <summary>
-    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it.
     /// </summary>
     public string str = "";
     /// <summary>
-    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated.
+    /// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
     /// </summary>
     public byte[] bytes_field = global::System.Array.Empty<byte>();
 
     public void Serialize(global::sofab.OStream os) {
         if (global::System.BitConverter.SingleToInt32Bits(this.f32) != 0) { os.WriteFp32(0, this.f32); }
         if (global::System.BitConverter.DoubleToInt64Bits(this.f64) != 0L) { os.WriteFp64(1, this.f64); }
-        if (this.str != "") { os.WriteString(2, this.str ?? ""); }
-        if (this.bytes_field != null && this.bytes_field.Length != 0) { os.WriteBlob(3, this.bytes_field); }
+        if (this.str != "") { os.WriteString(2, this.str ?? "", 32); }
+        if (this.bytes_field != null && this.bytes_field.Length != 0) { if (this.bytes_field.Length > 4) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "bytes_field: blob length above schema maxlen 4"); os.WriteBlob(3, this.bytes_field); }
     }
     public bool IsDefault() {
         if (!(global::System.BitConverter.SingleToInt32Bits(this.f32) == 0)) return false;
@@ -146,7 +156,7 @@ public sealed class Example {
     public Example_Nested nested = new();
     public Example_Arrays arrays = new();
     /// <summary>
-    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule.
+    /// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule.
     /// </summary>
     public global::System.Collections.Generic.List<string> string_array = new(5);
 
@@ -161,8 +171,9 @@ public sealed class Example {
         if (this.i64 != 0) { os.WriteSigned(7, (long)this.i64); }
         os.WriteSequenceBeginLazy(10); (this.nested ?? new Example_Nested()).Serialize(os); os.WriteSequenceEnd();
         os.WriteSequenceBeginLazy(100); (this.arrays ?? new Example_Arrays()).Serialize(os); os.WriteSequenceEnd();
+        if (this.string_array.Count > 5) throw new global::sofab.SofabException(global::sofab.SofabError.Argument, "string_array: array count above schema capacity 5");
         os.WriteSequenceBeginLazy(200);
-        for (int _i0 = 0, _n0 = this.string_array.Count; _i0 < _n0; _i0++) { if ((this.string_array[_i0] ?? "") != "" || _i0 == _n0 - 1) os.WriteString(_i0, this.string_array[_i0] ?? ""); }
+        for (int _i0 = 0, _n0 = this.string_array.Count; _i0 < _n0; _i0++) { if ((this.string_array[_i0] ?? "") != "" || _i0 == _n0 - 1) os.WriteString(_i0, this.string_array[_i0] ?? "", 64); }
         os.WriteSequenceEnd();
     }
     public bool IsDefault() {
@@ -203,6 +214,13 @@ public sealed class Example {
     /// smaller than the message: it is drained as it fills, so what bounds
     /// memory is the buffer, not the message.
     /// </summary>
+    /// <exception cref="global::sofab.SofabException">
+    /// <c>SofabError.Argument</c> when a field holds a value past its schema
+    /// bound -- a string or blob over its <c>maxlen</c> (UTF-8 bytes for a
+    /// string), an array over its <c>count</c> -- or a string that is not valid
+    /// UTF-8. Such a value is refused, never truncated; <c>Encode()</c> refuses
+    /// it the same way.
+    /// </exception>
     public void EncodeTo(global::sofab.OStream os) {
         Serialize(os);
         os.Flush();

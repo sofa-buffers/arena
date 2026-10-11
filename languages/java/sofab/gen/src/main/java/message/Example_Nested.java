@@ -7,16 +7,26 @@ import java.util.*;
 public class Example_Nested {
     public float f32;
     public double f64;
-    /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
+    /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it. */
     public String str = "";
-    /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated. */
+    /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it. */
     public byte[] bytes_field = Seq.EMPTY_BYTES;
 
+    /**
+     * Write every field that differs from its default into {@code os}.
+     *
+     * @throws SofabException with {@code ARGUMENT} when a field holds a value
+     *         past its schema bound (a string or blob over its maxlen in
+     *         UTF-8 bytes, an array over its count, an integer, enum or
+     *         bitfield outside its declared width); the value is never
+     *         written, clamped or masked
+     * @throws IOException on buffer overflow or sink failure
+     */
     public void serialize(OStream os) throws IOException {
         if (java.lang.Float.floatToRawIntBits(this.f32) != 0) { os.writeFp32(0, this.f32); }
         if (java.lang.Double.doubleToRawLongBits(this.f64) != 0L) { os.writeFp64(1, this.f64); }
-        if ((this.str == null || !this.str.isEmpty())) { os.writeString(2, this.str == null ? "" : this.str); }
-        if (this.bytes_field == null || this.bytes_field.length != 0) { os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
+        if ((this.str == null || !this.str.isEmpty())) { os.writeString(2, this.str == null ? "" : this.str, 32); }
+        if (this.bytes_field == null || this.bytes_field.length != 0) { if (this.bytes_field != null && this.bytes_field.length > 4) throw new SofabException(SofabError.ARGUMENT, "bytes_field: blob length above schema maxlen 4"); os.writeBlob(3, this.bytes_field == null ? new byte[0] : this.bytes_field); }
     }
     /** True when every field still equals its declared default, compared per field and recursively -- i.e. serialize would write nothing at all. */
     boolean isDefault() {

@@ -7,17 +7,19 @@ package message
 import org.sofabuffers.sofab.*
 
 public class Example_Arrays_Nested {
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var fp32: FloatArray = Seq.EMPTY_FLOATS
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public var fp64: DoubleArray = Seq.EMPTY_DOUBLES
 
     /** Write this object's fields into [os]. Streaming out: nothing is flushed -- see [encodeTo]. */
     public fun serialize(os: OStream) {
         if (this.fp32.isNotEmpty()) {
+            if (this.fp32.size > 5) throw SofabException(SofabError.ARGUMENT, "fp32: more than count 5 elements")
             os.writeArrayFp32(0, this.fp32)
         }
         if (this.fp64.isNotEmpty()) {
+            if (this.fp64.size > 5) throw SofabException(SofabError.ARGUMENT, "fp64: more than count 5 elements")
             os.writeArrayFp64(1, this.fp64)
         }
     }

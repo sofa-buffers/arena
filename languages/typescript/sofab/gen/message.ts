@@ -14,51 +14,59 @@ const _E_Float32Array = new Float32Array(0);
 const _E_Float64Array = new Float64Array(0);
 
 export class Example_Arrays {
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   u8: Uint8Array = _E_Uint8Array;
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   i8: Int8Array = _E_Int8Array;
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   u16: Uint16Array = _E_Uint16Array;
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   i16: Int16Array = _E_Int16Array;
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   u32: Uint32Array = _E_Uint32Array;
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   i32: Int32Array = _E_Int32Array;
   private _u64: Long[] = [];
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   get u64(): Long[] { return this._u64; }
   set u64(vals: readonly (Long | bigint | number)[]) { this._u64 = vals.map(Long.fromValue); }
   private _i64: Long[] = [];
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   get i64(): Long[] { return this._i64; }
   set i64(vals: readonly (Long | bigint | number)[]) { this._i64 = vals.map(Long.fromValue); }
   nested: Example_Arrays_Nested = new Example_Arrays_Nested();
 
   serialize(os: OStream): void {
     if (this.u8.length !== 0) {
+      if (this.u8.length > 5) throw new SofabError(SofabErrorCode.Argument, "u8: array count above schema capacity 5");
       os.writeUnsignedArray(0, this.u8);
     }
     if (this.i8.length !== 0) {
+      if (this.i8.length > 5) throw new SofabError(SofabErrorCode.Argument, "i8: array count above schema capacity 5");
       os.writeSignedArray(1, this.i8);
     }
     if (this.u16.length !== 0) {
+      if (this.u16.length > 5) throw new SofabError(SofabErrorCode.Argument, "u16: array count above schema capacity 5");
       os.writeUnsignedArray(2, this.u16);
     }
     if (this.i16.length !== 0) {
+      if (this.i16.length > 5) throw new SofabError(SofabErrorCode.Argument, "i16: array count above schema capacity 5");
       os.writeSignedArray(3, this.i16);
     }
     if (this.u32.length !== 0) {
+      if (this.u32.length > 5) throw new SofabError(SofabErrorCode.Argument, "u32: array count above schema capacity 5");
       os.writeUnsignedArray(4, this.u32);
     }
     if (this.i32.length !== 0) {
+      if (this.i32.length > 5) throw new SofabError(SofabErrorCode.Argument, "i32: array count above schema capacity 5");
       os.writeSignedArray(5, this.i32);
     }
     if (this._u64.length !== 0) {
+      if (this._u64.length > 5) throw new SofabError(SofabErrorCode.Argument, "u64: array count above schema capacity 5");
       os.writeUnsignedArrayLong(6, this._u64);
     }
     if (this._i64.length !== 0) {
+      if (this._i64.length > 5) throw new SofabError(SofabErrorCode.Argument, "i64: array count above schema capacity 5");
       os.writeSignedArrayLong(7, this._i64);
     }
     os.writeSequenceBeginLazy(10);
@@ -117,16 +125,18 @@ export class Example_Arrays {
 }
 
 export class Example_Arrays_Nested {
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   fp32: Float32Array = _E_Float32Array;
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
   fp64: Float64Array = _E_Float64Array;
 
   serialize(os: OStream): void {
     if (this.fp32.length !== 0) {
+      if (this.fp32.length > 5) throw new SofabError(SofabErrorCode.Argument, "fp32: array count above schema capacity 5");
       os.writeFp32Array(0, this.fp32);
     }
     if (this.fp64.length !== 0) {
+      if (this.fp64.length > 5) throw new SofabError(SofabErrorCode.Argument, "fp64: array count above schema capacity 5");
       os.writeFp64Array(1, this.fp64);
     }
   }
@@ -173,9 +183,9 @@ export class Example_Nested {
    */
   f32Fp32Raw: Uint8Array | null = null;
   f64: number = 0;
-  /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated. */
+  /** Schema bound: maxlen 32 -- a longer value is INVALID, never truncated: encode refuses it. */
   str: string = "";
-  /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated. */
+  /** Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it. */
   bytes_field: Uint8Array = new Uint8Array();
 
   serialize(os: OStream): void {
@@ -190,9 +200,10 @@ export class Example_Nested {
       os.writeFp64(1, this.f64);
     }
     if (this.str !== "") {
-      os.writeString(2, this.str);
+      os.writeString(2, this.str, 32);
     }
     if (this.bytes_field.length !== 0) {
+      if (this.bytes_field.length > 4) throw new SofabError(SofabErrorCode.Argument, "bytes_field: blob byte length above schema maxlen 4");
       os.writeBlob(3, this.bytes_field);
     }
   }
@@ -248,26 +259,32 @@ export class Example {
   set i64(v: Long | bigint | number) { this._i64 = Long.fromValue(v); }
   nested: Example_Nested = new Example_Nested();
   arrays: Example_Arrays = new Example_Arrays();
-  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. Element maxlen 64, same rule. */
+  /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. Element maxlen 64, same rule. */
   string_array: string[] = [];
 
   serialize(os: OStream): void {
     if (this.u8 !== 0) {
+      if (this.u8 > 255) throw new SofabError(SofabErrorCode.Argument, "u8: value outside declared width u8");
       os.writeUnsigned(0, this.u8);
     }
     if (this.i8 !== 0) {
+      if (this.i8 < -128 || this.i8 > 127) throw new SofabError(SofabErrorCode.Argument, "i8: value outside declared width i8");
       os.writeSigned(1, this.i8);
     }
     if (this.u16 !== 0) {
+      if (this.u16 > 65535) throw new SofabError(SofabErrorCode.Argument, "u16: value outside declared width u16");
       os.writeUnsigned(2, this.u16);
     }
     if (this.i16 !== 0) {
+      if (this.i16 < -32768 || this.i16 > 32767) throw new SofabError(SofabErrorCode.Argument, "i16: value outside declared width i16");
       os.writeSigned(3, this.i16);
     }
     if (this.u32 !== 0) {
+      if (this.u32 > 4294967295) throw new SofabError(SofabErrorCode.Argument, "u32: value outside declared width u32");
       os.writeUnsigned(4, this.u32);
     }
     if (this.i32 !== 0) {
+      if (this.i32 < -2147483648 || this.i32 > 2147483647) throw new SofabError(SofabErrorCode.Argument, "i32: value outside declared width i32");
       os.writeSigned(5, this.i32);
     }
     if (!(this._u64.low === 0 && this._u64.high === 0)) {
@@ -282,10 +299,11 @@ export class Example {
     os.writeSequenceBeginLazy(100);
     this.arrays.serialize(os);
     os.writeSequenceEnd();
+    if (this.string_array.length > 5) throw new SofabError(SofabErrorCode.Argument, "string_array: array count above schema capacity 5");
     os.writeSequenceBeginLazy(200);
     for (let _i0 = 0, _a0 = this.string_array; _i0 < _a0.length; _i0++) {
       if (_a0[_i0]! !== "" || _i0 === _a0.length - 1) {
-        os.writeString(_i0, _a0[_i0]!);
+        os.writeString(_i0, _a0[_i0]!, 64);
       }
     }
     os.writeSequenceEnd();
@@ -299,9 +317,10 @@ export class Example {
    * Encode into a buffer this call allocates and owns.
    *
    * The buffer is exactly `MAX_SIZE` bytes, the schema's worst case, so every
-   * value the schema permits fits. A value filled PAST a declared count/maxlen
-   * does not: it throws `SofabError` (BUFFER_FULL) rather than coming back
-   * short, because partial output must never pass for a whole message.
+   * value the schema permits fits. A value PAST a declared count, maxlen or
+   * width is refused before it is written: it throws `SofabError` (ARGUMENT)
+   * rather than coming back clamped or short, because partial output must
+   * never pass for a whole message.
    */
   encode(): Uint8Array {
     const _buf = new Uint8Array(Example.MAX_SIZE);

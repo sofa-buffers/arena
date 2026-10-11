@@ -153,17 +153,19 @@ void main(List<String> args) {
     case 'example':
       if (mode == 'encode') {
         final obj = _Example__FromJson(convert.jsonDecode(convert.utf8.decode(input)) as Map<String, dynamic>);
-        io.stdout.add(obj.encode());
+        io.stdout.add(_encode(obj.encode));
       } else if (mode == 'streamencode') {
         final obj = _Example__FromJson(convert.jsonDecode(convert.utf8.decode(input)) as Map<String, dynamic>);
         final win = args.length > 2 ? int.parse(args[2]) : 0;
         if (win == 0) {
-          io.stdout.add(obj.encode());
+          io.stdout.add(_encode(obj.encode));
         } else {
           final sink = typed.BytesBuilder(copy: true);
-          obj.encodeTo(sofab.Encoder(sink.add,
-              buffer: typed.Uint8List(win < sofab.minOutputBuffer ? sofab.minOutputBuffer : win)));
-          io.stdout.add(sink.toBytes());
+          io.stdout.add(_encode(() {
+            obj.encodeTo(sofab.Encoder(sink.add,
+                buffer: typed.Uint8List(win < sofab.minOutputBuffer ? sofab.minOutputBuffer : win)));
+            return sink.toBytes();
+          }));
         }
       } else if (mode == 'decode') {
         final obj = Example();
@@ -208,7 +210,7 @@ void main(List<String> args) {
           io.stderr.writeln('decode failed: ${st.name}');
           io.exit(1);
         }
-        io.stdout.add(obj.encode());
+        io.stdout.add(_encode(obj.encode));
       } else {
         io.stderr.writeln('unknown mode');
         io.exit(2);
@@ -217,6 +219,15 @@ void main(List<String> args) {
     default:
       io.stderr.writeln('unknown message');
       io.exit(2);
+  }
+}
+
+typed.Uint8List _encode(typed.Uint8List Function() run) {
+  try {
+    return run();
+  } on sofab.SofabException catch (ex) {
+    io.stderr.writeln('encode refused: $ex');
+    io.exit(1);
   }
 }
 

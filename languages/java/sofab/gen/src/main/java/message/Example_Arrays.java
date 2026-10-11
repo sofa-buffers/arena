@@ -5,47 +5,65 @@ import java.io.IOException;
 import java.util.*;
 
 public class Example_Arrays {
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public byte[] u8 = Seq.EMPTY_BYTES;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public byte[] i8 = Seq.EMPTY_BYTES;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public short[] u16 = Seq.EMPTY_SHORTS;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public short[] i16 = Seq.EMPTY_SHORTS;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public int[] u32 = Seq.EMPTY_INTS;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public int[] i32 = Seq.EMPTY_INTS;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public long[] u64 = Seq.EMPTY_LONGS;
-    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated. */
+    /** Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it. */
     public long[] i64 = Seq.EMPTY_LONGS;
     public Example_Arrays_Nested nested = new Example_Arrays_Nested();
 
+    /**
+     * Write every field that differs from its default into {@code os}.
+     *
+     * @throws SofabException with {@code ARGUMENT} when a field holds a value
+     *         past its schema bound (a string or blob over its maxlen in
+     *         UTF-8 bytes, an array over its count, an integer, enum or
+     *         bitfield outside its declared width); the value is never
+     *         written, clamped or masked
+     * @throws IOException on buffer overflow or sink failure
+     */
     public void serialize(OStream os) throws IOException {
         if (this.u8 != null && this.u8.length != 0) {
+            if (this.u8.length > 5) throw new SofabException(SofabError.ARGUMENT, "u8: array count above schema capacity 5");
             os.writeArrayUnsigned(0, this.u8);
         }
         if (this.i8 != null && this.i8.length != 0) {
+            if (this.i8.length > 5) throw new SofabException(SofabError.ARGUMENT, "i8: array count above schema capacity 5");
             os.writeArraySigned(1, this.i8);
         }
         if (this.u16 != null && this.u16.length != 0) {
+            if (this.u16.length > 5) throw new SofabException(SofabError.ARGUMENT, "u16: array count above schema capacity 5");
             os.writeArrayUnsigned(2, this.u16);
         }
         if (this.i16 != null && this.i16.length != 0) {
+            if (this.i16.length > 5) throw new SofabException(SofabError.ARGUMENT, "i16: array count above schema capacity 5");
             os.writeArraySigned(3, this.i16);
         }
         if (this.u32 != null && this.u32.length != 0) {
+            if (this.u32.length > 5) throw new SofabException(SofabError.ARGUMENT, "u32: array count above schema capacity 5");
             os.writeArrayUnsigned(4, this.u32);
         }
         if (this.i32 != null && this.i32.length != 0) {
+            if (this.i32.length > 5) throw new SofabException(SofabError.ARGUMENT, "i32: array count above schema capacity 5");
             os.writeArraySigned(5, this.i32);
         }
         if (this.u64 != null && this.u64.length != 0) {
+            if (this.u64.length > 5) throw new SofabException(SofabError.ARGUMENT, "u64: array count above schema capacity 5");
             os.writeArrayUnsigned(6, this.u64);
         }
         if (this.i64 != null && this.i64.length != 0) {
+            if (this.i64.length > 5) throw new SofabException(SofabError.ARGUMENT, "i64: array count above schema capacity 5");
             os.writeArraySigned(7, this.i64);
         }
         os.writeSequenceBeginLazy(10); (this.nested == null ? new Example_Arrays_Nested() : this.nested).serialize(os); os.writeSequenceEnd();
