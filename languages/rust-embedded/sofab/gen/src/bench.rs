@@ -29,7 +29,11 @@ fn main() {
     // Byte-wise hex so it works across sha2 versions: 0.11's digest returns a
     // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
     let sha: String = Sha256::digest(&blob).iter().map(|b| format!("{b:02x}")).collect();
-    let decoded = Example::decode(&blob);
+    // try_decode, not decode: it is the whole-buffer entry point that surfaces
+    // the accept/reject verdict (plain decode is best effort and drops it). The
+    // micropb baseline has only the fallible form and unwraps it, in its warm-up
+    // and in its timed loop, so this keeps the row's decode work identical.
+    let decoded = Example::try_decode(&blob).expect("sofab decode");
     if decoded.encode().expect("sofab re-encode") != blob {
         eprintln!("FAIL: sofab round-trip self-check");
         std::process::exit(1);
@@ -50,7 +54,7 @@ fn main() {
             src.serialize(&mut os).expect("sofab serialize");
             os.bytes_used()
         };
-        let dec = Example::decode(&buf[..used]);
+        let dec = Example::try_decode(&buf[..used]).expect("sofab decode");
         black_box(&dec);
     }
     let cpu = t0.elapsed().as_secs_f64();

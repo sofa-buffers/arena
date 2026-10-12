@@ -13,21 +13,30 @@
 # object-sum. Like the C method it counts the WHOLE archive (no --gc-sections),
 # so it OVER-counts what real firmware would keep after dead-strip.
 #
-# CAVEAT (provisional): the fair metric is a bare-metal ARM --gc-sections build
-# (currently parked). Also, the two impls are not perfectly symmetric:
-#   * micropb  — the .a includes the actual generated FullScaleExample codec
-#                (micropb-gen output) + micropb runtime + heapless, exercised
-#                via enc/dec of the real message. Faithful codec footprint.
-#   * sofab    — the sofabgen-generated message crate carries serde/Vec/String
-#                (std) and cannot be compiled no_std as-is, so the sofab number
-#                is the corelib-rs-no-std codec exercised through a synthetic
-#                no_std harness covering every wire type the schema uses (the
-#                generated serialize/decode are thin wrappers over exactly these
-#                OStream/IStream calls). Representative, not the generated glue.
+# Both impls are measured the SAME way: the .a holds the real generated codec for
+# that schema plus its runtime, exercised through the entry points a firmware
+# user calls.
+#   * micropb  — micropb-gen output + micropb runtime + heapless, via
+#                encode/decode_from_bytes of the real message.
+#   * sofab    — the sofabgen-generated message crate (corelib: rs-no-std) built
+#                --no-default-features, i.e. the genuinely #![no_std], heap-free
+#                lib (heapless fields, no serde), plus corelib-rs-no-std, via
+#                encode/try_decode of the real message.
+#
+# This used to be asymmetric: sofab was measured through a hand-written no_std
+# harness of raw OStream/IStream calls, because the generated crate "carries
+# serde/Vec/String (std) and cannot be compiled no_std as-is". That stopped being
+# true — sofabgen's rs-no-std profile emits a feature-gated lib whose default
+# features are the only std part, which is exactly how languages/rust-embedded/
+# sofab-ffi links the same generated codec for the bare-metal siblings. Measuring
+# a stand-in left the generated glue (field dispatch, visitor, bound checks) out
+# of sofab's number while micropb's was counted in full.
+#
+# CAVEAT (provisional): the fair metric is a bare-metal ARM --gc-sections build —
+# that is what languages/rust-cortex-m / rust-riscv do with the same crates.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
-SOFAB_RS_CORELIB="$ROOT/vendor/corelib-rs-no-std"
 
 export CARGO_HOME="${CARGO_HOME:-/usr/local/cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"
@@ -59,7 +68,7 @@ codegen-units = 1
 panic = "abort"'
 
 # ---------------------------------------------------------------------------
-# sofab: no_std staticlib exercising the corelib codec (all wire types).
+# sofab: no_std staticlib over the GENERATED codec (the real message crate).
 # ---------------------------------------------------------------------------
 SF="$WORK/sofab_fp"; mkdir -p "$SF/src"
 cat > "$SF/Cargo.toml" <<EOF
@@ -70,64 +79,41 @@ edition = "2021"
 [lib]
 crate-type = ["staticlib"]
 [dependencies]
-sofab = { package = "sofa-buffers-corelib-no-std", path = "$SOFAB_RS_CORELIB", default-features = false, features = ["array", "fixlen", "fp64", "sequence", "value64"] }
+# The generated crate, built as the heap-free #![no_std] lib (its "std" default
+# feature is what pulls serde/serde_json); it brings corelib-rs-no-std and
+# heapless with it, the same way sofab-ffi/Cargo.toml links it for the
+# bare-metal siblings.
+msgs = { package = "sofabuffers-generated", path = "$HERE/sofab/gen", default-features = false }
 $PROFILE
 EOF
 cat > "$SF/src/lib.rs" <<'EOF'
 #![no_std]
 use core::panic::PanicInfo;
-use sofab::{ArrayKind, Id, IStream, OStream, Signed, Unsigned, Visitor};
 #[panic_handler] fn ph(_: &PanicInfo) -> ! { loop {} }
 
-struct Sink { u: u64, i: i64 }
-impl Visitor for Sink {
-    fn unsigned(&mut self, _i: Id, v: Unsigned) { self.u = self.u.wrapping_add(v as u64); }
-    fn signed(&mut self, _i: Id, v: Signed) { self.i = self.i.wrapping_add(v as i64); }
-    fn fp32(&mut self, _i: Id, v: f32) { self.u = self.u.wrapping_add(v.to_bits() as u64); }
-    fn fp64(&mut self, _i: Id, v: f64) { self.u = self.u.wrapping_add(v.to_bits()); }
-    fn string(&mut self, _i: Id, t: usize, _o: usize, _c: &[u8]) { self.u = self.u.wrapping_add(t as u64); }
-    fn blob(&mut self, _i: Id, t: usize, _o: usize, _c: &[u8]) { self.u = self.u.wrapping_add(t as u64); }
-    fn array_begin(&mut self, _i: Id, _k: ArrayKind, c: usize) { self.u = self.u.wrapping_add(c as u64); }
-    fn sequence_begin(&mut self, _i: Id) { self.u = self.u.wrapping_add(1); }
-    fn sequence_end(&mut self) { self.u = self.u.wrapping_add(2); }
-}
+use msgs::Example;
 
-// Encode the full set of wire types the FullScaleExample schema uses.
+// Same two entry points, same shape, as the micropb half below: encode a
+// default-constructed message into a fixed-capacity buffer, decode a buffer back
+// into a message. Values do not matter for footprint, only the code paths
+// reached -- and those are value-independent.
 #[no_mangle]
-pub extern "C" fn sofab_enc(buf: *mut u8, len: usize, a: u64, b: i64) -> usize {
-    let buf = unsafe { core::slice::from_raw_parts_mut(buf, len) };
-    let mut os = OStream::new(buf);
-    let _ = os.write_unsigned(1, a as Unsigned);
-    let _ = os.write_signed(2, b as Signed);
-    let _ = os.write_sequence_begin_lazy(10);
-    let _ = os.write_fp32(0, f32::from_bits(a as u32));
-    let _ = os.write_fp64(1, f64::from_bits(a));
-    let _ = os.write_str(2, "Hello, World!");
-    let _ = os.write_blob(3, &[1, 2, 3, 4]);
-    let _ = os.write_sequence_end();
-    let _ = os.write_sequence_begin_lazy(100);
-    let _ = os.write_array_unsigned(0, &[a as u32, 1, 2, 3, 4]);
-    let _ = os.write_array_signed(1, &[b as i32, -1, 2, -3, 4]);
-    let _ = os.write_array_unsigned(6, &[a, 1, 2, 3, 4]);
-    let _ = os.write_array_signed(7, &[b, -1, 2, -3, 4]);
-    let _ = os.write_sequence_begin_lazy(10);
-    let _ = os.write_array_fp32(0, &[f32::from_bits(a as u32), 1.0]);
-    let _ = os.write_array_fp64(1, &[f64::from_bits(a), 1.0]);
-    let _ = os.write_sequence_end();
-    let _ = os.write_sequence_end();
-    let _ = os.write_sequence_begin_lazy(200);
-    let _ = os.write_str(0, "s");
-    let _ = os.write_sequence_end();
-    os.bytes_used()
+pub extern "C" fn sofab_enc(out: *mut u8, cap: usize) -> usize {
+    let msg = Example::default();
+    // encode() returns heapless::Vec<u8, MAX_SIZE> in this profile: fixed
+    // capacity, nothing on the heap.
+    let w = match msg.encode() { Ok(w) => w, Err(_) => return 0 };
+    let n = core::cmp::min(w.len(), cap);
+    unsafe { core::ptr::copy_nonoverlapping(w.as_ptr(), out, n); }
+    n
 }
 
 #[no_mangle]
-pub extern "C" fn sofab_dec(buf: *const u8, len: usize) -> u64 {
-    let data = unsafe { core::slice::from_raw_parts(buf, len) };
-    let mut s = Sink { u: 0, i: 0 };
-    let mut is = IStream::new();
-    let _ = is.feed(data, &mut s);
-    s.u.wrapping_add(s.i as u64)
+pub extern "C" fn sofab_dec(data: *const u8, len: usize) -> u64 {
+    let slice = unsafe { core::slice::from_raw_parts(data, len) };
+    // try_decode, not decode: the fallible whole-buffer form, so the verdict
+    // code counts -- micropb's only decode form is fallible too.
+    match Example::try_decode(slice) { Ok(m) => m.u64, Err(_) => 0 }
 }
 EOF
 ( cd "$SF" && cargo build --release --quiet )

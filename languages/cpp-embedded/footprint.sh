@@ -16,7 +16,9 @@
 #     analogue of the C target's generated example.o), NOT harness. bench.cpp and
 #     sha256 are excluded, exactly as in the C target.
 #   * sofab codec  = example.hpp instantiation + corelib-c-cpp C sources
-#                    (object.c/ostream.c/istream.c).
+#                    (object.c/ostream.c/istream.c), instantiated through the
+#                    heap-free encodeTo/try_decode entry points (see the driver
+#                    below) — never the std::vector-returning encode().
 #   * embeddedproto codec = message.h instantiation + EmbeddedProto runtime
 #                    sources (Fields.cpp/MessageInterface.cpp/ReadBufferSection.cpp).
 set -euo pipefail
@@ -56,9 +58,16 @@ emit() { # impl "text rodata data bss"
 cat > "$TMP/drv_sofab.cpp" <<'EOF'
 #include "example.hpp"
 using fullscale::Example;
-// Force instantiation of the generated encode/decode codec surface.
-std::vector<std::uint8_t> fp_encode(const Example &m) { return m.encode(); }
-Example fp_decode(const std::uint8_t *d, std::size_t n) { return Example::decode(d, n); }
+// Force instantiation of the generated codec surface through the HEAP-FREE entry
+// points — encodeTo(buf, cap) into caller storage and try_decode(data, len, out)
+// into a caller-owned destination, both of which report their verdict. The
+// allocating conveniences encode()/decode() would drag std::vector and the
+// allocator into an embedded-league number, which is the same reason
+// languages/cpp-cortex-m/footprint.sh links encodeTo; embeddedproto below is
+// measured through its own buffer-interface serialize/deserialize pair, so this
+// keeps the two surfaces like-for-like.
+std::size_t fp_encode(const Example &m, std::uint8_t *dst, std::size_t cap) { return m.encodeTo(dst, cap); }
+bool fp_decode(const std::uint8_t *d, std::size_t n, Example &out) { return Example::try_decode(d, n, out).ok(); }
 EOF
 g++ $CFLAGS $CXXEMB -std=c++20 -c "$TMP/drv_sofab.cpp" \
     -I "$HERE/sofab/gen" -I "$CORELIB/src/include" -o "$TMP/drv_sofab.o"
@@ -76,7 +85,10 @@ cat > "$TMP/drv_ep.cpp" <<'EOF'
 using fullscale::FullScaleExample;
 // Force instantiation of the generated serialize/deserialize codec surface.
 ::EmbeddedProto::Error fp_encode(const FullScaleExample &m, ::EmbeddedProto::WriteBufferInterface &b) { return m.serialize(b); }
-::EmbeddedProto::Error fp_decode(FullScaleExample &m, ::EmbeddedProto::ReadBufferInterface &b) { return m.deserialize(b); }
+// clear() before deserialize(): EmbeddedProto decodes INTO the message without
+// resetting it, so a reused destination needs this — the same work sofab's
+// try_decode does internally, which is what keeps the two surfaces comparable.
+::EmbeddedProto::Error fp_decode(FullScaleExample &m, ::EmbeddedProto::ReadBufferInterface &b) { m.clear(); return m.deserialize(b); }
 EOF
 g++ $CFLAGS $CXXEMB -std=c++17 -c "$TMP/drv_ep.cpp" \
     -I "$HERE/embeddedproto/gen" -I "$EP/src" -o "$TMP/drv_ep.o"

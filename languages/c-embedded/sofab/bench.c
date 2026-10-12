@@ -7,7 +7,10 @@
 
 static void fill(fullscale_example_t *m)
 {
-    memset(m, 0, sizeof(*m));
+    /* The generated initializer, not a memset: it applies the schema's declared
+       defaults (a non-zero default would survive a memset). It is also what the
+       header asks for before a decode — see the timed loop below. */
+    fullscale_example__init(m);
 
     /* Fill scalar fields */
     m->u8  = 200;
@@ -101,7 +104,7 @@ int main(void)
 
     /* self-check: decode, then re-encode and assert identical bytes */
     fullscale_example_t check;
-    memset(&check, 0, sizeof(check));
+    fullscale_example__init(&check);
     if (fullscale_example__decode(&check, buffer, serialized) != SOFAB_RET_OK) {
         fprintf(stderr, "FAIL: sofab decode\n");
         return 1;
@@ -114,9 +117,17 @@ int main(void)
         return 1;
     }
 
-    /* Timed loop: ONLY encode + decode. */
+    /* Timed loop: ONLY encode + decode.
+
+       fullscale_example__init() runs INSIDE the loop because that is the
+       generated API's contract for a reused destination ("call
+       fullscale_example__init first to apply defaults", example_sofab.h): a
+       field equal to its default is absent from the wire, so without the init a
+       decode cannot clear what the previous message left behind. It is also what
+       the baseline pays — nanopb/bench.c re-zeroes its destination every
+       iteration — so hoisting it out of the loop would buy sofab a saving the
+       opponent does not get. */
     fullscale_example_t dec;
-    memset(&dec, 0, sizeof(dec));
     const long iters = bench_iters(500000);
     long i;
     bench_instr_start();
@@ -124,6 +135,7 @@ int main(void)
     for (i = 0; i < iters; i++) {
         size_t used;
         fullscale_example__encode(&msg, buffer, sizeof(buffer), &used);
+        fullscale_example__init(&dec);
         fullscale_example__decode(&dec, buffer, used);
     }
     const double t1 = bench_seconds();

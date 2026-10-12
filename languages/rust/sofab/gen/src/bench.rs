@@ -43,7 +43,11 @@ fn main() {
     // Byte-wise hex so it works across sha2 versions: 0.11's digest returns a
     // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
     let sha: String = Sha256::digest(&blob).iter().map(|b| format!("{b:02x}")).collect();
-    let decoded = Example::decode(&blob);
+    // try_decode, not decode: it is the whole-buffer entry point that surfaces
+    // the accept/reject verdict (plain decode is best effort and drops it), which
+    // is what the row's baseline does too — prost's decode returns a Result the
+    // protobuf driver unwraps, in its warm-up and in its timed loop alike.
+    let decoded = Example::try_decode(&blob).expect("sofab decode");
     if decoded.encode().expect("sofab re-encode") != blob {
         eprintln!("FAIL: sofab round-trip self-check");
         std::process::exit(1);
@@ -63,7 +67,7 @@ fn main() {
     // on equal terms.
     let t0 = Instant::now();
     for _ in 0..iters {
-        let dec = Example::decode(&blob);
+        let dec = Example::try_decode(&blob).expect("sofab decode");
         let used = {
             let mut os = OStream::new(&mut buf);
             dec.serialize(&mut os).expect("sofab serialize");

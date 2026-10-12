@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <vector>
 
@@ -98,29 +99,52 @@ int main()
     fill(src);
 
     // Warm-up round-trip + self-check (outside the timed region).
-    const std::vector<uint8_t> bytes = src.encode();
-    const size_t serialized = bytes.size();
+    //
+    // encodeTo()/try_decode() are the generated API's heap-free pair: the first
+    // writes into storage the caller owns, the second decodes into a destination
+    // the caller keeps (reset to its declared defaults first). This is the
+    // EMBEDDED row — the corelib-c-cpp profile exists to keep a codec off the
+    // heap — so the allocating conveniences encode()/decode() are the wrong entry
+    // points here, and they would also be the only side of the row that
+    // allocates: embeddedproto/bench.cpp writes into a fixed buffer and
+    // deserializes into one reused message. Same reason the bare-metal siblings
+    // (languages/cpp-cortex-m/footprint.sh) link encodeTo, not encode.
+    std::uint8_t buf[Example::_maxSize];
+    const size_t serialized = src.encodeTo(buf, sizeof(buf));
+    if (serialized == 0) {
+        fprintf(stderr, "FAIL: sofab encode refused\n");
+        return 1;
+    }
+    const std::vector<uint8_t> bytes(buf, buf + serialized);
     char sha[65];
     sha256_hex(bytes.data(), serialized, sha);
 
     // Round-trip is correct iff the decoded message re-encodes to the same bytes.
-    const Example check = Example::decode(bytes.data(), serialized);
-    if (check.encode() != bytes) {
+    Example check;
+    if (!Example::try_decode(bytes.data(), serialized, check).ok()) {
+        fprintf(stderr, "FAIL: sofab decode refused\n");
+        return 1;
+    }
+    if (check.encodeTo(buf, sizeof(buf)) != serialized ||
+        memcmp(buf, bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab round-trip self-check\n");
         return 1;
     }
 
-    // Timed loop: ONLY encode + decode.
+    // Timed loop: ONLY encode + decode. Buffer and destination hoisted, as in
+    // the baseline's loop.
     Example dec;
+    size_t used = 0;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        const std::vector<uint8_t> b = src.encode();
-        dec = Example::decode(b.data(), b.size());
+        used = src.encodeTo(buf, sizeof(buf));
+        Example::try_decode(buf, used, dec);
     }
     const double t1 = now_seconds();
 
-    if (dec.encode() != bytes) {
+    if (used != serialized || dec.encodeTo(buf, sizeof(buf)) != serialized ||
+        memcmp(buf, bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");
         return 1;
     }

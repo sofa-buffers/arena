@@ -1,2 +1,10 @@
 generic: { emit: project }
-targets: { rust: { corelib: rs-no-std } }
+# `heapless: "0.8"` is spelled out rather than left to sofabgen's default: which
+# heapless major the generated fixed-capacity fields come from is a cfg option
+# since generator#728, and this row must hold it to 0.8 — RUST_HEAPLESS in
+# languages/versions.sh pins the same major in the Cargo.toml setup.sh writes,
+# because the row's micropb baseline wires its containers to heapless 0.8
+# (container-heapless-0-8) and the two impls of a row share their deps. Saying it
+# here means a generator that moves its default cannot silently generate code for
+# the other major against that pinned manifest.
+targets: { rust: { corelib: rs-no-std, heapless: "0.8" } }
