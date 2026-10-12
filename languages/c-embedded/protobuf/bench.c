@@ -91,19 +91,33 @@ int main(void)
     free(rebuf);
     fullscale__full_scale_example__free_unpacked(chk, NULL);
 
-    /* Timed loop: ONLY encode (pack) + decode (unpack). Buffer hoisted out. */
+    /* Timed loop: chained round trip — unpack the reference wire, then re-pack
+       the freshly unpacked message (docs/BENCH.md rule 3, issue #86). Re-packing
+       the pre-built `msg` instead would measure a pack whose input never changes,
+       and would hand a size-memoizing implementation a once-per-instance
+       discount. Output buffer hoisted; `used` is the per-iteration sink, checked
+       against the reference after the loop. */
+    uint8_t *out = (uint8_t *)malloc(serialized);
+    size_t used = 0;
+    if (out == NULL) { fprintf(stderr, "FAIL: protobuf out buffer\n"); return 1; }
     const long iters = bench_iters(500000);
     long i;
     bench_instr_start();
     const double t0 = bench_seconds();
     for (i = 0; i < iters; i++) {
-        fullscale__full_scale_example__pack(&msg, buffer);
         Fullscale__FullScaleExample *d =
             fullscale__full_scale_example__unpack(NULL, serialized, buffer);
+        used = fullscale__full_scale_example__pack(d, out);
         fullscale__full_scale_example__free_unpacked(d, NULL);
     }
     const double t1 = bench_seconds();
     bench_instr_stop();
+
+    if (used != serialized || memcmp(out, buffer, serialized) != 0) {
+        fprintf(stderr, "FAIL: protobuf-c loop-path self-check\n");
+        return 1;
+    }
+    free(out);
 
     const double cpu = t1 - t0;
     const double mbs = (cpu > 0.0) ? ((double)serialized * (double)iters) / cpu / 1.0e6 : 0.0;

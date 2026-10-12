@@ -102,6 +102,16 @@ Python pair changes no storage, so it does not.
    Do not count object construction, JSON parsing, or I/O. Measure CPU time
    (process/thread CPU clock), not wall-clock, so a busy host doesn't skew the
    number.
+
+   This holds for the **embedded league too**, whose three rows timed the
+   decoupled `decode(encode(src))` until this was tightened. That none of its
+   baselines memoizes a serialized size today made the deviation harmless, not
+   correct: the shape is the contract rather than a per-row judgement, and a
+   baseline that starts caching would tilt a row nobody re-reads — its ranking
+   metric is footprint. Re-encoding one pre-built instance also measures the
+   friendliest possible encode (unchanged, warm input, every per-field branch
+   perfectly predicted) and leaves the two halves independent, so the CPU
+   overlaps iterations instead of paying the proxy's decode→encode dependency.
 4. **`BENCH_ITERS` overrides the iteration count** (env var), so a slow
    instrumented pass can use fewer iterations than the timed pass.
 5. **Cool down between impls.** A `bench.sh` that times more than one impl must

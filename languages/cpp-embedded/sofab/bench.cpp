@@ -131,20 +131,23 @@ int main()
         return 1;
     }
 
-    // Timed loop: ONLY encode + decode. Buffer and destination hoisted, as in
-    // the baseline's loop.
+    // Timed loop: chained round trip — decode the reference wire, then re-encode
+    // the freshly decoded message (docs/BENCH.md rule 3, issue #86). Re-encoding
+    // the pre-built `src` instead would measure an encode whose input never
+    // changes, and would hand a size-memoizing implementation a once-per-instance
+    // discount. Buffer and destination hoisted, as in the baseline's loop;
+    // `used` is the per-iteration sink, checked against the reference after.
     Example dec;
     size_t used = 0;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        used = src.encodeTo(buf, sizeof(buf));
-        Example::try_decode(buf, used, dec);
+        Example::try_decode(bytes.data(), serialized, dec);
+        used = dec.encodeTo(buf, sizeof(buf));
     }
     const double t1 = now_seconds();
 
-    if (used != serialized || dec.encodeTo(buf, sizeof(buf)) != serialized ||
-        memcmp(buf, bytes.data(), serialized) != 0) {
+    if (used != serialized || memcmp(buf, bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");
         return 1;
     }
