@@ -45,3 +45,11 @@ and `docs/BENCH.md` for the arena contract.
 - The `protobuf` runtime version must track the baked `protoc_plugin`
   (`protoc_plugin` 25.x → `protobuf` ^6.0.0); an older major misses `BuilderInfo`
   methods the generated code calls.
+- `setup.sh` resolves with `dart pub get --offline`, out of the shared
+  `PUB_CACHE` the image bakes — the pin above is what makes that work, since
+  `protoc_plugin`'s activation already pulled this exact `protobuf` + `fixnum`
+  into the cache. So no bench run waits on pub.dev: `dart pub get` has no
+  timeout, and one dropped request used to park the entire arena in dart's
+  setup. If `--offline` ever fails ("could not find package … in cache"), the
+  pin and the baked plugin have drifted apart — rebuild the image rather than
+  reaching for the network.
