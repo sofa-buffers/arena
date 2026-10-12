@@ -160,9 +160,11 @@ reference wires are the fairness anchor.
   impl in a target uses the **same** helper.
 - Perf work belongs in the generator/corelibs, not per-target patches — all
   historical `*.patch` hacks were folded upstream (sofabgen ≥ v0.6.0). What was
-  already measured and tried lives with the code that fixes it, in the generator
-  repo (`sofa-buffers/generator` → `docs/perf-patches/`, plus its regression
-  analyses) — read it there before optimizing anything. Python's 0.10× is
+  already measured and tried therefore lives *in* the code that fixes it: the
+  generator's `docs/perf-patches/` is gone (generator f384e6c dropped it once
+  every win it documented was folded into the backends), so read the backend and
+  its tests, `docs/ARCHITECTURE.md`, and the generator's issues — then take the
+  finding upstream as an issue/PR there, not into a target. Python's 0.10× is
   analyzed and expected (`languages/python/README.md`).
 - README result tables are hand-refreshed from `results/RESULTS.txt` after a
   full `RUNS=5` run — never edit numbers ad hoc.
