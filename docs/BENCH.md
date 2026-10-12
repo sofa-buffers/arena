@@ -113,6 +113,34 @@ Python pair changes no storage, so it does not.
    one of the `RUNS` repeats, where best-of-N cannot average it out. The pause is
    a no-op unless the runner exports `COOLDOWN_S`, and it logs to stderr, never
    to the BENCH-only stdout.
+6. **Use each library through the entry points its own API intends.** Within a
+   row every impl does the same job through the call a user of *that* library
+   would make, so a row compares codecs and not API shortcuts. Where a library
+   offers a choice, the arena takes:
+
+   - the **verdict-surfacing** decode (`try_decode`, the C `__decode` return)
+     wherever dropping the verdict would drop work or code the baseline is
+     charged for: prost, micropb and EmbeddedProto have no verdict-free form to
+     pick, and in a footprint target the best-effort form leaves the reject
+     paths out of the image entirely. Where the two forms differ only in whether
+     the status is handed back — the managed runtimes, whose decode validates
+     either way — the best-effort `decode` is the library's documented
+     one-shot and stays in use;
+   - the **no-allocation** encode into caller storage (`encodeTo`, `serialize`
+     into a hoisted `OStream`) over the convenience that returns a fresh
+     container — rule 3 hoists the output buffer anyway, and in the embedded
+     league an allocating encode measures the allocator;
+   - the library's own **initializer / reset** before a decode into a reused
+     destination (`fullscale_example__init`, the reset inside `try_decode`) —
+     never a hand-written `memset` standing in for it, and never skipped: a
+     field equal to its default is absent from the wire, so without it the
+     previous message's value survives, and the baseline re-initializes its
+     destination every iteration too.
+
+   Footprint targets follow the same rule, where it bites hardest: what the
+   driver calls is what gets linked, so a hand-written stand-in for the
+   generated codec, or an entry point that leaves the verdict code out of the
+   image, measures something no user would ship.
 
 ## Cross-language correctness gate
 

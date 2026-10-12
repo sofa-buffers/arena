@@ -71,6 +71,13 @@ HARNESS volatile size_t sink;
 int main(void) {
     size_t used = 0;
     fullscale_example__encode(&msg, buf, sizeof buf, &used);
+    // No fullscale_example__init() here, deliberately: `msg` is a zero-init
+    // static, and this schema declares no non-zero default, so the init would
+    // only add code on sofab's side — nanopb's counterpart
+    // (fullscale_FullScaleExample_init_zero) is a struct initializer that costs
+    // the baseline nothing. The host bench DOES call it per decode, because
+    // there it is per-iteration work the baseline pays too (docs/BENCH.md
+    // rule 6).
     fullscale_example__decode(&msg, buf, used);
     sink = used;
     return 0;

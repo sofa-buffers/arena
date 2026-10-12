@@ -80,8 +80,14 @@ HARNESS static std::uint8_t buf[512];
 HARNESS volatile std::size_t sink;
 int main() {
     std::size_t n = msg.encodeTo(buf, sizeof buf);   // heap-free encode path
-    dec = Example::decode(buf, n);                   // fixed-capacity members: heap-free
-    sink = n;
+    // try_decode is the reuse decode: it resets `dec` to its declared defaults
+    // and decodes into it, and it hands back the verdict. Both halves are what a
+    // firmware decode of a whole buffer needs, and both are what embeddedproto
+    // links below (clear() + deserialize()); plain decode() would return a
+    // message by value, charging this driver's copy to the codec and leaving the
+    // verdict code out of the delta.
+    bool ok = Example::try_decode(buf, n, dec).ok();  // fixed-capacity members: heap-free
+    sink = n + (ok ? 0u : 1u);
     return 0;
 }
 EOF
@@ -106,6 +112,12 @@ HARNESS static ::EmbeddedProto::ReadBufferFixedSize<512> rbuf;
 HARNESS volatile int sink;
 int main() {
     auto e1 = msg.serialize(wbuf);
+    // clear() before deserialize(): EmbeddedProto decodes INTO the message
+    // without resetting it, so a reused destination needs this — the same work
+    // sofab's try_decode does internally. Linking it keeps the two deltas
+    // like-for-like (the host probe languages/cpp-embedded/footprint.sh pairs
+    // them the same way).
+    msg.clear();
     auto e2 = msg.deserialize(rbuf);
     sink = static_cast<int>(e1) + static_cast<int>(e2);
     return 0;

@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <vector>
 
@@ -106,15 +107,33 @@ int main()
     Example src;
     fill(src);
 
-    // Warm-up round-trip + self-check (outside the timed region).
-    const std::vector<uint8_t> bytes = src.encode();
-    const size_t serialized = bytes.size();
+    // Warm-up round-trip + self-check (outside the timed region). encodeTo() is
+    // the generated API's no-allocation encode: it writes into storage the caller
+    // owns, so the buffer is hoisted here once instead of being malloc'd per
+    // encode (docs/BENCH.md rule 3), exactly as protobuf's SerializeToString
+    // reuses one std::string in the row's other impl. Example::_maxSize is the
+    // worst-case encoded size the schema allows (corelib-cpp's documented bound).
+    std::vector<uint8_t> out(Example::_maxSize);
+    const size_t serialized = src.encodeTo(out.data(), out.size());
+    if (serialized == 0) {
+        fprintf(stderr, "FAIL: sofab encode refused\n");
+        return 1;
+    }
+    const std::vector<uint8_t> bytes(out.begin(), out.begin() + serialized);
     char sha[65];
     sha256_hex(bytes.data(), serialized, sha);
 
     // Round-trip is correct iff the decoded message re-encodes to the same bytes.
-    const Example check = Example::decode(bytes.data(), serialized);
-    if (check.encode() != bytes) {
+    // try_decode() is the verdict-surfacing decode (plain decode() is best
+    // effort), and it decodes into a destination the caller keeps — the same
+    // reuse protobuf's ParseFromString gets below.
+    Example check;
+    if (!Example::try_decode(bytes.data(), serialized, check).ok()) {
+        fprintf(stderr, "FAIL: sofab decode refused\n");
+        return 1;
+    }
+    if (check.encodeTo(out.data(), out.size()) != serialized ||
+        memcmp(out.data(), bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab round-trip self-check\n");
         return 1;
     }
@@ -124,17 +143,23 @@ int main()
     // (rather than a pre-built, reused `src`) is what a proxy/transcode does, and
     // it denies protobuf the once-per-instance serialized-size memo, so encode is
     // measured on equal terms across impls.
+    //
+    // Both ends use the generated API's reuse form: try_decode() puts `dec` back
+    // to its declared defaults and decodes into it (keeping the buffers it
+    // already paid for), and encodeTo() writes into the hoisted `out`. That is
+    // what protobuf does in the same row — one reused message, one reused output
+    // string — so neither impl is charged for allocation the other avoids.
     Example dec;
-    std::vector<uint8_t> b;
+    size_t used = 0;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        dec = Example::decode(bytes.data(), bytes.size());
-        b = dec.encode();
+        Example::try_decode(bytes.data(), bytes.size(), dec);
+        used = dec.encodeTo(out.data(), out.size());
     }
     const double t1 = now_seconds();
 
-    if (b != bytes) {
+    if (used != serialized || memcmp(out.data(), bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");
         return 1;
     }

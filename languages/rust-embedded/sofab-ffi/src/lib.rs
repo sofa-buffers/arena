@@ -25,7 +25,14 @@ pub unsafe extern "C" fn sofab_roundtrip(buf: *mut u8, cap: usize) -> usize {
         return 0;
     }
     let used = os.bytes_used();
-    let dec = Example::decode(core::slice::from_raw_parts(buf, used));
+    // try_decode: the fallible whole-buffer entry point, so the verdict code is
+    // part of the linked codec surface. micropb-ffi's only decode form is
+    // fallible too (`decode_from_bytes(..).is_err()`), so measuring sofab through
+    // the best-effort `decode` would leave out code the baseline is charged for.
+    let dec = match Example::try_decode(core::slice::from_raw_parts(buf, used)) {
+        Ok(m) => m,
+        Err(_) => return 0,
+    };
     core::hint::black_box(&dec);
     used
 }
