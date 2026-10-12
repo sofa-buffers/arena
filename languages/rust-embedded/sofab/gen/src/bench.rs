@@ -44,20 +44,33 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(500_000);
 
-    // Reused encode buffer (decode allocates its own object internally).
+    // Reused encode buffer, hoisted out of the loop (docs/BENCH.md rule 3).
     let mut buf = vec![0u8; Example::MAX_SIZE];
 
+    // Chained round trip: decode the reference wire, then re-encode the freshly
+    // decoded message (issue #86) -- the proxy/transcode shape every other row
+    // times. Re-encoding a pre-built `src` instead would hand any baseline that
+    // memoizes its serialized size a once-per-instance discount, and it measures
+    // an encode whose input never changes: warm, unmodified cache lines and
+    // perfectly predicted per-field branches, with no dependency between the two
+    // halves. `used` is the per-iteration sink, checked after the loop.
+    let mut used = 0usize;
     let t0 = Instant::now();
     for _ in 0..iters {
-        let used = {
+        let dec = Example::try_decode(&blob).expect("sofab decode");
+        used = {
             let mut os = OStream::new(&mut buf);
-            src.serialize(&mut os).expect("sofab serialize");
+            dec.serialize(&mut os).expect("sofab serialize");
             os.bytes_used()
         };
-        let dec = Example::try_decode(&buf[..used]).expect("sofab decode");
-        black_box(&dec);
+        black_box(&buf[..used]);
     }
     let cpu = t0.elapsed().as_secs_f64();
+
+    if used != serialized || buf[..used] != blob[..] {
+        eprintln!("FAIL: sofab loop-path self-check");
+        std::process::exit(1);
+    }
 
     let mbs = if cpu > 0.0 {
         (serialized as f64) * (iters as f64) / cpu / 1e6

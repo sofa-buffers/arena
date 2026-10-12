@@ -163,20 +163,24 @@ int main()
         return 1;
     }
 
-    // Timed loop: ONLY encode + decode.
+    // Timed loop: chained round trip — deserialize the reference wire, then
+    // re-serialize the freshly decoded message (docs/BENCH.md rule 3, issue #86).
+    // Re-encoding the pre-built `src` instead would measure a serialize whose
+    // input never changes, and would hand a size-memoizing implementation a
+    // once-per-instance discount. Buffer and destination hoisted; `n` is the
+    // per-iteration sink, checked against the reference after the loop.
     FullScaleExample dec;
     std::uint8_t buf[BUFSZ];
+    std::uint32_t n = 0;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        const std::uint32_t n = encode(src, buf);
-        decode(dec, buf, n);
+        decode(dec, bytes, serialized);
+        n = encode(dec, buf);
     }
     const double t1 = now_seconds();
 
-    std::uint8_t last[BUFSZ];
-    const std::uint32_t lastn = encode(dec, last);
-    if (lastn != serialized || memcmp(bytes, last, serialized) != 0) {
+    if (n != serialized || memcmp(bytes, buf, serialized) != 0) {
         fprintf(stderr, "FAIL: embeddedproto loop-path self-check\n");
         return 1;
     }

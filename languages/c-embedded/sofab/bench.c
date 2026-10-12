@@ -117,7 +117,12 @@ int main(void)
         return 1;
     }
 
-    /* Timed loop: ONLY encode + decode.
+    /* Timed loop: chained round trip — decode the reference wire, then re-encode
+       the freshly decoded message (docs/BENCH.md rule 3, issue #86). Re-encoding
+       the pre-built `msg` instead would measure an encode whose input never
+       changes, and would hand a size-memoizing implementation a once-per-instance
+       discount. Output buffer and destination hoisted; `used` is the
+       per-iteration sink, checked against the reference after the loop.
 
        fullscale_example__init() runs INSIDE the loop because that is the
        generated API's contract for a reused destination ("call
@@ -128,18 +133,24 @@ int main(void)
        iteration — so hoisting it out of the loop would buy sofab a saving the
        opponent does not get. */
     fullscale_example_t dec;
+    uint8_t out[FULLSCALE_EXAMPLE__MAX_SIZE];
+    size_t used = 0;
     const long iters = bench_iters(500000);
     long i;
     bench_instr_start();
     const double t0 = bench_seconds();
     for (i = 0; i < iters; i++) {
-        size_t used;
-        fullscale_example__encode(&msg, buffer, sizeof(buffer), &used);
         fullscale_example__init(&dec);
-        fullscale_example__decode(&dec, buffer, used);
+        fullscale_example__decode(&dec, buffer, serialized);
+        fullscale_example__encode(&dec, out, sizeof(out), &used);
     }
     const double t1 = bench_seconds();
     bench_instr_stop();
+
+    if (used != serialized || memcmp(out, buffer, serialized) != 0) {
+        fprintf(stderr, "FAIL: sofab loop-path self-check\n");
+        return 1;
+    }
 
     const double cpu = t1 - t0;
     const double mbs = (cpu > 0.0) ? ((double)serialized * (double)iters) / cpu / 1.0e6 : 0.0;

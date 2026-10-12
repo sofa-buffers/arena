@@ -123,14 +123,25 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(500_000);
 
+    // Chained round trip: decode the reference wire, then re-encode the freshly
+    // decoded message (issue #86) -- the proxy/transcode shape docs/BENCH.md
+    // rule 3 prescribes, identical to the sofab driver of this row. `used` is
+    // the per-iteration sink, checked after the loop.
+    let mut used = 0usize;
     let t0 = Instant::now();
     for _ in 0..iters {
-        let b = encode(&src);
         let mut d = FullScaleExample::default();
-        d.decode_from_bytes(&b[..]).unwrap();
-        black_box(&d);
+        d.decode_from_bytes(&blob[..]).unwrap();
+        let b = encode(&d);
+        used = b.len();
+        black_box(&b);
     }
     let cpu = t0.elapsed().as_secs_f64();
+
+    if used != serialized {
+        eprintln!("FAIL: micropb loop-path self-check");
+        std::process::exit(1);
+    }
 
     let mbs = if cpu > 0.0 {
         (serialized as f64) * (iters as f64) / cpu / 1e6
