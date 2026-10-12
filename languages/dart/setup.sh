@@ -34,8 +34,22 @@ sed -i "s#\${SOFAB_DART_CORELIB}#$CORELIB#" "$HERE/sofab/gen/pubspec.yaml"
 cp "$HERE/sofab/bench.dart"          "$HERE/sofab/gen/bin/bench.dart"
 cp "$HERE/common/bench_common.dart"  "$HERE/sofab/gen/bin/bench_common.dart"
 
+# Resolve from the image's shared PUB_CACHE and never from the network: a bench
+# run must not depend on pub.dev being reachable. `dart pub get` has no deadline
+# and no retry message — a single dropped request leaves it sitting in
+# "Resolving dependencies..." indefinitely, which stalls the WHOLE arena at
+# `--- setup (dart) ---` with nothing in results/raw/dart.setup.log to say where.
+# (The runner caps every setup.sh now, so such a stall can no longer run forever
+# — but a target that needs no network at all cannot stall in the first place.)
+# Offline is also the honest state of this target: this project's only dependency
+# is the corelib path above, and the protobuf row's protobuf+fixnum are already
+# in the cache because the Dockerfile activates protoc_plugin, whose own pubspec
+# pins them — the version-pairing invariant protobuf/pubspec.yaml documents.
+# The online fallback only covers the window after a dependency bump and before
+# the image is rebuilt (same `A || B` idiom as languages/typescript/setup.sh);
+# stdout stays in the setup log so a stall there is visible, not silent.
 ( cd "$HERE/sofab/gen" \
-    && dart pub get >/dev/null \
+    && { dart pub get --offline || dart pub get; } \
     && dart compile exe bin/bench.dart -o bin/bench >/dev/null )
 
 ########################################################################
@@ -47,8 +61,13 @@ protoc -I "$ROOT/schema" --dart_out="$HERE/protobuf/gen" "$ROOT/schema/message.p
 # Shared support next to the protobuf driver (identical helper as the sofab row).
 cp "$HERE/common/bench_common.dart" "$HERE/protobuf/bench_common.dart"
 
+# Cache-first like the sofab row above (same reasoning). This is the resolution
+# that actually goes online when it cannot: `pubspec.lock` and `.dart_tool/` are
+# gitignored, so a fresh clone (or `git clean -xfd`) has nothing to short-circuit
+# on and pub re-resolves from scratch — the one dart setup that a flaky network
+# could hang, every time, on a clean checkout.
 ( cd "$HERE/protobuf" \
-    && dart pub get >/dev/null \
+    && { dart pub get --offline || dart pub get; } \
     && dart compile exe bench.dart -o bench >/dev/null )
 
 echo "dart: setup OK" >&2
