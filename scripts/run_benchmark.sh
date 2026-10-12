@@ -41,6 +41,7 @@
 #   RUNS=5 ./scripts/run_benchmark.sh                # best-of-5 throughput (noise)
 #   COOLDOWN_S=30 ./scripts/run_benchmark.sh         # longer idle pause (runs + impls)
 #   COOLDOWN_S=0 ./scripts/run_benchmark.sh          # no pause (fast, hotter CPU)
+#   SETUP_TIMEOUT_S=3600 ./scripts/run_benchmark.sh  # per-target setup.sh cap (0 = off)
 #
 # The cross-language correctness gate is fatal: if any present impl's wire bytes
 # diverge from the shared reference (sofab 434 B / proto 494 B) the run exits
@@ -72,6 +73,19 @@ RUNS="${RUNS:-5}"
 # repeat — a bias best-of-N cannot average out because the order never changes.
 COOLDOWN_S="${COOLDOWN_S:-10}"
 export COOLDOWN_S
+# A setup.sh writes nothing to the console (its stdout+stderr go to the per-target
+# setup log), so one that blocks forever looks exactly like one that is working:
+# the run just sits at `--- setup ($lang) ---` and every later target never runs.
+# That is not hypothetical: a full run stalled for good inside dart's setup, where
+# `dart pub get` has no deadline of its own — one dropped pub.dev request and it
+# waits in "Resolving dependencies..." forever, with an empty log to show for it.
+# Cap each setup.sh instead: a hang becomes a loud SETUP_TIMEOUT for that one
+# target and the run continues, which is the same "fail visibly" rule the wire
+# gate follows. Generous by design (gradle/cargo/dotnet first builds are slow) —
+# this is a deadlock net, not a performance budget. 0 = no limit (GNU timeout's
+# own convention). Benches are deliberately NOT capped: killing a timed loop
+# mid-flight would feed a half-measured row into the best-of-N comparison.
+SETUP_TIMEOUT_S="${SETUP_TIMEOUT_S:-1800}"
 
 export STATE_JSON="$ROOT/schema/state.json"
 export SOFABGEN="$ROOT/tools/sofabgen"
@@ -157,7 +171,14 @@ for lang in $LANGS; do
     echo "==================================================================="
     if [ "$DO_SETUP" = 1 ] && [ -x "$dir/setup.sh" ]; then
         echo "--- setup ($lang) ---"
-        if ! "$dir/setup.sh" >"$RAW/$lang.setup.log" 2>&1; then
+        # --foreground: no new process group, so Ctrl-C still reaches the build.
+        srn=0; timeout --foreground "$SETUP_TIMEOUT_S" "$dir/setup.sh" \
+            >"$RAW/$lang.setup.log" 2>&1 || srn=$?
+        if [ "$srn" = 124 ]; then
+            echo "!! setup TIMED OUT for $lang after ${SETUP_TIMEOUT_S}s — killed it and moved on"
+            echo "   (last output: $RAW/$lang.setup.log; raise SETUP_TIMEOUT_S, or 0 to disable)"
+            STATUS[$lang]=SETUP_TIMEOUT; continue
+        elif [ "$srn" != 0 ]; then
             echo "!! setup FAILED for $lang (see $RAW/$lang.setup.log)"; STATUS[$lang]=SETUP_FAIL; continue
         fi
     fi

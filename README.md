@@ -155,6 +155,7 @@ BENCH_ITERS=100000 ./scripts/run_benchmark.sh     # fewer iterations
 RUNS=1 ./scripts/run_benchmark.sh                 # single quick run (skip best-of-5)
 COOLDOWN_S=30 ./scripts/run_benchmark.sh          # longer thermal pause between runs
 COOLDOWN_S=0 ./scripts/run_benchmark.sh           # no pause (faster, hotter CPU)
+SETUP_TIMEOUT_S=3600 ./scripts/run_benchmark.sh   # per-target setup.sh cap (0 = off)
 ./scripts/run_benchmark.sh --no-setup             # reuse existing builds
 ```
 
