@@ -28,7 +28,14 @@ use message::Example;
 use sofab::OStream;
 use sha2::{Digest, Sha256};
 use std::hint::black_box;
-use std::time::Instant;
+
+/// Process CPU time in seconds (docs/BENCH.md rule 3); same helper in every Rust driver.
+fn cpu_seconds() -> f64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let rc = unsafe { libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut ts) };
+    assert_eq!(rc, 0, "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)");
+    ts.tv_sec as f64 + ts.tv_nsec as f64 * 1e-9
+}
 
 fn main() {
     // Build the message from the canonical jsonable state via serde (handles
@@ -43,10 +50,8 @@ fn main() {
     // Byte-wise hex so it works across sha2 versions: 0.11's digest returns a
     // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
     let sha: String = Sha256::digest(&blob).iter().map(|b| format!("{b:02x}")).collect();
-    // try_decode, not decode: it is the whole-buffer entry point that surfaces
-    // the accept/reject verdict (plain decode is best effort and drops it), which
-    // is what the row's baseline does too — prost's decode returns a Result the
-    // protobuf driver unwraps, in its warm-up and in its timed loop alike.
+    // try_decode: the whole-buffer decode that returns the verdict (prost's
+    // decode is fallible too).
     let decoded = Example::try_decode(&blob).expect("sofab decode");
     if decoded.encode().expect("sofab re-encode") != blob {
         eprintln!("FAIL: sofab round-trip self-check");
@@ -58,24 +63,29 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(2_000_000);
 
-    // Reused encode buffer (decode allocates its own object internally).
+    // Reused encode buffer, hoisted out of the loop (docs/BENCH.md rule 3).
     let mut buf = vec![0u8; Example::MAX_SIZE];
 
     // Chained round trip: decode the reference wire, then re-encode the freshly
-    // decoded message (issue #86) — the proxy/transcode shape, which denies
-    // protobuf its once-per-instance serialized-size memo so encode is measured
-    // on equal terms.
-    let t0 = Instant::now();
+    // decoded message (issue #86) — the proxy/transcode shape, the same for both
+    // impls. try_decode returns a fresh message, like prost's decode.
+    let mut used = 0usize;
+    let t0 = cpu_seconds();
     for _ in 0..iters {
         let dec = Example::try_decode(&blob).expect("sofab decode");
-        let used = {
+        used = {
             let mut os = OStream::new(&mut buf);
             dec.serialize(&mut os).expect("sofab serialize");
             os.bytes_used()
         };
         black_box(&buf[..used]);
     }
-    let cpu = t0.elapsed().as_secs_f64();
+    let cpu = cpu_seconds() - t0;
+
+    if buf[..used] != blob[..] {
+        eprintln!("FAIL: sofab loop-path self-check");
+        std::process::exit(1);
+    }
 
     let mbs = if cpu > 0.0 {
         (serialized as f64) * (iters as f64) / cpu / 1e6

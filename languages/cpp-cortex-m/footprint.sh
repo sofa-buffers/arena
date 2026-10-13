@@ -11,10 +11,12 @@
 #   * Target: cortex-m4 hard-float (thumb/v7e-m+fp), newlib-nano + nosys stubs,
 #     -Os -flto -DNDEBUG -fno-exceptions -fno-rtti (typical release firmware C++).
 #   * sofab uses the fixed-capacity profile's heap-free entry points
-#     (encodeTo(buf,cap) / decode(buf,len) into FixedString/InlineVector
-#     members) — NOT the std::vector-returning encode(), which would drag the
-#     allocator into the delta. EmbeddedProto uses its fixed-size buffers.
-#     Both drivers are heap-free, so the comparison is like-for-like.
+#     (encodeTo(buf, cap, used) / try_decode(buf, len, dst)) — NOT the
+#     std::vector-returning encode(), which would drag the allocator into the
+#     delta. EmbeddedProto uses serialize()/clear()+deserialize() on its
+#     fixed-size buffers. Buffers are sized with each API's own worst-case
+#     bound (Example::_maxSize / FullScaleExample::max_serialized_size()) and
+#     every returned verdict is folded into the volatile sink.
 #   * Driver state lives in a custom .harness section so it never counts
 #     toward the codec's .bss. The binaries are never executed.
 set -euo pipefail
@@ -30,11 +32,12 @@ CXX=arm-none-eabi-g++
 ARCH="-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16"
 CFLAGS="$ARCH -Os -flto -DNDEBUG -ffunction-sections -fdata-sections"
 # Embedded C++ release flags. Beyond -fno-exceptions/-fno-rtti: -fno-threadsafe-statics
-# drops the __cxa_guard_* guard on function-local statics (~64B .text here);
-# -fno-use-cxa-atexit drops the __cxa_atexit/__dso_handle dtor-registration table
-# for global objects (~84B .text + 264B .bss for EmbeddedProto) — dead weight in
-# firmware that never calls exit(); -fno-unwind-tables/-fno-asynchronous-unwind-tables
-# strip .ARM.exidx/.eh_frame. This matches languages/cpp-embedded/footprint.sh.
+# drops the __cxa_guard_* guard on function-local statics; -fno-use-cxa-atexit
+# drops the __cxa_atexit/__dso_handle dtor registration for global objects — dead
+# weight in firmware that never calls exit(); -fno-unwind-tables/
+# -fno-asynchronous-unwind-tables strip .ARM.exidx/.eh_frame. Same set as
+# languages/cpp-embedded/footprint.sh plus -fno-use-cxa-atexit, which only
+# matters once global objects are linked.
 CXXFLAGS="$CFLAGS -fno-exceptions -fno-rtti -fno-threadsafe-statics \
           -fno-use-cxa-atexit -fno-unwind-tables -fno-asynchronous-unwind-tables"
 LDFLAGS="--specs=nano.specs --specs=nosys.specs -Wl,--gc-sections"
@@ -43,11 +46,14 @@ trap 'rm -rf "$TMP"' EXIT
 
 # sum_sections <elf> -> "text rodata data bss"
 sum_sections() {
-    size -A "$1" | awk '
+    # bss from symbol sizes, not the section size: the section also holds the
+    # linker's alignment fill, which moves with the driver's .harness layout.
+    local bss
+    bss="$("${CC%gcc}nm" -f sysv -t d "$1" | awk -F'|' '$7 ~ /^\.bss/ { s += $5 } END { print s + 0 }')"
+    size -A "$1" | awk -v bss="$bss" '
         $1 ~ /^\.text/   { text += $2 }
         $1 ~ /^\.rodata/ { rod  += $2 }
         $1 ~ /^\.data/   { dat  += $2 }
-        $1 ~ /^\.bss/    { bss  += $2 }
         END { printf "%d %d %d %d\n", text, rod, dat, bss }'
 }
 
@@ -76,18 +82,15 @@ using fullscale::Example;
 #define HARNESS __attribute__((section(".harness")))
 HARNESS static Example msg;
 HARNESS static Example dec;
-HARNESS static std::uint8_t buf[512];
+HARNESS static std::uint8_t buf[Example::_maxSize];
 HARNESS volatile std::size_t sink;
 int main() {
     std::size_t n = 0;
-    sofab::Error e = msg.encodeTo(buf, sizeof buf, n);   // heap-free encode path
-    // try_decode is the reuse decode: it resets `dec` to its declared defaults
-    // and decodes into it, and it hands back the verdict. Both halves are what a
-    // firmware decode of a whole buffer needs, and both are what embeddedproto
-    // links below (clear() + deserialize()); plain decode() would return a
-    // message by value, charging this driver's copy to the codec and leaving the
-    // verdict code out of the delta.
-    bool ok = Example::try_decode(buf, n, dec).ok();  // fixed-capacity members: heap-free
+    sofab::Error e = msg.encodeTo(buf, sizeof buf, n);
+    // try_decode decodes a fresh message and copies it into `dec` on success,
+    // returning the verdict — the counterpart of embeddedproto's clear() +
+    // deserialize().
+    bool ok = Example::try_decode(buf, n, dec).ok();
     sink = n + (ok ? 0u : 1u) + (e == sofab::Error::None ? 0u : 2u);
     return 0;
 }
@@ -108,23 +111,23 @@ cat > "$TMP/drv_ep.cpp" <<'EOF'
 using fullscale::FullScaleExample;
 #define HARNESS __attribute__((section(".harness")))
 HARNESS static FullScaleExample msg;
-HARNESS static ::EmbeddedProto::WriteBufferFixedSize<512> wbuf;
-HARNESS static ::EmbeddedProto::ReadBufferFixedSize<512> rbuf;
-HARNESS volatile int sink;
+HARNESS static FullScaleExample dec;
+constexpr auto BUFSZ = FullScaleExample::max_serialized_size();
+HARNESS static ::EmbeddedProto::WriteBufferFixedSize<BUFSZ> wbuf;
+HARNESS static ::EmbeddedProto::ReadBufferFixedSize<BUFSZ> rbuf;
+HARNESS volatile std::size_t sink;
 int main() {
     auto e1 = msg.serialize(wbuf);
-    // clear() before deserialize(): EmbeddedProto decodes INTO the message
-    // without resetting it, so a reused destination needs this — the same work
-    // sofab's try_decode does internally. Linking it keeps the two deltas
-    // like-for-like (the host probe languages/cpp-embedded/footprint.sh pairs
-    // them the same way).
-    msg.clear();
-    auto e2 = msg.deserialize(rbuf);
-    sink = static_cast<int>(e1) + static_cast<int>(e2);
+    // deserialize() decodes INTO the message without resetting it, so the
+    // reused `dec` is cleared first.
+    dec.clear();
+    auto e2 = dec.deserialize(rbuf);
+    sink = wbuf.get_size() + (e2 == ::EmbeddedProto::Error::NO_ERRORS ? 0u : 1u)
+         + (e1 == ::EmbeddedProto::Error::NO_ERRORS ? 0u : 2u);
     return 0;
 }
 EOF
-$CXX $CXXFLAGS -std=c++17 $LDFLAGS "$TMP/drv_ep.cpp" \
+$CXX $CXXFLAGS -std=c++20 $LDFLAGS "$TMP/drv_ep.cpp" \
     "$EP/src/Fields.cpp" "$EP/src/MessageInterface.cpp" "$EP/src/ReadBufferSection.cpp" \
     -I"$GEN_EP" -I"$EP/src" -o "$TMP/ep.elf" >/dev/null
 emit_delta embeddedproto "$TMP/ep.elf" "$TMP/baseline.elf"

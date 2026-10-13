@@ -20,6 +20,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart';
+import 'package:protobuf/protobuf.dart' show CodedBufferWriter;
 
 import 'gen/message.pb.dart';
 import 'bench_common.dart';
@@ -102,18 +103,35 @@ void main() {
   final iters = int.tryParse(Platform.environment['BENCH_ITERS'] ?? '') ?? 2000000;
 
   // Chained round trip: decode the reference wire, then re-encode the freshly
-  // decoded message (issue #86) — so encode runs on a just-parsed message
-  // rather than a pre-built instance, denying protobuf its cached serialized
-  // size. `sink` is a per-iteration data dependency against dead-code removal.
+  // decoded message (issue #86) — the proxy/transcode shape. Decode reuses one
+  // destination via clear() + mergeFromBuffer. Encode writes into one hoisted
+  // buffer via CodedBufferWriter.writeTo — the writer has no reset, so it is
+  // one per message. protobuf has no max-size constant: the buffer is sized
+  // from the reference message. `sink` is a per-iteration data dependency
+  // against dead-code removal.
+  final dec = FullScaleExample();
+  final outBuf = Uint8List(serialized);
+  var used = 0;
   var sink = 0;
   final clock = CpuClock();
   final t0 = clock.seconds();
   for (var i = 0; i < iters; i++) {
-    final dec = FullScaleExample.fromBuffer(blob);
-    final out = dec.writeToBuffer();
-    sink ^= out[0] ^ out.length;
+    dec
+      ..clear()
+      ..mergeFromBuffer(blob);
+    final w = CodedBufferWriter();
+    dec.writeToCodedBufferWriter(w);
+    w.writeTo(outBuf);
+    used = w.lengthInBytes;
+    sink ^= used;
   }
   final cpu = clock.seconds() - t0;
+
+  // Loop-path check: the last re-encode must be the reference wire.
+  if (!_bytesEqual(Uint8List.sublistView(outBuf, 0, used), blob)) {
+    stderr.writeln('FAIL: protobuf loop-path self-check');
+    exit(1);
+  }
 
   final mbs = cpu > 0.0 ? serialized * iters / cpu / 1e6 : 0.0;
   stderr.writeln('sink=$sink');

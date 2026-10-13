@@ -88,13 +88,14 @@ pub fn main(init: std.process.Init) !void {
     var digest: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(wire, &digest, .{});
 
-    // decode() borrows string/blob bytes from `wire` and takes array storage
-    // from the allocator — a fixed stack buffer keeps the whole codec heap-free.
-    var dec_mem: [4096]u8 = undefined;
-    var fba = std.heap.FixedBufferAllocator.init(&dec_mem);
+    // decode() copies strings, blobs and array storage into the allocator; the
+    // generated docs say to pass an arena; it is rewound per message (same as
+    // protobuf).
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
 
     // Round-trip is correct iff the decoded message re-encodes to the same bytes.
-    const check = try Example.decode(fba.allocator(), wire);
+    const check = try Example.decode(arena.allocator(), wire);
     var check_buf: [Example.MAX_SIZE]u8 = undefined;
     var check_os = sofab.OStream.init(&check_buf);
     try check.serialize(&check_os);
@@ -104,28 +105,25 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // Timed loop: chained round trip — decode the reference wire, then re-encode
-    // the freshly decoded message (issue #86). This is the proxy/transcode shape;
-    // it denies protobuf its once-per-instance serialized-size memo so encode is
-    // measured on equal terms. Buffers hoisted; the fixed decode arena is rewound
-    // per iteration, which frees the whole message at once.
+    // the freshly decoded message (issue #86), the proxy/transcode shape. Output
+    // buffer hoisted; the arena is rewound per iteration, keeping its pages.
     const iters = benchIters(init, 2_000_000);
     var loop_buf: [Example.MAX_SIZE]u8 = undefined;
-    var dec: Example = .{};
+    var loop_wire: []const u8 = &.{};
     const t0 = cpuNow();
     var i: u64 = 0;
     while (i < iters) : (i += 1) {
-        fba.reset();
-        dec = try Example.decode(fba.allocator(), wire);
+        _ = arena.reset(.retain_capacity);
+        const dec = try Example.decode(arena.allocator(), wire);
         var eos = sofab.OStream.init(&loop_buf);
         try dec.serialize(&eos);
-        const used = eos.bytesUsed();
-        std.mem.doNotOptimizeAway(loop_buf[0..used]);
+        loop_wire = loop_buf[0..eos.bytesUsed()];
+        std.mem.doNotOptimizeAway(loop_wire);
     }
     const cpu = cpuNow() - t0;
 
-    var loop_check_os = sofab.OStream.init(&check_buf);
-    try dec.serialize(&loop_check_os);
-    if (!std.mem.eql(u8, check_buf[0..loop_check_os.bytesUsed()], wire)) {
+    // Loop-path check: the last re-encode must be the reference wire.
+    if (!std.mem.eql(u8, loop_wire, wire)) {
         std.debug.print("FAIL: sofab loop-path self-check\n", .{});
         std.process.exit(1);
     }

@@ -16,10 +16,17 @@ use proto::fullscale_::{
 };
 use sha2::{Digest, Sha256};
 use std::hint::black_box;
-use std::time::Instant;
 
-// Encode buffer capacity (message is ~494 B; give generous headroom).
-const CAP: usize = 1024;
+/// Process CPU time in seconds (docs/BENCH.md rule 3); same helper in every Rust driver.
+fn cpu_seconds() -> f64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let rc = unsafe { libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut ts) };
+    assert_eq!(rc, 0, "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)");
+    ts.tv_sec as f64 + ts.tv_nsec as f64 * 1e-9
+}
+
+// Encode buffer capacity: micropb's own worst-case bound for the message.
+const CAP: usize = micropb::size::max_encoded_size::<FullScaleExample>();
 
 fn hs<const N: usize>(s: &str) -> heapless::String<N> {
     let mut out = heapless::String::<N>::new();
@@ -92,28 +99,33 @@ fn build() -> FullScaleExample {
     msg
 }
 
-fn encode(msg: &FullScaleExample) -> heapless::Vec<u8, CAP> {
-    let mut enc = PbEncoder::new(heapless::Vec::<u8, CAP>::new());
+/// Encode `msg` into the caller's buffer through micropb's `&mut [u8]` writer;
+/// returns the number of bytes written.
+fn encode_into(msg: &FullScaleExample, out: &mut [u8]) -> usize {
+    let cap = out.len();
+    let mut enc = PbEncoder::new(out);
     msg.encode(&mut enc).expect("micropb encode");
-    enc.into_writer()
+    cap - enc.into_writer().len()
 }
 
 fn main() {
     let src = build();
 
     // Warm-up round-trip + self-check (outside the timed region).
-    let blob = encode(&src);
-    let serialized = blob.len();
+    let mut blob = [0u8; CAP];
+    let serialized = encode_into(&src, &mut blob);
+    let blob = &blob[..serialized];
     // Byte-wise hex so it works across sha2 versions: 0.11's digest returns a
     // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
-    let sha: String = Sha256::digest(&blob[..]).iter().map(|b| format!("{b:02x}")).collect();
+    let sha: String = Sha256::digest(blob).iter().map(|b| format!("{b:02x}")).collect();
 
     let mut decoded = FullScaleExample::default();
     decoded
-        .decode_from_bytes(&blob[..])
+        .decode_from_bytes(blob)
         .expect("micropb decode");
-    let re = encode(&decoded);
-    if re != blob {
+    let mut re = [0u8; CAP];
+    let n = encode_into(&decoded, &mut re);
+    if re[..n] != *blob {
         eprintln!("FAIL: micropb round-trip self-check");
         std::process::exit(1);
     }
@@ -125,20 +137,21 @@ fn main() {
 
     // Chained round trip: decode the reference wire, then re-encode the freshly
     // decoded message (issue #86) -- the proxy/transcode shape docs/BENCH.md
-    // rule 3 prescribes, identical to the sofab driver of this row. `used` is
-    // the per-iteration sink, checked after the loop.
+    // rule 3 prescribes, identical to the sofab driver of this row. Decode
+    // merges into `self`, so each iteration starts from a fresh default (the
+    // documented micropb form); the encode buffer is hoisted and reused.
+    let mut buf = vec![0u8; CAP];
     let mut used = 0usize;
-    let t0 = Instant::now();
+    let t0 = cpu_seconds();
     for _ in 0..iters {
         let mut d = FullScaleExample::default();
-        d.decode_from_bytes(&blob[..]).unwrap();
-        let b = encode(&d);
-        used = b.len();
-        black_box(&b);
+        d.decode_from_bytes(blob).expect("micropb decode");
+        used = encode_into(&d, &mut buf);
+        black_box(&buf[..used]);
     }
-    let cpu = t0.elapsed().as_secs_f64();
+    let cpu = cpu_seconds() - t0;
 
-    if used != serialized {
+    if buf[..used] != *blob {
         eprintln!("FAIL: micropb loop-path self-check");
         std::process::exit(1);
     }

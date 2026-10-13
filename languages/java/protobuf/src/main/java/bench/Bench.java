@@ -6,11 +6,13 @@
 package bench;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedOutputStream;
 import fullscale.Message.FullScaleExample;
 import fullscale.Message.FullScaleSeqStruct;
 import fullscale.Message.FullScaleSeqStructOfArrays;
 import fullscale.Message.FullScaleSeqStructOfFpArrays;
 import fullscale.Message.FullScaleSeqArrayOfStrings;
+import java.lang.management.ManagementFactory;
 import java.security.MessageDigest;
 import java.util.Arrays;
 
@@ -20,6 +22,11 @@ public class Bench {
         StringBuilder sb = new StringBuilder(d.length * 2);
         for (byte x : d) sb.append(String.format("%02x", x & 0xFF));
         return sb.toString();
+    }
+
+    static long cpuNanos() {
+        return ((com.sun.management.OperatingSystemMXBean)
+            ManagementFactory.getOperatingSystemMXBean()).getProcessCpuTime();
     }
 
     static FullScaleExample build() {
@@ -82,12 +89,21 @@ public class Bench {
     public static void main(String[] args) throws Exception {
         FullScaleExample src = build();
 
+        // Caller-owned output buffer, hoisted out of the timed loop. protobuf has
+        // no max-size constant, so it is sized from the reference message.
+        byte[] out = new byte[src.getSerializedSize()];
+
         // Warm-up round-trip + self-check (outside the timed region).
-        byte[] blob = src.toByteArray();
+        CodedOutputStream cos = CodedOutputStream.newInstance(out);
+        src.writeTo(cos);
+        cos.flush();
+        byte[] blob = Arrays.copyOf(out, cos.getTotalBytesWritten());
         int serialized = blob.length;
         String sha = sha256hex(blob);
-        byte[] re = FullScaleExample.parseFrom(blob).toByteArray();
-        if (!Arrays.equals(re, blob)) {
+        cos = CodedOutputStream.newInstance(out);
+        FullScaleExample.parseFrom(blob).writeTo(cos);
+        cos.flush();
+        if (!Arrays.equals(out, 0, cos.getTotalBytesWritten(), blob, 0, serialized)) {
             System.err.println("FAIL: protobuf round-trip self-check");
             System.exit(1);
         }
@@ -97,22 +113,27 @@ public class Bench {
 
         // JIT warm-up (same chained shape as the timed loop).
         for (int i = 0; i < 20000; i++) {
-            FullScaleExample.parseFrom(blob).toByteArray();
+            CodedOutputStream w = CodedOutputStream.newInstance(out);
+            FullScaleExample.parseFrom(blob).writeTo(w);
+            w.flush();
         }
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
-        // parsed message (issue #86) — the proxy/transcode shape. Each parseFrom
-        // yields a new message whose memoized serialized size is unset, so protobuf
-        // pays the size pass every encode instead of hitting a once-per-instance
-        // memo. sink keeps the re-encode live and doubles as a loop-path check.
+        // parsed message (issue #86). sink keeps the re-encode live.
         long sink = 0;
-        long t0 = System.nanoTime();
+        long t0 = cpuNanos();
         for (int i = 0; i < iters; i++) {
-            sink += FullScaleExample.parseFrom(blob).toByteArray().length;
+            cos = CodedOutputStream.newInstance(out);
+            FullScaleExample.parseFrom(blob).writeTo(cos);
+            cos.flush();
+            sink += cos.getTotalBytesWritten();
         }
-        long t1 = System.nanoTime();
+        long t1 = cpuNanos();
 
-        if (sink != (long) serialized * iters) {
+        // Loop-path check: every re-encode had the reference length, and the last
+        // one's bytes are the reference wire.
+        if (sink != (long) serialized * iters
+                || !Arrays.equals(out, 0, cos.getTotalBytesWritten(), blob, 0, serialized)) {
             System.err.println("FAIL: protobuf loop-path self-check");
             System.exit(1);
         }

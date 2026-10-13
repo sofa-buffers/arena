@@ -7,9 +7,8 @@
 
 static void fill(fullscale_example_t *m)
 {
-    /* The generated initializer, not a memset: it applies the schema's declared
-       defaults (a non-zero default would survive a memset). It is also what the
-       header asks for before a decode — see the timed loop below. */
+    /* The generated initializer: it applies the schema's declared defaults,
+       which a memset would not. */
     fullscale_example__init(m);
 
     /* Fill scalar fields */
@@ -97,7 +96,6 @@ int main(void)
         fprintf(stderr, "FAIL: sofab encode\n");
         return 1;
     }
-    bench_dump("sofab-c", buffer, serialized);
 
     char sha[65];
     sha256_hex(buffer, serialized, sha);
@@ -123,21 +121,13 @@ int main(void)
        changes, and would hand a size-memoizing implementation a once-per-instance
        discount. Output buffer and destination hoisted; `used` is the
        per-iteration sink, checked against the reference after the loop.
-
-       fullscale_example__init() runs INSIDE the loop because that is the
-       generated API's contract for a reused destination ("call
-       fullscale_example__init first to apply defaults", example_sofab.h): a
-       field equal to its default is absent from the wire, so without the init a
-       decode cannot clear what the previous message left behind. It is also what
-       the baseline pays — nanopb/bench.c re-zeroes its destination every
-       iteration — so hoisting it out of the loop would buy sofab a saving the
-       opponent does not get. */
+       fullscale_example__init() runs before every decode, as the generated
+       header requires ("call fullscale_example__init first", example_sofab.h). */
     fullscale_example_t dec;
     uint8_t out[FULLSCALE_EXAMPLE__MAX_SIZE];
     size_t used = 0;
     const long iters = bench_iters(500000);
     long i;
-    bench_instr_start();
     const double t0 = bench_seconds();
     for (i = 0; i < iters; i++) {
         fullscale_example__init(&dec);
@@ -145,7 +135,6 @@ int main(void)
         fullscale_example__encode(&dec, out, sizeof(out), &used);
     }
     const double t1 = bench_seconds();
-    bench_instr_stop();
 
     if (used != serialized || memcmp(out, buffer, serialized) != 0) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");

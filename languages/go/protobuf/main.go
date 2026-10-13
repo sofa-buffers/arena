@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
+	"syscall"
 
 	"google.golang.org/protobuf/proto"
 
@@ -88,6 +88,14 @@ func build(s *state) *pb.FullScaleExample {
 	}
 }
 
+// cpuSeconds returns this process's CPU time (user+sys), not wall-clock
+// (docs/BENCH.md rule 3) — the same helper as the sofab side.
+func cpuSeconds() float64 {
+	var ru syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &ru)
+	return float64(ru.Utime.Nano()+ru.Stime.Nano()) / 1e9
+}
+
 func main() {
 	os.Exit(run())
 }
@@ -109,7 +117,7 @@ func run() int {
 	}
 	src := build(&s)
 
-	mo := proto.MarshalOptions{Deterministic: true}
+	mo := proto.MarshalOptions{}
 
 	// Warm-up round-trip + self-check (outside the timed region).
 	blob, err := mo.Marshal(src)
@@ -139,24 +147,20 @@ func run() int {
 		}
 	}
 
-	// Timed region: chained round trip — decode the reference wire, then re-encode
-	// the freshly decoded message (issue #86). This is the proxy/transcode shape,
-	// and it denies protobuf its once-per-instance serialized-size memo so encode
-	// is measured on equal terms. A fresh decode target per iteration avoids
-	// proto.Unmarshal's merge-into-existing semantics appending to repeated fields.
-	// sink keeps the re-encode from being optimized out and doubles as a loop-path
-	// check (every re-encode is `serialized` bytes).
-	sink := 0
-	t0 := time.Now()
+	// Timed region: chained round trip — decode the reference wire into a fresh
+	// message, then re-encode it (issue #86) with MarshalAppend into a
+	// caller-owned buffer hoisted out of the loop (grown once, then reused).
+	var out []byte
+	t0 := cpuSeconds()
 	for i := 0; i < iters; i++ {
 		dec := &pb.FullScaleExample{}
 		proto.Unmarshal(blob, dec)
-		b, _ := mo.Marshal(dec)
-		sink += len(b)
+		out, _ = mo.MarshalAppend(out[:0], dec)
 	}
-	cpu := time.Since(t0).Seconds()
+	cpu := cpuSeconds() - t0
 
-	if sink != serialized*iters {
+	// Loop-path check: the last re-encode must be the reference wire.
+	if !bytes.Equal(out, blob) {
 		fmt.Fprintln(os.Stderr, "FAIL: protobuf loop-path self-check")
 		return 1
 	}

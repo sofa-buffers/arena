@@ -9,7 +9,7 @@
 
 static void fill(fullscale_FullScaleExample *m)
 {
-    memset(m, 0, sizeof(*m));
+    *m = (fullscale_FullScaleExample)fullscale_FullScaleExample_init_zero;
 
     /* Top-level scalars */
     m->u8  = 200;
@@ -95,14 +95,12 @@ int main(void)
         return 1;
     }
     size_t serialized = os.bytes_written;
-    bench_dump("nanopb", buffer, serialized);
 
     char sha[65];
     sha256_hex(buffer, serialized, sha);
 
     /* self-check: decode, then re-encode and assert identical bytes */
-    fullscale_FullScaleExample chk;
-    memset(&chk, 0, sizeof(chk));
+    fullscale_FullScaleExample chk = fullscale_FullScaleExample_init_zero;
     pb_istream_t is = pb_istream_from_buffer(buffer, serialized);
     if (!pb_decode(&is, fullscale_FullScaleExample_fields, &chk)) {
         fprintf(stderr, "FAIL: nanopb decode: %s\n", PB_GET_ERROR(&is));
@@ -122,24 +120,23 @@ int main(void)
        the pre-built `msg` instead would measure an encode whose input never
        changes, and would hand a size-memoizing implementation a once-per-instance
        discount. Output buffer and destination hoisted; `used` is the
-       per-iteration sink, checked against the reference after the loop. */
-    fullscale_FullScaleExample dec;
+       per-iteration sink, checked against the reference after the loop.
+       pb_decode initializes every non-callback field itself (pb_decode.h), so
+       the destination needs no per-iteration reset. */
+    fullscale_FullScaleExample dec = fullscale_FullScaleExample_init_zero;
     static uint8_t out[fullscale_FullScaleExample_size];
     size_t used = 0;
     const long iters = bench_iters(500000);
     long i;
-    bench_instr_start();
     const double t0 = bench_seconds();
     for (i = 0; i < iters; i++) {
         pb_istream_t in = pb_istream_from_buffer(buffer, serialized);
-        memset(&dec, 0, sizeof(dec));
         pb_decode(&in, fullscale_FullScaleExample_fields, &dec);
         pb_ostream_t o = pb_ostream_from_buffer(out, sizeof(out));
         pb_encode(&o, fullscale_FullScaleExample_fields, &dec);
         used = o.bytes_written;
     }
     const double t1 = bench_seconds();
-    bench_instr_stop();
 
     if (used != serialized || memcmp(out, buffer, serialized) != 0) {
         fprintf(stderr, "FAIL: nanopb loop-path self-check\n");

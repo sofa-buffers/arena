@@ -4,7 +4,7 @@
 # Prints ONE line per impl:
 #   FOOTPRINT lang=cpp-embedded impl=<sofab|embeddedproto> text=<b> rodata=<b> data=<b> bss=<b>
 #
-# Methodology (kept consistent with languages/c/footprint.sh):
+# Methodology (kept consistent with languages/c-embedded/footprint.sh):
 #   * Both codecs are C++ SOURCE libraries, so each is measured as an OBJECT SUM:
 #     compile the codec translation units with -Os -ffunction-sections
 #     -fdata-sections and sum the .text/.rodata/.data/.bss sections of the codec
@@ -17,10 +17,16 @@
 #     sha256 are excluded, exactly as in the C target.
 #   * sofab codec  = example.hpp instantiation + corelib-c-cpp C sources
 #                    (object.c/ostream.c/istream.c), instantiated through the
-#                    heap-free encodeTo/try_decode entry points (see the driver
-#                    below) — never the std::vector-returning encode().
+#                    heap-free encodeTo(buf, cap, used)/try_decode(data, len, out)
+#                    entry points — never the std::vector-returning encode().
 #   * embeddedproto codec = message.h instantiation + EmbeddedProto runtime
-#                    sources (Fields.cpp/MessageInterface.cpp/ReadBufferSection.cpp).
+#                    sources (Fields.cpp/MessageInterface.cpp/ReadBufferSection.cpp),
+#                    instantiated through serialize()/clear()+deserialize().
+#   * Both drivers take their CONCRETE buffer types (sofab's raw byte buffer,
+#     which encodeTo/try_decode wrap in their inline OStreamView/IStreamObject;
+#     EmbeddedProto's WriteBufferFixedSize/ReadBufferFixedSize sized by
+#     max_serialized_size() and explicitly instantiated), so each codec's buffer
+#     code lands in its sum, as in cpp-cortex-m.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -28,7 +34,7 @@ CORELIB="${CORELIB:-$ROOT/vendor/corelib-c-cpp}"
 EP="${EP:-$ROOT/vendor/EmbeddedProto}"
 COMMON="$ROOT/languages/common"
 
-CFLAGS="-Os -ffunction-sections -fdata-sections"
+CFLAGS="-Os -DNDEBUG -ffunction-sections -fdata-sections"
 # Embedded C++ footprint flags: no exceptions / RTTI / unwind tables. These strip
 # the exception machinery (.eh_frame/.gcc_except_table), typeinfo (.rodata) and
 # static-init guards (.data) that no real firmware build carries — how both
@@ -58,15 +64,9 @@ emit() { # impl "text rodata data bss"
 cat > "$TMP/drv_sofab.cpp" <<'EOF'
 #include "example.hpp"
 using fullscale::Example;
-// Force instantiation of the generated codec surface through the HEAP-FREE entry
-// points — encodeTo(buf, cap) into caller storage and try_decode(data, len, out)
-// into a caller-owned destination, both of which report their verdict. The
-// allocating conveniences encode()/decode() would drag std::vector and the
-// allocator into an embedded-league number, which is the same reason
-// languages/cpp-cortex-m/footprint.sh links encodeTo; embeddedproto below is
-// measured through its own buffer-interface serialize/deserialize pair, so this
-// keeps the two surfaces like-for-like.
-std::size_t fp_encode(const Example &m, std::uint8_t *dst, std::size_t cap) { return m.encodeTo(dst, cap); }
+// Heap-free entry points: encodeTo into caller storage, try_decode (decodes a
+// fresh message, copies it into `out` on success); every verdict is returned.
+sofab::Error fp_encode(const Example &m, std::uint8_t *dst, std::size_t cap, std::size_t &used) { return m.encodeTo(dst, cap, used); }
 bool fp_decode(const std::uint8_t *d, std::size_t n, Example &out) { return Example::try_decode(d, n, out).ok(); }
 EOF
 g++ $CFLAGS $CXXEMB -std=c++20 -c "$TMP/drv_sofab.cpp" \
@@ -83,16 +83,20 @@ cat > "$TMP/drv_ep.cpp" <<'EOF'
 #include "WriteBufferFixedSize.h"
 #include "ReadBufferFixedSize.h"
 using fullscale::FullScaleExample;
-// Force instantiation of the generated serialize/deserialize codec surface.
-::EmbeddedProto::Error fp_encode(const FullScaleExample &m, ::EmbeddedProto::WriteBufferInterface &b) { return m.serialize(b); }
-// clear() before deserialize(): EmbeddedProto decodes INTO the message without
-// resetting it, so a reused destination needs this — the same work sofab's
-// try_decode does internally, which is what keeps the two surfaces comparable.
-::EmbeddedProto::Error fp_decode(FullScaleExample &m, ::EmbeddedProto::ReadBufferInterface &b) { m.clear(); return m.deserialize(b); }
+using WriteBuffer = ::EmbeddedProto::WriteBufferFixedSize<FullScaleExample::max_serialized_size()>;
+using ReadBuffer  = ::EmbeddedProto::ReadBufferFixedSize<FullScaleExample::max_serialized_size()>;
+// The buffers a firmware would own, as in the bare-metal driver: constructing
+// them emits their code and vtables; their arrays sit in .harness, not counted.
+__attribute__((section(".harness"))) WriteBuffer wbuf;
+__attribute__((section(".harness"))) ReadBuffer rbuf;
+::EmbeddedProto::Error fp_encode(const FullScaleExample &m, WriteBuffer &b) { return m.serialize(b); }
+// deserialize() decodes INTO the message without resetting it, so the reused
+// destination is cleared first.
+::EmbeddedProto::Error fp_decode(ReadBuffer &b, FullScaleExample &m) { m.clear(); return m.deserialize(b); }
 EOF
-g++ $CFLAGS $CXXEMB -std=c++17 -c "$TMP/drv_ep.cpp" \
+g++ $CFLAGS $CXXEMB -std=c++20 -c "$TMP/drv_ep.cpp" \
     -I "$HERE/embeddedproto/gen" -I "$EP/src" -o "$TMP/drv_ep.o"
-g++ $CFLAGS $CXXEMB -std=c++17 -c \
+g++ $CFLAGS $CXXEMB -std=c++20 -c \
     "$EP/src/Fields.cpp" "$EP/src/MessageInterface.cpp" "$EP/src/ReadBufferSection.cpp" \
     -I "$EP/src"
 mv ./Fields.o ./MessageInterface.o ./ReadBufferSection.o "$TMP"/

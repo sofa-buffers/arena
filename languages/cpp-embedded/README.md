@@ -43,7 +43,13 @@ this repository.
   varint, whereas EmbeddedProto encodes `int32` in 5 bytes; a negative `int64` and
   a negative `int32` of equal value serialize to identical protobuf bytes, so this
   keeps the wire **byte-identical** to the reference protobuf output while
-  preserving values and field numbers.
+  preserving values and field numbers. The cost lands on EmbeddedProto: those
+  fields (scalars and arrays) are stored as 64-bit `int64_t` instead of 32-bit.
+
+## Build flags
+
+Both impls compile with identical flags, including `-std=c++20` (EmbeddedProto
+requires C++17 or later and builds cleanly under C++20; sofab's wrapper needs C++20).
 
 ## Run
 
@@ -56,15 +62,14 @@ this repository.
 
 * `embeddedproto`: **494 bytes** — byte-identical to the reference protobuf wire
   (sha256 `e8d391d98bc54c0ec24fff19ec96bb52114d9d34aed7d0f0023a0317bcfa5b3d`).
-* `sofab`: **436 bytes** (sha256 `db362bf24959b41fd153b59958e2afdf59020c6c3501fb60e189526659a72ed4`).
-  The corelib-c-cpp object API encodes all 5 `string_array` elements including the
-  empty one; the smaller wire vs protobuf is inherent to the SofaBuffers framing.
+* `sofab`: **434 bytes** — byte-identical to the reference SofaBuffers wire
+  (sha256 `e1733416c987b04faea747b7cdd8f2913934f45d4a77453f58c9e3ef12e29d9d`).
 
 ## Footprint
 
 `footprint.sh` reports an object-sum footprint for both codecs (C++ source libs,
-no libc), consistent with `languages/c/footprint.sh`: each codec's translation
-units are compiled with `-Os -ffunction-sections -fdata-sections` and the
+no libc), consistent with `languages/c-embedded/footprint.sh`: each codec's translation
+units are compiled with `-Os -DNDEBUG -ffunction-sections -fdata-sections` and the
 `.text`/`.rodata`/`.data`/`.bss` sections are summed with `size -A`. Because both
 codecs are header/template based, a tiny driver TU instantiates the encode/decode
 surface (the analog of the C target's generated `example.o`); `bench.cpp` and

@@ -227,7 +227,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 # Bun's JavaScriptCore engine so the arena can compare the two JS runtimes.
 # Installed system-wide (BUN_INSTALL) so every user/shell finds it on PATH.
 ENV BUN_INSTALL=/usr/local/bun PATH=/usr/local/bun/bin:$PATH
-RUN curl -fsSL https://bun.sh/install | bash \
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.2" \
     && bun --version
 
 WORKDIR /workspace

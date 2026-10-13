@@ -5,19 +5,13 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/../common/cooldown.sh"   # cooldown_between_impls (COOLDOWN_S from the runner)
-ROOT="$(cd "$HERE/../.." && pwd)"
-export STATE_JSON="${STATE_JSON:-$ROOT/schema/state.json}"
 export BENCH_ITERS="${BENCH_ITERS:-2000000}"
 
-# Portable JVM throughput tuning, identical to the java target's and applied to
-# BOTH impls so the comparison stays fair. No CPU/ISA pinning. The 2M-iter loop
-# already warms the tiered JIT; the goal is steady-state.
-#   -XX:+UseParallelGC   throughput collector (beats the default G1 here).
-#   -Xms/-Xmx 512m       fixed heap -> no resize pauses; 512 MB is safe anywhere.
-#   -XX:+AlwaysPreTouch  commit+zero heap pages up front -> no page-fault stalls
-#                        in the timed loop.
-JAVA_TUNE="${JAVA_TUNE:--XX:+UseParallelGC -Xms512m -Xmx512m -XX:+AlwaysPreTouch}"
+# Same JVM flags for both impls (and as the java target); no CPU/ISA pinning,
+# default GC. A fixed, pre-touched heap only keeps resize pauses and page
+# faults out of the loop.
+JAVA_TUNE="${JAVA_TUNE:--Xms512m -Xmx512m -XX:+AlwaysPreTouch}"
 
-java $JAVA_TUNE -cp "$(cat "$HERE/sofab/build/bench-classpath.txt")"    message.BenchKt
+java $JAVA_TUNE -cp "$(cat "$HERE/sofab/build/bench-classpath.txt")"    bench.BenchKt
 cooldown_between_impls
 java $JAVA_TUNE -cp "$(cat "$HERE/protobuf/build/bench-classpath.txt")" bench.BenchKt

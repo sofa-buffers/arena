@@ -1,8 +1,9 @@
 // SofaBuffers C++ benchmark target.
 //
 // Encodes + decodes the canonical FullScaleExample message (schema/STATE.md)
-// through the GENERATED C++ types (fullscale::Example), backed by the pure
-// C++20 header-only corelib-cpp. Prints one uniform BENCH line (docs/BENCH.md).
+// through the GENERATED C++ types (fullscale::Example), backed by the
+// corelib-c-cpp C core and its C++ wrapper. Prints one uniform BENCH line
+// (docs/BENCH.md).
 //
 // The message fill mirrors every other target in the arena — identical fields,
 // ids and values as the .proto / .sofab definitions and the canonical state.
@@ -78,10 +79,7 @@ void fill(Example &m)
     m.arrays.nested.fp32 = {1.0f, 2.0f, 3.0f, -FLT_MAX, FLT_MAX};
     m.arrays.nested.fp64 = {1.0, 2.0, 3.0, -DBL_MAX, DBL_MAX};
 
-    // string_array is a sofab::InlineVector<FixedString<64>,5> in the fixed-capacity
-    // (corelib: c-cpp) profile. Since corelib-c-cpp gained an initializer_list
-    // ctor/operator= (generator#37), natural brace-init sets the logical length
-    // correctly — the earlier push_back workaround is no longer needed.
+    // string_array is a sofab::InlineVector<FixedString<64>,5> in this profile.
     m.string_array = {
         "Hello, Sofab!",
         "",
@@ -100,15 +98,9 @@ int main()
 
     // Warm-up round-trip + self-check (outside the timed region).
     //
-    // encodeTo()/try_decode() are the generated API's heap-free pair: the first
-    // writes into storage the caller owns, the second decodes into a destination
-    // the caller keeps (reset to its declared defaults first). This is the
-    // EMBEDDED row — the corelib-c-cpp profile exists to keep a codec off the
-    // heap — so the allocating conveniences encode()/decode() are the wrong entry
-    // points here, and they would also be the only side of the row that
-    // allocates: embeddedproto/bench.cpp writes into a fixed buffer and
-    // deserializes into one reused message. Same reason the bare-metal siblings
-    // (languages/cpp-cortex-m/footprint.sh) link encodeTo, not encode.
+    // encodeTo()/try_decode() are the generated API's heap-free pair: encodeTo
+    // writes into storage the caller owns; try_decode decodes a fresh message and
+    // copies it into the caller's destination on success, returning the verdict.
     std::uint8_t buf[Example::_maxSize];
     size_t serialized = 0;
     if (src.encodeTo(buf, sizeof(buf), serialized) != sofab::Error::None) {

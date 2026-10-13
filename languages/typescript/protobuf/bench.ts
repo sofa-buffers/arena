@@ -39,6 +39,17 @@ function build(state: Record<string, any>): Record<string, unknown> {
   };
 }
 
+// Process CPU time (user + system) in seconds — docs/BENCH.md rule 3. Same
+// helper in both TypeScript drivers; process.cpuUsage() exists on Node and Bun.
+function cpuSeconds(): number {
+  const u = process.cpuUsage();
+  return (u.user + u.system) / 1e6;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
 async function main(): Promise<number> {
   const statePath = process.env.STATE_JSON;
   const protoPath = process.env.PROTO_PATH;
@@ -59,37 +70,43 @@ async function main(): Promise<number> {
   const blob = Type.encode(src).finish();
   const serialized = blob.length;
   const sha = createHash("sha256").update(blob).digest("hex");
-  const reencoded = Type.encode(Type.decode(blob)).finish();
-  if (reencoded.length !== blob.length || !blob.every((b, i) => b === reencoded[i])) {
+  if (!sameBytes(Type.encode(Type.decode(blob)).finish(), blob)) {
     process.stderr.write("FAIL: protobuf round-trip self-check\n");
     return 1;
   }
 
   const iters = parseInt(process.env.BENCH_ITERS ?? "500000", 10);
 
+  // One Writer reused via reset() (pos back to 0, grown buffer kept);
+  // finish(true) returns a view of the written bytes instead of a copy.
+  const w = protobuf.Writer.create();
+
   // Warm the JIT (same chained shape as the timed loop).
   for (let i = 0; i < 10000; i++) {
-    Type.encode(Type.decode(blob)).finish();
+    w.reset();
+    Type.encode(Type.decode(blob), w);
   }
 
   // Chained round trip: decode the reference wire, then re-encode the freshly
   // decoded message (issue #86) — the proxy/transcode shape, so encode runs on a
   // just-parsed message rather than a pre-built, reused one. sink keeps the
-  // re-encode live and doubles as a loop-path check (every re-encode is
-  // `serialized` bytes).
+  // re-encode live; the loop-path check below also compares the last
+  // re-encode's bytes against the reference.
   let sink = 0;
-  const t0 = process.hrtime.bigint();
+  const t0 = cpuSeconds();
   for (let i = 0; i < iters; i++) {
-    sink += Type.encode(Type.decode(blob)).finish().length;
+    w.reset();
+    Type.encode(Type.decode(blob), w);
+    sink += w.finish(true).length;
   }
-  const t1 = process.hrtime.bigint();
+  const t1 = cpuSeconds();
 
-  if (sink !== serialized * iters) {
+  if (sink !== serialized * iters || !sameBytes(w.finish(true), blob)) {
     process.stderr.write("FAIL: protobuf loop-path self-check\n");
     return 1;
   }
 
-  const cpu = Number(t1 - t0) / 1e9;
+  const cpu = t1 - t0;
   const mbs = cpu > 0 ? (serialized * iters) / cpu / 1e6 : 0;
   process.stdout.write(
     `BENCH lang=typescript impl=protobuf serialized_bytes=${serialized} ` +

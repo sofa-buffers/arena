@@ -11,9 +11,9 @@
 #     including any libc routines only the codec pulls in.
 #   * Target: rv32imac/ilp32 (compressed instructions, like real RV32 MCUs),
 #     picolibc, -Os -flto -DNDEBUG -ffunction-sections -fdata-sections.
-#   * The driver calls the real encode+decode entry points (through a volatile
-#     sink); its own buffers/state live in a custom .harness section so driver
-#     data never counts toward the codec's .bss.
+#   * The driver calls the real init/encode/decode entry points (lengths and
+#     statuses go to a volatile sink); its own buffers/state live in a custom
+#     .harness section so driver data never counts toward the codec's .bss.
 #   * The binaries are never executed — this target measures size only.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,11 +32,14 @@ trap 'rm -rf "$TMP"' EXIT
 
 # sum_sections <elf> -> "text rodata data bss"
 sum_sections() {
-    size -A "$1" | awk '
+    # bss from symbol sizes, not the section size: the section also holds the
+    # linker's alignment fill, which moves with the driver's .harness layout.
+    local bss
+    bss="$("${CC%gcc}nm" -f sysv -t d "$1" | awk -F'|' '$7 ~ /^\.bss/ { s += $5 } END { print s + 0 }')"
+    size -A "$1" | awk -v bss="$bss" '
         $1 ~ /^\.text/   { text += $2 }
         $1 ~ /^\.rodata/ { rod  += $2 }
         $1 ~ /^\.data/   { dat  += $2 }
-        $1 ~ /^\.bss/    { bss  += $2 }
         END { printf "%d %d %d %d\n", text, rod, dat, bss }'
 }
 
@@ -63,20 +66,14 @@ cat > "$TMP/drv_sofab.c" <<'EOF'
 #include "example_sofab.h"
 #define HARNESS __attribute__((section(".harness")))
 HARNESS static fullscale_example_t msg;
-HARNESS static uint8_t buf[512];
+HARNESS static uint8_t buf[FULLSCALE_EXAMPLE__MAX_SIZE];
 HARNESS volatile size_t sink;
 int main(void) {
     size_t used = 0;
-    fullscale_example__encode(&msg, buf, sizeof buf, &used);
-    // No fullscale_example__init() here, deliberately: `msg` is a zero-init
-    // static, and this schema declares no non-zero default, so the init would
-    // only add code on sofab's side — nanopb's counterpart
-    // (fullscale_FullScaleExample_init_zero) is a struct initializer that costs
-    // the baseline nothing. The host bench DOES call it per decode, because
-    // there it is per-iteration work the baseline pays too (docs/BENCH.md
-    // rule 6).
-    fullscale_example__decode(&msg, buf, used);
-    sink = used;
+    sofab_ret_t e = fullscale_example__encode(&msg, buf, sizeof buf, &used);
+    fullscale_example__init(&msg);
+    sofab_ret_t d = fullscale_example__decode(&msg, buf, used);
+    sink = used + (e == SOFAB_RET_OK ? 0u : 1u) + (d == SOFAB_RET_OK ? 0u : 2u);
     return 0;
 }
 EOF
@@ -93,14 +90,14 @@ cat > "$TMP/drv_nanopb.c" <<'EOF'
 #include "message.pb.h"
 #define HARNESS __attribute__((section(".harness")))
 HARNESS static fullscale_FullScaleExample msg;
-HARNESS static uint8_t buf[512];
+HARNESS static uint8_t buf[fullscale_FullScaleExample_size];
 HARNESS volatile size_t sink;
 int main(void) {
     pb_ostream_t os = pb_ostream_from_buffer(buf, sizeof buf);
-    pb_encode(&os, fullscale_FullScaleExample_fields, &msg);
+    bool e = pb_encode(&os, fullscale_FullScaleExample_fields, &msg);
     pb_istream_t is = pb_istream_from_buffer(buf, os.bytes_written);
-    pb_decode(&is, fullscale_FullScaleExample_fields, &msg);
-    sink = os.bytes_written;
+    bool d = pb_decode(&is, fullscale_FullScaleExample_fields, &msg);
+    sink = os.bytes_written + (e ? 0u : 1u) + (d ? 0u : 2u);
     return 0;
 }
 EOF

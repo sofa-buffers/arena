@@ -4,16 +4,15 @@
 # Prints ONE line per impl:
 #   FOOTPRINT lang=c-embedded impl=<sofab|nanopb|protobuf-c> text=<b> rodata=<b> data=<b> bss=<b>
 #
-# Methodology (kept consistent across impls):
-#   * All compilation uses -Os -ffunction-sections -fdata-sections -std=c99 so
-#     only the codec code that is actually referenced counts.
-#   * sofab / nanopb are compiled from source -> we sum the .text/.rodata/.data/.bss
-#     sections of the codec object files via `size -A` (SysV), excluding bench.c
-#     and sha256 (those are harness, not codec).
-#   * protobuf-c's engine lives in the prebuilt libprotobuf-c (not source), so it
-#     is measured as a LINK DELTA: section(codec program) - section(empty baseline),
-#     both linked with identical flags. Prefer -static; fall back to dynamic if a
-#     static libprotobuf-c is unavailable (delta still cancels the CRT overhead).
+# Methodology: object-sum of the codec's .text/.rodata/.data/.bss via `size -A`
+# (generated code + runtime; bench.c and sha256 are harness, not codec). Every
+# function in those objects counts, used or not; the bare-metal siblings
+# (c-cortex-m, c-riscv) measure the --gc-sections link delta instead.
+#   * sofab / nanopb: compiled here from source with -Os -ffunction-sections
+#     -fdata-sections -std=c99.
+#   * protobuf-c: no runtime source is available, so its figure is the generated
+#     code (same flags) plus the WHOLE distro libprotobuf-c.a as shipped (built
+#     with the distro's flags, not -Os), so this row is not flag-identical.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -22,7 +21,7 @@ NANOPB="${NANOPB:-$ROOT/vendor/nanopb}"
 COMMON="$ROOT/languages/common"
 BENCHINC="$HERE"   # bench.h timing harness (lives with this target)
 
-CFLAGS="-Os -ffunction-sections -fdata-sections -std=c99"
+CFLAGS="-Os -DNDEBUG -ffunction-sections -fdata-sections -std=c99"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -62,13 +61,7 @@ NANOPB_OBJS=("$TMP"/message.pb.o "$TMP"/pb_encode.o "$TMP"/pb_decode.o "$TMP"/pb
 emit nanopb "$(sum_sections "${NANOPB_OBJS[@]}")"
 rm -f "$TMP"/*.o
 
-# --- protobuf-c: object-sum of whole runtime (no libc) ------------------------
-# protobuf-c's engine ships as the prebuilt static archive libprotobuf-c.a; the
-# figure comparable to the source libs above is the generated message code plus
-# the whole runtime archive, section-summed the same way (no libc). NOTE: like
-# the other two this counts the library's ENTIRE code, so it over-counts a
-# generic runtime that --gc-sections would trim in real firmware (a bare-metal
-# --gc-sections build is the fair metric — see docs). Consistent across impls.
+# --- protobuf-c: generated code + whole prebuilt runtime archive ---------------
 PBC_A="$(find /usr/lib /usr/lib64 /usr/lib/x86_64-linux-gnu -name 'libprotobuf-c.a' 2>/dev/null | head -1)"
 gcc $CFLAGS -c "$HERE/protobuf/gen/message.pb-c.c" -I"$HERE/protobuf/gen"
 mv ./*.o "$TMP"/ 2>/dev/null || true

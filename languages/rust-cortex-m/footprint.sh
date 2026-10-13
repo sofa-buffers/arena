@@ -44,11 +44,14 @@ MICROPB_A="$RSEMB/micropb-ffi/target/$RUST_TARGET/release/libmicropb_ffi.a"
 
 # sum_sections <elf> -> "text rodata data bss"
 sum_sections() {
-    size -A "$1" | awk '
+    # bss from symbol sizes, not the section size: the section also holds the
+    # linker's alignment fill, which moves with the driver's .harness layout.
+    local bss
+    bss="$("${CC%gcc}nm" -f sysv -t d "$1" | awk -F'|' '$7 ~ /^\.bss/ { s += $5 } END { print s + 0 }')"
+    size -A "$1" | awk -v bss="$bss" '
         $1 ~ /^\.text/   { text += $2 }
         $1 ~ /^\.rodata/ { rod  += $2 }
         $1 ~ /^\.data/   { dat  += $2 }
-        $1 ~ /^\.bss/    { bss  += $2 }
         END { printf "%d %d %d %d\n", text, rod, dat, bss }'
 }
 

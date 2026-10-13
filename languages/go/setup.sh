@@ -24,6 +24,8 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 
 # Wire corelib-go via the go.mod placeholder (idempotent: no-op once replaced).
 sed -i "s#\${SOFAB_GO_CORELIB}#$CORELIB#" "$HERE/sofab/go.mod"
+# Same language version as the protobuf module below (protobuf-go needs 1.23).
+( cd "$HERE/sofab" && go mod edit -go=1.23 )
 
 ( cd "$HERE/sofab" && GOFLAGS=-mod=mod go mod tidy >/dev/null 2>&1 && go build ./... )
 
@@ -40,8 +42,9 @@ protoc -I "$ROOT/schema" \
     --go_opt=Mmessage.proto=example.com/pbbench/gen \
     "$ROOT/schema/message.proto"
 
-# Self-contained module. protobuf-go >= v1.36 needs a >= 1.23 toolchain;
-# GO_TOOLCHAIN (versions.sh) is what `go install ...@latest` pulls here.
+# Self-contained module. protobuf-go >= v1.36 declares `go 1.23`; the sofab
+# module is lifted to the same version above, and both build with the same
+# GO_TOOLCHAIN (versions.sh).
 cat > "$HERE/protobuf/go.mod" <<EOF
 module example.com/pbbench
 

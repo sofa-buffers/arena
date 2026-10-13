@@ -25,31 +25,42 @@ for both rows live in the main [README](../../README.md) and
 [`results/RESULTS.txt`](../../results/RESULTS.txt).
 
 It still trails protobuf because protobuf-python is a thin shell over Google's C
-**`upb`** engine — nearly all its encode/decode runs in C — whereas SofaBuffers
-keeps the **per-field driver in Python**. A callgrind profile of the timed
-encode+decode loop (instruction attribution, `scripts`-independent) shows where the
-cost actually lands:
+**`upb`** engine — parse and serialize each run as one C call — whereas the
+generated SofaBuffers `message.py` still does part of every round trip in Python:
 
-| origin | share of instructions |
+- **Encode** — `Example.serialize(e)` is generated Python that walks the
+  dataclass and makes one `Encoder.write_*` call per field (per sequence
+  begin/end, per string-array element), each a Python→engine call.
+- **Decode** — `Example.decode` builds the dataclass (`cls()`, nested messages
+  via `default_factory`), a generated `_Example__Visitor` and a `sofab.Decoder`,
+  then feeds the whole buffer once. Every field the schema's **destination
+  table** (`_Example__Bind`, a `sofab.Binding` built once at import) names —
+  all scalars, `nested`'s floats/string/bytes, every fixed `arrays` member — is
+  written by the decoder straight into the visitor's slot buffer, with no
+  visitor callback. Only `string_array` (a wrapper sequence of strings) reaches
+  the visitor's hooks (`on_sequence_begin`, `on_field`, `on_schema_bound`,
+  `on_string` per element). After COMPLETE, one generated `scatter()` pass
+  copies the slots onto the dataclass (`list(...)` per array).
+
+So what remains in Python is object construction (dataclasses, visitor,
+decoder), the per-field encode calls, the `string_array` hooks and the
+`scatter()` pass; the byte-level codec runs in the engine.
+
+### Profile (older codegen — needs a re-profile)
+
+The callgrind attribution below was measured against an **earlier** generated
+`message.py`, which decoded through a Python `while`/`if-elif` loop over
+`Decoder.next()` (one boxed `Field` per field) instead of the destination table
+and `scatter()` above. It is kept for history only; the shares no longer
+describe the current code and have not been re-measured:
+
+| origin (older codegen) | share of instructions |
 |---|--:|
-| CPython interpreter running the generated `message.py` driver + dataclasses | **~83%** |
-| native `sofab._speedups` codec (the real serialization work) | **~14%** |
+| CPython interpreter running the generated `message.py` driver + dataclasses | ~83% |
+| native `sofab._speedups` codec | ~14% |
 | libc / other | ~3% |
 
-Inside that 83%: the bytecode eval loop (per-field `serialize`/`deserialize`
-`while/if-elif` dispatch), object churn (a fresh dataclass per nested message, a
-boxed `Field` object returned per field by `Decoder.next()`, boxed `int`s for every
-scalar), and attribute get/set on those objects — alloc/free/GC alone is ~16% of the
-interpreter cost. The native codec is **not** the bottleneck; the Python↔C boundary
-crossed once per field, plus the pure-Python object model, is. Even an infinitely
-fast codec would only remove ~14%.
-
-## Implication for optimization
-
-The lever is *not* the harness or the corelib's byte-level codec (both already lean)
-— it's collapsing the per-field boundary. A whole-message native path (walk the
-schema in C and populate the object in one `_speedups` call, instead of returning a
-`Field` per field to a Python loop) is what would close the gap. Reproduce with
-`valgrind --tool=callgrind` over an encode+decode loop of
-`languages/python/sofab/gen/message.py`, or read the native contribution straight
-off the `python/native` vs `python/pure` rows of a benchmark run.
+Re-profile with `valgrind --tool=callgrind` over an encode+decode loop of
+`languages/python/sofab/gen/message.py`; the native engine's contribution can
+also be read straight off the `python/native` vs `python/pure` rows of a
+benchmark run.

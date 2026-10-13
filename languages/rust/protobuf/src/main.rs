@@ -11,7 +11,14 @@ use fullscale::*;
 use prost::Message;
 use sha2::{Digest, Sha256};
 use std::hint::black_box;
-use std::time::Instant;
+
+/// Process CPU time in seconds (docs/BENCH.md rule 3); same helper in every Rust driver.
+fn cpu_seconds() -> f64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let rc = unsafe { libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut ts) };
+    assert_eq!(rc, 0, "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)");
+    ts.tv_sec as f64 + ts.tv_nsec as f64 * 1e-9
+}
 
 fn build() -> FullScaleExample {
     FullScaleExample {
@@ -96,19 +103,25 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(2_000_000);
 
+    // Reused encode buffer, hoisted out of the loop (docs/BENCH.md rule 3).
     let mut buf = Vec::with_capacity(serialized);
 
     // Chained round trip: decode the reference wire, then re-encode the freshly
     // decoded message (issue #86) — the proxy/transcode shape, so encode runs on
     // a just-parsed message rather than a pre-built, reused instance.
-    let t0 = Instant::now();
+    let t0 = cpu_seconds();
     for _ in 0..iters {
         let dec = FullScaleExample::decode(&blob[..]).unwrap();
         buf.clear();
         dec.encode(&mut buf).unwrap();
         black_box(&buf);
     }
-    let cpu = t0.elapsed().as_secs_f64();
+    let cpu = cpu_seconds() - t0;
+
+    if buf != blob {
+        eprintln!("FAIL: protobuf loop-path self-check");
+        std::process::exit(1);
+    }
 
     let mbs = if cpu > 0.0 {
         (serialized as f64) * (iters as f64) / cpu / 1e6

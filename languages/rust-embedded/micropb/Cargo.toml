@@ -24,15 +24,16 @@ micropb = { version = "0.6", default-features = false, features = ["encode", "de
 # pb_push shim, so the generated codec fails to compile. Pin to 0.8 until
 # micropb ships a container-heapless-0-9 feature.
 heapless = { version = "0.8", default-features = false }
-# Host-side harness only (timing/hash) — not part of the codec footprint.
+# Host-side harness only (CPU clock via libc, hash) — not part of the codec footprint.
 # Kept in lockstep with the sofab harness (both rust-embedded impls on 0.11);
 # 0.11's digest() returns a hybrid_array::Array with no LowerHex, so the bench
 # formats the hash byte-wise (see src/main.rs).
 sha2 = { version = "0.11", optional = true }
+libc = { version = "0.2", optional = true }
 
 [features]
 default = ["std"]
-std = ["dep:sha2"]
+std = ["dep:sha2", "dep:libc"]
 
 [build-dependencies]
 # Codegen: drives protoc + emits the no_std message module into OUT_DIR.
