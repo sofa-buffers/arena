@@ -71,7 +71,6 @@ const sofab_object_descr_t fullscale_example__descr = SOFAB_OBJECT_DESCR(_fullsc
 
 void fullscale_example__init(fullscale_example_t *msg) {
     memset(msg, 0, sizeof(*msg));
-    sofab_object_init(&fullscale_example__descr, msg);
 }
 
 sofab_ret_t fullscale_example__encode(const fullscale_example_t *msg, uint8_t *buf, size_t buflen, size_t *used) {

@@ -114,8 +114,8 @@ int main()
     // reuses one std::string in the row's other impl. Example::_maxSize is the
     // worst-case encoded size the schema allows (corelib-cpp's documented bound).
     std::vector<uint8_t> out(Example::_maxSize);
-    const size_t serialized = src.encodeTo(out.data(), out.size());
-    if (serialized == 0) {
+    size_t serialized = 0;
+    if (src.encodeTo(out.data(), out.size(), serialized) != sofab::Error::None) {
         fprintf(stderr, "FAIL: sofab encode refused\n");
         return 1;
     }
@@ -132,7 +132,9 @@ int main()
         fprintf(stderr, "FAIL: sofab decode refused\n");
         return 1;
     }
-    if (check.encodeTo(out.data(), out.size()) != serialized ||
+    size_t reencoded = 0;
+    if (check.encodeTo(out.data(), out.size(), reencoded) != sofab::Error::None ||
+        reencoded != serialized ||
         memcmp(out.data(), bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab round-trip self-check\n");
         return 1;
@@ -151,15 +153,17 @@ int main()
     // string — so neither impl is charged for allocation the other avoids.
     Example dec;
     size_t used = 0;
+    sofab::Error err = sofab::Error::None;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
         Example::try_decode(bytes.data(), bytes.size(), dec);
-        used = dec.encodeTo(out.data(), out.size());
+        err = dec.encodeTo(out.data(), out.size(), used);
     }
     const double t1 = now_seconds();
 
-    if (used != serialized || memcmp(out.data(), bytes.data(), serialized) != 0) {
+    if (err != sofab::Error::None || used != serialized ||
+        memcmp(out.data(), bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");
         return 1;
     }

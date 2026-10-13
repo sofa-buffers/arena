@@ -79,7 +79,8 @@ HARNESS static Example dec;
 HARNESS static std::uint8_t buf[512];
 HARNESS volatile std::size_t sink;
 int main() {
-    std::size_t n = msg.encodeTo(buf, sizeof buf);   // heap-free encode path
+    std::size_t n = 0;
+    sofab::Error e = msg.encodeTo(buf, sizeof buf, n);   // heap-free encode path
     // try_decode is the reuse decode: it resets `dec` to its declared defaults
     // and decodes into it, and it hands back the verdict. Both halves are what a
     // firmware decode of a whole buffer needs, and both are what embeddedproto
@@ -87,7 +88,7 @@ int main() {
     // message by value, charging this driver's copy to the codec and leaving the
     // verdict code out of the delta.
     bool ok = Example::try_decode(buf, n, dec).ok();  // fixed-capacity members: heap-free
-    sink = n + (ok ? 0u : 1u);
+    sink = n + (ok ? 0u : 1u) + (e == sofab::Error::None ? 0u : 2u);
     return 0;
 }
 EOF
