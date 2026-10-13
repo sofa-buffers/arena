@@ -117,15 +117,11 @@ int main()
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
         dec.ParseFromString(buffer);
-        out.clear();
-        dec.SerializeToString(&out);
+        dec.SerializeToString(&out);   // replaces `out`'s contents, keeps its capacity
     }
     const double t1 = now_seconds();
 
-    if (out != buffer ||
-        dec.u8() != msg.u8() ||
-        dec.string_array().strings_size() != 5 ||
-        dec.arrays().i64_size() != 5) {
+    if (out != buffer) {
         fprintf(stderr, "FAIL: protobuf loop-path self-check\n");
         return 1;
     }

@@ -25,7 +25,7 @@ for variant in sofab sofab-heapless; do
         --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/$variant/gen" >/dev/null
 
     # Wire in the std corelib path (replace the ${SOFAB_RS_CORELIB} placeholder),
-    # then rewrite Cargo.toml deterministically to add sha2 + our bench binary.
+    # then rewrite Cargo.toml deterministically to add sha2 + libc + our bench binary.
     # The heap-free profile additionally needs the heapless containers its
     # generated fields are typed with (serde feature: the JSON harness and the
     # bench deserialize state.json straight into them).
@@ -53,9 +53,10 @@ edition = "2021"
 $deps
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Keep in lockstep with languages/rust/protobuf/Cargo.toml (same row, same dep);
-# pinned via RUST_SHA2 in languages/versions.sh.
+# Keep in lockstep with languages/rust/protobuf/Cargo.toml (same row, same deps);
+# pinned via RUST_SHA2 / RUST_LIBC in languages/versions.sh.
 sha2 = "$RUST_SHA2"
+libc = "$RUST_LIBC"
 
 [[bin]]
 name = "harness"

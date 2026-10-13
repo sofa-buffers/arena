@@ -1,6 +1,6 @@
 # Bare-metal footprint FFI wrapper: exposes the sofabgen-generated no_std codec
-# (lib built with --no-default-features: heapless types, heap-free) through two
-# extern "C" entry points, as a staticlib the rust-cortex-m / rust-riscv
+# (lib built with --no-default-features: heapless types, heap-free) through one
+# extern "C" entry point, as a staticlib the rust-cortex-m / rust-riscv
 # footprint targets link into the same C driver/baseline scheme the C targets
 # use. Never executed — size measurement only.
 [package]

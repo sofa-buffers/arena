@@ -22,7 +22,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:harness/message.dart';
-import 'package:sofa_buffers_corelib/sofa_buffers_corelib.dart' show InlineString;
+import 'package:sofa_buffers_corelib/sofa_buffers_corelib.dart' show Encoder, InlineString;
 
 import 'bench_common.dart';
 
@@ -98,20 +98,30 @@ void main() {
   final iters = int.tryParse(Platform.environment['BENCH_ITERS'] ?? '') ?? 2000000;
 
   // Chained round trip: decode the reference wire, then re-encode the freshly
-  // decoded message (issue #86) — the proxy/transcode shape. `sink` is a
-  // per-iteration data dependency so the round trip can't be optimized away.
+  // decoded message (issue #86) — the proxy/transcode shape. Decode reuses one
+  // destination via the generated tryDecode (it resets first); encode goes into
+  // a caller-owned maxSize buffer via encodeTo + Encoder.reset (corelib-dart
+  // README). `sink` is a per-iteration data dependency against dead-code removal.
+  final dec = Example();
+  final enc = Encoder.overBuffer(Uint8List(Example.maxSize), depth: Example.maxDepth);
   var sink = 0;
   final clock = CpuClock();
   final t0 = clock.seconds();
   for (var i = 0; i < iters; i++) {
-    final dec = Example.decode(blob);
-    final out = dec.encode();
-    sink ^= out[0] ^ out.length;
+    Example.tryDecode(blob, dec);
+    enc.reset();
+    dec.encodeTo(enc);
+    sink ^= enc.pending;
   }
   final cpu = clock.seconds() - t0;
 
+  // Loop-path check: the last re-encode must be the reference wire.
+  if (!_bytesEqual(enc.written, blob)) {
+    stderr.writeln('FAIL: sofab loop-path self-check');
+    exit(1);
+  }
+
   final mbs = cpu > 0.0 ? serialized * iters / cpu / 1e6 : 0.0;
-  // Keep `sink` observable so the loop body is not dead code.
   stderr.writeln('sink=$sink');
   stdout.writeln('BENCH lang=dart impl=sofab serialized_bytes=$serialized '
       'iters=$iters cpu_time_s=${cpu.toStringAsFixed(6)} '

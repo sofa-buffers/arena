@@ -7,7 +7,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 SOFABGEN="${SOFABGEN:-$ROOT/tools/sofabgen}"
 COMMON="$ROOT/languages/common"
 CXX="${CXX:-g++}"
-CXXFLAGS="-O3 -march=native -flto -std=c++20"
+CXXFLAGS="-O3 -march=native -flto -DNDEBUG -std=c++20"
 
 # --- sofab: generate the typed C++ header against corelib-cpp ---------------
 # Two storage profiles, one corelib and one driver (#107): sofab/cfg.yaml keeps

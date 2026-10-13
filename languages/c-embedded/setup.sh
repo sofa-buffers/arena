@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# C target setup: generate sofab (--lang c) + protobuf-c bindings and compile
-# both bench executables. Idempotent. stderr noise OK; exit 0 on success.
+# C target setup: generate sofab (--lang c), protobuf-c and nanopb bindings and
+# compile the three bench executables. Idempotent. stderr noise OK; exit 0 on success.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -14,7 +14,7 @@ BENCHINC="$HERE"   # bench.h timing harness (lives with this target)
 "$SOFABGEN" --config "$HERE/sofab/cfg.yaml" --lang c \
     --in "$ROOT/schema/message.sofab.yaml" --out "$HERE/sofab/gen" >&2
 
-gcc -Os -flto -std=c99 \
+gcc -Os -flto -DNDEBUG -std=c99 \
     "$HERE/sofab/bench.c" \
     "$HERE"/sofab/gen/*.c \
     "$CORELIB/src/object.c" "$CORELIB/src/ostream.c" "$CORELIB/src/istream.c" \
@@ -26,7 +26,7 @@ gcc -Os -flto -std=c99 \
 mkdir -p "$HERE/protobuf/gen"
 protoc-c --c_out="$HERE/protobuf/gen" -I "$ROOT/schema" "$ROOT/schema/message.proto" >&2
 
-gcc -Os -flto -std=c99 \
+gcc -Os -flto -DNDEBUG -std=c99 \
     "$HERE/protobuf/bench.c" \
     "$HERE"/protobuf/gen/*.c \
     "$COMMON/sha256.c" \
@@ -55,7 +55,7 @@ python3 "$NANOPB/generator/nanopb_generator.py" \
     "$ROOT/schema/message.proto" >&2
 
 # 4) compile bench + generated code + nanopb runtime + sha256
-gcc -Os -flto -std=c99 \
+gcc -Os -flto -DNDEBUG -std=c99 \
     "$HERE/nanopb/bench.c" \
     "$HERE/nanopb/gen/message.pb.c" \
     "$NANOPB/pb_encode.c" "$NANOPB/pb_decode.c" "$NANOPB/pb_common.c" \

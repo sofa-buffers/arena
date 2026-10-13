@@ -25,7 +25,7 @@ export PATH="/usr/local/cargo/bin:$HOME/.cargo/bin:$PATH"
 # is genuinely #![no_std]/heap-free under --no-default-features (heapless types),
 # and the "std" feature pulls serde/serde_json for the JSON harness. We rewrite
 # Cargo.toml deterministically: substitute the ${SOFAB_RS_CORELIB} placeholder
-# and add sha2 + our bench binary (both std-only), keeping the generator's
+# and add sha2 + libc + our bench binary (all std-only), keeping the generator's
 # dependency/feature set verbatim — the no_std lib build must stay untouched
 # (the rust bare-metal footprint targets build exactly that).
 cat > "$HERE/sofab/gen/Cargo.toml" <<EOF
@@ -55,12 +55,13 @@ heapless = { version = "$RUST_HEAPLESS", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 sha2 = { version = "$RUST_SHA2", optional = true }
+libc = { version = "$RUST_LIBC", optional = true }
 
 [features]
 default = ["std"]
-# std pulls serde + serde_json + sha2 so the JSON harness and bench build; a
+# std pulls serde + serde_json + sha2 + libc so the JSON harness and bench build; a
 # bare-metal consumer uses --no-default-features for a #![no_std], heap-free lib.
-std = ["serde", "dep:serde_json", "dep:sha2"]
+std = ["serde", "dep:serde_json", "dep:sha2", "dep:libc"]
 serde = ["dep:serde", "heapless/serde"]
 
 [profile.release]

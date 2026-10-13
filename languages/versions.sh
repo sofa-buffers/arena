@@ -18,9 +18,10 @@
 # duplicated there and MUST be bumped together (Renovate still maintains the
 # hand-written side for security):
 #   JAVA_MAVEN_COMPILER_PLUGIN / _ASSEMBLY_PLUGIN <-> languages/java/protobuf/pom.xml
-#   RUST_SHA2                                     <-> languages/rust/protobuf/Cargo.toml
-#   RUST_HEAPLESS / RUST_SHA2                     <-> languages/rust-embedded/micropb*/Cargo.toml
+#   RUST_SHA2 / RUST_LIBC                         <-> languages/rust/protobuf/Cargo.toml
+#   RUST_HEAPLESS / RUST_SHA2 / RUST_LIBC         <-> languages/rust-embedded/micropb/Cargo.toml
 #   TS_TYPES_NODE / TS_TYPESCRIPT / TS_TSX        <-> languages/typescript/protobuf/package.json
+#   BUN_VERSION                                   <-> .devcontainer/Dockerfile (bun install)
 # Bump here deliberately, keep the paired manifest in step, re-run the target's
 # setup.sh (tree must stay clean), then refresh results with a full RUNS=5.
 
@@ -33,6 +34,8 @@ GO_TOOLCHAIN=go1.25.11
 
 # --- Rust (host + embedded sofab crates) ------------------------------------
 RUST_SHA2=0.11
+# Bench drivers read the process CPU clock (clock_gettime) through libc.
+RUST_LIBC=0.2
 # micropb 0.6 wires its container impls to heapless 0.8 (container-heapless-0-8);
 # 0.9 drops them and the no_std codec fails to compile. Keep the sofab crates in
 # lockstep with the micropb baseline on 0.8 — both the rust-embedded one and the
@@ -49,3 +52,7 @@ JAVA_GSON=2.14.0
 TS_TYPES_NODE=^26.1.1
 TS_TYPESCRIPT=^6.0.3
 TS_TSX=^4.23.1
+
+# --- Bun (typescript-bun fallback install when the image lacks bun) -----------
+# Keep in step with the bun the devcontainer image installs.
+BUN_VERSION=1.4.2

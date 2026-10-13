@@ -9,6 +9,8 @@ using Google.Protobuf;
 using Fullscale;
 
 static class Program {
+    static double CpuSeconds() => Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds;
+
     static FullScaleExample Build() {
         var m = new FullScaleExample {
             U8 = 200,
@@ -54,12 +56,20 @@ static class Program {
         var src = Build();
         var parser = FullScaleExample.Parser;
 
+        // Caller-owned output buffer, hoisted out of the timed loop. protobuf has
+        // no max-size constant, so it is sized from the reference message;
+        // WriteTo(Span) takes a span of exactly CalculateSize() bytes.
+        var buf = new byte[src.CalculateSize()];
+
         // Warm-up round-trip + self-check (outside the timed region).
-        byte[] blob = src.ToByteArray();
+        src.WriteTo(buf.AsSpan(0, src.CalculateSize()));
+        byte[] blob = (byte[])buf.Clone();
         int serialized = blob.Length;
         string sha = Convert.ToHexString(SHA256.HashData(blob)).ToLowerInvariant();
-        byte[] reenc = parser.ParseFrom(blob).ToByteArray();
-        if (!((ReadOnlySpan<byte>)reenc).SequenceEqual(blob)) {
+        var msg = parser.ParseFrom(blob);
+        int n = msg.CalculateSize();
+        msg.WriteTo(buf.AsSpan(0, n));
+        if (!buf.AsSpan(0, n).SequenceEqual(blob)) {
             Console.Error.WriteLine("FAIL: protobuf round-trip self-check");
             Environment.Exit(1);
         }
@@ -67,26 +77,31 @@ static class Program {
         long iters = long.Parse(Environment.GetEnvironmentVariable("BENCH_ITERS") ?? "2000000");
 
         // JIT warm-up (same chained shape as the timed loop).
-        for (int i = 0; i < 5000; i++) { parser.ParseFrom(blob).ToByteArray(); }
+        for (int i = 0; i < 5000; i++) {
+            msg = parser.ParseFrom(blob);
+            msg.WriteTo(buf.AsSpan(0, msg.CalculateSize()));
+        }
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
-        // parsed message (issue #86) — the proxy/transcode shape. Each ParseFrom
-        // yields a new message whose cached serialized size is unset, so protobuf
-        // pays the size pass every encode instead of hitting a once-per-instance
-        // memo. sink keeps the re-encode live and doubles as a loop-path check.
+        // parsed message (issue #86). sink keeps the re-encode live.
         long sink = 0;
-        var sw = Stopwatch.StartNew();
+        double t0 = CpuSeconds();
         for (long i = 0; i < iters; i++) {
-            sink += parser.ParseFrom(blob).ToByteArray().Length;
+            msg = parser.ParseFrom(blob);
+            n = msg.CalculateSize();
+            msg.WriteTo(buf.AsSpan(0, n));
+            sink += n;
         }
-        sw.Stop();
+        double t1 = CpuSeconds();
 
-        if (sink != (long)serialized * iters) {
+        // Loop-path check: every re-encode had the reference length, and the last
+        // one's bytes are the reference wire.
+        if (sink != (long)serialized * iters || !buf.AsSpan(0, n).SequenceEqual(blob)) {
             Console.Error.WriteLine("FAIL: protobuf loop-path self-check");
             Environment.Exit(1);
         }
 
-        double cpu = sw.Elapsed.TotalSeconds;
+        double cpu = t1 - t0;
         double mbs = cpu > 0 ? (double)serialized * iters / cpu / 1e6 : 0.0;
         Console.WriteLine(
             $"BENCH lang=csharp impl=protobuf serialized_bytes={serialized} iters={iters} " +

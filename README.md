@@ -90,11 +90,15 @@ FOOTPRINT lang=<l> impl=<i> text=<n> rodata=<n> data=<n> bss=<n>
   knob, and unlike rows of different languages they *are* comparable to each
   other.
 - **Optimized per category, portably, identically per row.** Maxspeed targets build
-  for speed — `-O3 -march=native -flto` (C/C++), `target-cpu=native` + LTO (Rust),
-  and portable runtime tuning for the VMs (workstation/server GC, `GOGC`, ParallelGC,
-  TieredPGO). Embedded targets build for size — `-Os -flto`. Nothing pins a CPU/ISA
-  level: `-march=native` is *adaptive* and the arena rebuilds on each host, so it runs
-  anywhere; and within a row SofaBuffers and its baseline get the **same** flags.
+  for speed — `-O3 -march=native -flto -DNDEBUG` (C/C++), `target-cpu=native` + LTO (Rust),
+  and only noise-reducing runtime settings for the VMs (fixed JVM heap, non-concurrent
+  .NET GC, `GOMAXPROCS=1`) — default GCs and JITs otherwise. Embedded targets build
+  for size — `-Os -flto -DNDEBUG`. Nothing pins a CPU/ISA level: `-march=native` is
+  *adaptive* and the arena rebuilds on each host, so it runs anywhere; and within a
+  row SofaBuffers and its
+  baseline are compiled with the **same** flags. A baseline runtime that a user links
+  as the distro package (`libprotobuf` for `cpp`, `libprotobuf-c` for `c-embedded`)
+  keeps its packaged build, as it would in their application.
   Throughput is reported **best-of-5** (`RUNS=5`, the default) since it is noisy, and
   the runner idles 10 s before every executed bench (`COOLDOWN_S`) so no run starts on
   a CPU still hot — and throttling — from the previous one.
@@ -224,9 +228,9 @@ pure-Python engine of the same corelib (`SOFAB_PUREPYTHON=1`, same driver, same
 protobuf run), ~10× slower, so the accelerator's contribution is measured rather
 than claimed. Python trails because
 protobuf-python is a thin shell over Google's C **`upb`** engine while SofaBuffers
-keeps a **per-field Python driver**. See
-[`languages/python/README.md`](languages/python/README.md) for the full profile
-(runtime verification + callgrind attribution table).*
+keeps per-field encode calls and object construction in Python. See
+[`languages/python/README.md`](languages/python/README.md) for how the generated
+code splits the work between Python and the accelerator.*
 
 ### Embedded — throughput (host build of the embedded codecs)
 
@@ -294,9 +298,8 @@ than the smallest protobuf alternative in every one.*
   TypeScript runs ahead on both JS engines as well — clearly on Bun/JSC, and just
   barely per message on Node/V8, where `MB/s` trails — and Python is the far outlier,
   because its protobuf baseline is a thin shell
-  over Google's C `upb` engine while SofaBuffers still drives every field from
-  Python. *(How the codegen was tuned: the generator repo's
-  [`docs/perf-patches/`](https://github.com/sofa-buffers/generator/tree/main/docs/perf-patches).)*
+  over Google's C `upb` engine while SofaBuffers still encodes field by field and
+  builds its objects in Python.
 - **The smallest embedded codec in every language, on both ISAs** — measured the
   way firmware actually pays: the flash a codec adds once the linker drops what it
   never calls. It undercuts nanopb, EmbeddedProto and micropb across the board,

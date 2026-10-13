@@ -28,8 +28,11 @@ using fullscale::FullScaleExample;
 
 namespace {
 
-// Generous fixed buffer: the canonical message encodes to 494 bytes.
-constexpr std::uint32_t BUFSZ = 1024;
+// Buffer capacity from the generated worst-case bound, as sofab sizes its
+// buffer with Example::_maxSize.
+constexpr std::uint32_t BUFSZ = FullScaleExample::max_serialized_size();
+using WriteBuffer = ::EmbeddedProto::WriteBufferFixedSize<BUFSZ>;
+using ReadBuffer  = ::EmbeddedProto::ReadBufferFixedSize<BUFSZ>;
 
 double now_seconds()
 {
@@ -110,24 +113,22 @@ void fill(FullScaleExample &m)
     }
 }
 
-// Encode m into out (BUFSZ bytes). Returns serialized length, or 0 on error.
-std::uint32_t encode(const FullScaleExample &m, std::uint8_t *out)
+// Serialize m into wbuf (cleared first). Returns the length, or 0 on error.
+std::uint32_t encode(const FullScaleExample &m, WriteBuffer &wbuf)
 {
-    ::EmbeddedProto::WriteBufferFixedSize<BUFSZ> wbuf;
     wbuf.clear();
     if (m.serialize(wbuf) != ::EmbeddedProto::Error::NO_ERRORS) {
         return 0;
     }
-    const std::uint32_t n = wbuf.get_size();
-    memcpy(out, wbuf.get_data(), n);
-    return n;
+    return wbuf.get_size();
 }
 
-// Decode len bytes at data into m. Returns true on success.
-bool decode(FullScaleExample &m, const std::uint8_t *data, std::uint32_t len)
+// Deserialize the len-byte frame held in rbuf into m. clear() + set_bytes_written()
+// re-arms the buffer's read index over the bytes already in it (no copy);
+// m.clear() resets the reused destination, which deserialize() does not do.
+bool decode(FullScaleExample &m, ReadBuffer &rbuf, std::uint32_t len)
 {
-    ::EmbeddedProto::ReadBufferFixedSize<BUFSZ> rbuf;
-    memcpy(rbuf.get_data(), data, len);
+    rbuf.clear();
     rbuf.set_bytes_written(len);
     m.clear();
     return m.deserialize(rbuf) == ::EmbeddedProto::Error::NO_ERRORS;
@@ -140,25 +141,30 @@ int main()
     FullScaleExample src;
     fill(src);
 
+    // One long-lived write buffer and one read buffer, as firmware keeps them.
+    WriteBuffer wbuf;
+    ReadBuffer rbuf;
+
     // Warm-up encode + self-check (outside the timed region).
-    std::uint8_t bytes[BUFSZ];
-    const std::uint32_t serialized = encode(src, bytes);
+    const std::uint32_t serialized = encode(src, wbuf);
     if (serialized == 0) {
         fprintf(stderr, "FAIL: embeddedproto encode\n");
         return 1;
     }
+    // The reference wire is "received" into rbuf once, the way a frame arrives
+    // via get_data() + set_bytes_written(); sofab decodes the same bytes in place.
+    std::uint8_t *const bytes = rbuf.get_data();
+    memcpy(bytes, wbuf.get_data(), serialized);
     char sha[65];
     sha256_hex(bytes, serialized, sha);
 
     // Round-trip is correct iff the decoded message re-encodes to the same bytes.
     FullScaleExample check;
-    if (!decode(check, bytes, serialized)) {
+    if (!decode(check, rbuf, serialized)) {
         fprintf(stderr, "FAIL: embeddedproto decode\n");
         return 1;
     }
-    std::uint8_t rebytes[BUFSZ];
-    const std::uint32_t reserialized = encode(check, rebytes);
-    if (reserialized != serialized || memcmp(bytes, rebytes, serialized) != 0) {
+    if (encode(check, wbuf) != serialized || memcmp(bytes, wbuf.get_data(), serialized) != 0) {
         fprintf(stderr, "FAIL: embeddedproto round-trip self-check\n");
         return 1;
     }
@@ -167,20 +173,19 @@ int main()
     // re-serialize the freshly decoded message (docs/BENCH.md rule 3, issue #86).
     // Re-encoding the pre-built `src` instead would measure a serialize whose
     // input never changes, and would hand a size-memoizing implementation a
-    // once-per-instance discount. Buffer and destination hoisted; `n` is the
+    // once-per-instance discount. Buffers and destination hoisted; `n` is the
     // per-iteration sink, checked against the reference after the loop.
     FullScaleExample dec;
-    std::uint8_t buf[BUFSZ];
     std::uint32_t n = 0;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
-        decode(dec, bytes, serialized);
-        n = encode(dec, buf);
+        decode(dec, rbuf, serialized);
+        n = encode(dec, wbuf);
     }
     const double t1 = now_seconds();
 
-    if (n != serialized || memcmp(bytes, buf, serialized) != 0) {
+    if (n != serialized || memcmp(bytes, wbuf.get_data(), serialized) != 0) {
         fprintf(stderr, "FAIL: embeddedproto loop-path self-check\n");
         return 1;
     }

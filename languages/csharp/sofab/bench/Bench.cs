@@ -7,8 +7,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using Sofabuffers;
+using sofab;
 
 static class Program {
+    static double CpuSeconds() => Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds;
+
     static Example Build() {
         var m = new Example {
             u8 = 200,
@@ -51,14 +54,18 @@ static class Program {
     }
 
     static int Main() {
-        var src = Build();
+        // Caller-owned output buffer + encoder, hoisted out of the timed loop.
+        var buf = new byte[Example.MaxSize];
+        var os = new OStream(buf);
 
         // Warm-up round-trip + self-check (outside the timed region).
-        byte[] blob = src.Encode();
+        Build().EncodeTo(os);
+        byte[] blob = buf.AsSpan(0, os.BytesUsed).ToArray();
         int serialized = blob.Length;
         string sha = Convert.ToHexString(SHA256.HashData(blob)).ToLowerInvariant();
-        byte[] reenc = Example.Decode(blob).Encode();
-        if (!((ReadOnlySpan<byte>)reenc).SequenceEqual(blob)) {
+        os.Reset(buf, 0);
+        Example.Decode(blob).EncodeTo(os);
+        if (!buf.AsSpan(0, os.BytesUsed).SequenceEqual(blob)) {
             Console.Error.WriteLine("FAIL: sofab round-trip self-check");
             Environment.Exit(1);
         }
@@ -66,26 +73,30 @@ static class Program {
         long iters = long.Parse(Environment.GetEnvironmentVariable("BENCH_ITERS") ?? "2000000");
 
         // JIT warm-up (same chained shape as the timed loop).
-        for (int i = 0; i < 5000; i++) { Example.Decode(blob).Encode(); }
+        for (int i = 0; i < 5000; i++) {
+            os.Reset(buf, 0);
+            Example.Decode(blob).EncodeTo(os);
+        }
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
-        // decoded message (issue #86) — the proxy/transcode shape, which denies
-        // protobuf its once-per-instance serialized-size memo so encode is measured
-        // on equal terms. sink keeps the re-encode live and doubles as a loop-path
-        // check (every re-encode is `serialized` bytes).
+        // decoded message (issue #86). sink keeps the re-encode live.
         long sink = 0;
-        var sw = Stopwatch.StartNew();
+        double t0 = CpuSeconds();
         for (long i = 0; i < iters; i++) {
-            sink += Example.Decode(blob).Encode().Length;
+            os.Reset(buf, 0);
+            Example.Decode(blob).EncodeTo(os);
+            sink += os.BytesUsed;
         }
-        sw.Stop();
+        double t1 = CpuSeconds();
 
-        if (sink != (long)serialized * iters) {
+        // Loop-path check: every re-encode had the reference length, and the last
+        // one's bytes are the reference wire.
+        if (sink != (long)serialized * iters || !buf.AsSpan(0, os.BytesUsed).SequenceEqual(blob)) {
             Console.Error.WriteLine("FAIL: sofab loop-path self-check");
             Environment.Exit(1);
         }
 
-        double cpu = sw.Elapsed.TotalSeconds;
+        double cpu = t1 - t0;
         double mbs = cpu > 0 ? (double)serialized * iters / cpu / 1e6 : 0.0;
         Console.WriteLine(
             $"BENCH lang=csharp impl=sofab serialized_bytes={serialized} iters={iters} " +

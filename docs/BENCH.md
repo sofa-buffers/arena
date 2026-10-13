@@ -100,8 +100,11 @@ Python pair changes no storage, so it does not.
    re-encoded-byte count checked against `serialized * iters`, or a
    `black_box` / `doNotOptimizeAway`) so the round trip can't be optimized away.
    Do not count object construction, JSON parsing, or I/O. Measure CPU time
-   (process/thread CPU clock), not wall-clock, so a busy host doesn't skew the
-   number.
+   with the process CPU clock (`CLOCK_PROCESS_CPUTIME_ID`, `getrusage`,
+   `getProcessCpuTime`, `TotalProcessorTime`, `process.cpuUsage()`,
+   `process_time()`, `/proc/self/stat` utime+stime), not wall-clock, so a busy host doesn't skew the number;
+   every impl of a target uses the same helper. After the loop, compare the last
+   re-encode's bytes against the reference wire, for every impl alike.
 
    This holds for the **embedded league too**, whose three rows timed the
    decoupled `decode(encode(src))` until this was tightened. That none of its

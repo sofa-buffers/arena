@@ -10,8 +10,10 @@ import fullscale.FullScaleSeqArrayOfStrings
 import fullscale.FullScaleSeqStruct
 import fullscale.FullScaleSeqStructOfArrays
 import fullscale.FullScaleSeqStructOfFpArrays
+import java.lang.management.ManagementFactory
 import java.security.MessageDigest
 import java.util.Locale
+import okio.Buffer
 import okio.ByteString
 
 private fun sha256hex(b: ByteArray): String {
@@ -21,6 +23,10 @@ private fun sha256hex(b: ByteArray): String {
         .append("0123456789abcdef"[x.toInt() and 0xF])
     return sb.toString()
 }
+
+private fun cpuNanos(): Long =
+    (ManagementFactory.getOperatingSystemMXBean() as com.sun.management.OperatingSystemMXBean)
+        .processCpuTime
 
 // proto3 has no narrow or unsigned integers: u8/u16/u32 ride in a uint32 field
 // (Kotlin `Int`, read as unsigned by the UINT32 adapter) and u64 in a uint64
@@ -94,11 +100,17 @@ public fun main() {
     val src = build()
     val adapter = FullScaleExample.ADAPTER
 
+    // Caller-owned output buffer, hoisted out of the timed loop. Wire has no
+    // byte-array encode target; its sink form writes into a reusable okio Buffer.
+    val out = Buffer()
+
     // Warm-up round-trip + self-check (outside the timed region).
-    val blob = adapter.encode(src)
+    adapter.encode(out, src)
+    val blob = out.readByteArray()
     val serialized = blob.size
     val sha = sha256hex(blob)
-    if (!adapter.encode(adapter.decode(blob)).contentEquals(blob)) {
+    adapter.encode(out, adapter.decode(blob))
+    if (!out.readByteArray().contentEquals(blob)) {
         System.err.println("FAIL: protobuf round-trip self-check")
         kotlin.system.exitProcess(1)
     }
@@ -107,22 +119,24 @@ public fun main() {
 
     // JIT warm-up (same chained shape as the timed loop).
     for (i in 0 until 20000) {
-        adapter.encode(adapter.decode(blob))
+        out.clear()
+        adapter.encode(out, adapter.decode(blob))
     }
 
     // Chained round trip: decode the reference wire, then re-encode the freshly
-    // parsed message (issue #86) — the proxy/transcode shape. Each decode yields
-    // a new message whose cached serialized size is unset, so protobuf pays the
-    // size pass every encode instead of hitting a once-per-instance memo. sink
-    // keeps the re-encode live and doubles as a loop-path check.
+    // decoded message (issue #86). sink keeps the re-encode live.
     var sink = 0L
-    val t0 = System.nanoTime()
+    val t0 = cpuNanos()
     for (i in 0 until iters) {
-        sink += adapter.encode(adapter.decode(blob)).size.toLong()
+        out.clear()
+        adapter.encode(out, adapter.decode(blob))
+        sink += out.size
     }
-    val t1 = System.nanoTime()
+    val t1 = cpuNanos()
 
-    if (sink != serialized.toLong() * iters) {
+    // Loop-path check: every re-encode had the reference length, and the last
+    // one's bytes are the reference wire.
+    if (sink != serialized.toLong() * iters || !out.readByteArray().contentEquals(blob)) {
         System.err.println("FAIL: protobuf loop-path self-check")
         kotlin.system.exitProcess(1)
     }

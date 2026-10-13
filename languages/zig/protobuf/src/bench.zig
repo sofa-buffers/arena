@@ -69,8 +69,8 @@ fn fill(alloc: std.mem.Allocator) !pb.FullScaleExample {
 
 pub fn main(init: std.process.Init) !void {
     // The source message lives in its own arena, never reset; the encode
-    // scratch + decode output use a second arena rewound per iteration (the
-    // zig-protobuf recommended pattern — it frees each message at once).
+    // scratch + decode output use a second arena rewound per iteration (same
+    // allocator strategy as the sofab side).
     var fill_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer fill_arena.deinit();
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -108,13 +108,12 @@ pub fn main(init: std.process.Init) !void {
     const iters = benchIters(init, 2_000_000);
     var loop_buf: [2048]u8 = undefined;
     var loop_wire: []const u8 = &.{};
-    var dec: pb.FullScaleExample = .{};
     const t0 = cpuNow();
     var i: u64 = 0;
     while (i < iters) : (i += 1) {
         _ = arena.reset(.retain_capacity);
         var r = std.Io.Reader.fixed(wire);
-        dec = try pb.FullScaleExample.decode(&r, arena.allocator());
+        const dec = try pb.FullScaleExample.decode(&r, arena.allocator());
         var ew = std.Io.Writer.fixed(&loop_buf);
         try dec.encode(&ew, arena.allocator());
         loop_wire = ew.buffered();
@@ -122,9 +121,8 @@ pub fn main(init: std.process.Init) !void {
     }
     const cpu = cpuNow() - t0;
 
-    var cw = std.Io.Writer.fixed(&check_buf);
-    try dec.encode(&cw, arena.allocator());
-    if (!std.mem.eql(u8, cw.buffered(), wire)) {
+    // Loop-path check: the last re-encode must be the reference wire.
+    if (!std.mem.eql(u8, loop_wire, wire)) {
         std.debug.print("FAIL: protobuf loop-path self-check\n", .{});
         std.process.exit(1);
     }

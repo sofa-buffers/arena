@@ -17,10 +17,20 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
+	"syscall"
+
+	sofab "github.com/sofa-buffers/corelib-go"
 
 	"example.com/gen/message"
 )
+
+// cpuSeconds returns this process's CPU time (user+sys), not wall-clock
+// (docs/BENCH.md rule 3) — the same helper as the protobuf side.
+func cpuSeconds() float64 {
+	var ru syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &ru)
+	return float64(ru.Utime.Nano()+ru.Stime.Nano()) / 1e9
+}
 
 func main() {
 	os.Exit(run())
@@ -71,21 +81,25 @@ func run() int {
 		}
 	}
 
-	// Timed region: chained round trip — decode the reference wire, then re-encode
-	// the freshly decoded message (issue #86). This is the proxy/transcode shape,
-	// and it denies protobuf its once-per-instance serialized-size memo so encode
-	// is measured on equal terms. sink keeps the re-encode from being optimized out
-	// and doubles as a loop-path check (every re-encode is `serialized` bytes).
-	sink := 0
-	t0 := time.Now()
+	// Timed region: chained round trip — decode the reference wire into a fresh
+	// message, then re-encode it (issue #86) into a caller-owned MaxSize buffer
+	// hoisted out of the loop (corelib-go README: "Serialize into a buffer you
+	// own"), bounded to the schema's depth exactly as the generated Encode() is.
+	out := make([]byte, message.Example__MaxSize)
+	encOpts := []sofab.Option{sofab.WithMaxDepth(message.Example__MaxDepth)}
+	var last []byte
+	t0 := cpuSeconds()
 	for i := 0; i < iters; i++ {
 		dec, _ := message.Example__Decode(blob)
-		b, _ := dec.Encode()
-		sink += len(b)
+		e, _ := sofab.NewEncoderBuffer(out, 0, encOpts...)
+		dec.Serialize(e)
+		e.Flush()
+		last = e.Bytes()
 	}
-	cpu := time.Since(t0).Seconds()
+	cpu := cpuSeconds() - t0
 
-	if sink != serialized*iters {
+	// Loop-path check: the last re-encode must be the reference wire.
+	if !bytes.Equal(last, blob) {
 		fmt.Fprintln(os.Stderr, "FAIL: sofab loop-path self-check")
 		return 1
 	}

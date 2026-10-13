@@ -2,7 +2,7 @@
 //
 // Both codecs are Kotlin Multiplatform: their message sources live in
 // `commonMain` (stdlib-only Kotlin, no JVM API in sight) and the benchmark
-// driver — file I/O, SHA-256, printf — sits in `jvmMain`, which is the platform
+// driver — SHA-256, the process CPU clock, printf — sits in `jvmMain`, which is the platform
 // the arena measures. Everything below is applied to BOTH subprojects from this
 // one block, so neither impl can be compiled with a flag the other did not get.
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -25,16 +25,6 @@ subprojects {
         jvm {
             compilerOptions {
                 jvmTarget.set(JvmTarget.JVM_21)
-                // Kotlin's release-build knob: drop the null-check intrinsics the
-                // compiler injects at every public entry point. Both codecs are
-                // generated code with dozens of such entry points on the hot
-                // path, and both get the flag — the row stays fair and neither
-                // impl is measured through checks a shipped build would not have.
-                freeCompilerArgs.addAll(
-                    "-Xno-param-assertions",
-                    "-Xno-call-assertions",
-                    "-Xno-receiver-assertions",
-                )
             }
         }
 

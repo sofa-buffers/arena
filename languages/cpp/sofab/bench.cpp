@@ -107,12 +107,9 @@ int main()
     Example src;
     fill(src);
 
-    // Warm-up round-trip + self-check (outside the timed region). encodeTo() is
-    // the generated API's no-allocation encode: it writes into storage the caller
-    // owns, so the buffer is hoisted here once instead of being malloc'd per
-    // encode (docs/BENCH.md rule 3), exactly as protobuf's SerializeToString
-    // reuses one std::string in the row's other impl. Example::_maxSize is the
-    // worst-case encoded size the schema allows (corelib-cpp's documented bound).
+    // Warm-up round-trip + self-check (outside the timed region). encodeTo()
+    // writes into caller storage, hoisted once and sized with the schema's
+    // worst-case bound Example::_maxSize.
     std::vector<uint8_t> out(Example::_maxSize);
     size_t serialized = 0;
     if (src.encodeTo(out.data(), out.size(), serialized) != sofab::Error::None) {
@@ -124,9 +121,7 @@ int main()
     sha256_hex(bytes.data(), serialized, sha);
 
     // Round-trip is correct iff the decoded message re-encodes to the same bytes.
-    // try_decode() is the verdict-surfacing decode (plain decode() is best
-    // effort), and it decodes into a destination the caller keeps — the same
-    // reuse protobuf's ParseFromString gets below.
+    // try_decode() is the verdict-surfacing decode into a caller-kept message.
     Example check;
     if (!Example::try_decode(bytes.data(), serialized, check).ok()) {
         fprintf(stderr, "FAIL: sofab decode refused\n");
@@ -141,16 +136,10 @@ int main()
     }
 
     // Timed loop: chained round trip — decode the reference wire, then re-encode
-    // the freshly decoded message (issue #86). Re-encoding a just-decoded message
-    // (rather than a pre-built, reused `src`) is what a proxy/transcode does, and
-    // it denies protobuf the once-per-instance serialized-size memo, so encode is
-    // measured on equal terms across impls.
-    //
-    // Both ends use the generated API's reuse form: try_decode() puts `dec` back
-    // to its declared defaults and decodes into it (keeping the buffers it
-    // already paid for), and encodeTo() writes into the hoisted `out`. That is
-    // what protobuf does in the same row — one reused message, one reused output
-    // string — so neither impl is charged for allocation the other avoids.
+    // the freshly decoded message (issue #86); this denies protobuf its
+    // once-per-instance serialized-size memo. try_decode() resets `dec` to its
+    // declared defaults and decodes into it; encodeTo() writes into the hoisted
+    // `out` — as protobuf reuses one message and one output string.
     Example dec;
     size_t used = 0;
     sofab::Error err = sofab::Error::None;

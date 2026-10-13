@@ -7,21 +7,19 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
+. "$ROOT/languages/versions.sh"   # BUN_VERSION
 
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 export PATH="$BUN_INSTALL/bin:$PATH"
 if ! command -v bun >/dev/null 2>&1; then
-    echo "typescript-bun: bun not found, installing" >&2
-    curl -fsSL https://bun.sh/install | bash >&2
+    echo "typescript-bun: bun not found, installing bun $BUN_VERSION" >&2
+    curl -fsSL https://bun.sh/install | bash -s "bun-v$BUN_VERSION" >&2
 fi
 command -v bun >/dev/null || { echo "FAIL: bun unavailable" >&2; exit 1; }
 
-# Reuse the Node target's generated project (sofab/gen + protobuf). LANGS runs
-# `typescript` before `typescript-bun`, so this is already set up; generate it
-# here too if this target is run in isolation.
-if [ ! -f "$ROOT/languages/typescript/sofab/gen/bench.ts" ]; then
-    echo "typescript-bun: generating the typescript target first" >&2
-    "$ROOT/languages/typescript/setup.sh" >&2
-fi
+# Reuse the Node target's generated project (sofab/gen + protobuf). Always run
+# its (idempotent) setup so a stale corelib build or generated code is refreshed
+# here too, not only when the typescript target ran first.
+"$ROOT/languages/typescript/setup.sh" >&2
 
 echo "typescript-bun: setup OK (bun $(bun --version))" >&2

@@ -74,7 +74,6 @@ int main(void)
     if (buffer == NULL) { fprintf(stderr, "FAIL: oom\n"); return 1; }
     size_t packed = fullscale__full_scale_example__pack(&msg, buffer);
     if (packed != serialized) { fprintf(stderr, "FAIL: protobuf pack size\n"); return 1; }
-    bench_dump("protobuf-c", buffer, serialized);
 
     char sha[65];
     sha256_hex(buffer, serialized, sha);
@@ -82,7 +81,8 @@ int main(void)
     Fullscale__FullScaleExample *chk =
         fullscale__full_scale_example__unpack(NULL, serialized, buffer);
     if (chk == NULL) { fprintf(stderr, "FAIL: protobuf unpack\n"); return 1; }
-    uint8_t *rebuf = (uint8_t *)malloc(serialized);
+    uint8_t *rebuf = (uint8_t *)malloc(fullscale__full_scale_example__get_packed_size(chk));
+    if (rebuf == NULL) { fprintf(stderr, "FAIL: oom\n"); return 1; }
     size_t re = fullscale__full_scale_example__pack(chk, rebuf);
     if (re != serialized || memcmp(rebuf, buffer, serialized) != 0) {
         fprintf(stderr, "FAIL: protobuf round-trip self-check\n");
@@ -95,23 +95,31 @@ int main(void)
        the freshly unpacked message (docs/BENCH.md rule 3, issue #86). Re-packing
        the pre-built `msg` instead would measure a pack whose input never changes,
        and would hand a size-memoizing implementation a once-per-instance
-       discount. Output buffer hoisted; `used` is the per-iteration sink, checked
-       against the reference after the loop. */
-    uint8_t *out = (uint8_t *)malloc(serialized);
+       discount. protobuf-c's documented usage: unpack allocates the message and
+       free_unpacked releases it; pack writes get_packed_size() bytes into a
+       caller buffer, here hoisted and grown only when a message needs more room.
+       `used` is the per-iteration sink, checked against the reference after the
+       loop. */
+    uint8_t *out = NULL;
+    size_t cap = 0;
     size_t used = 0;
-    if (out == NULL) { fprintf(stderr, "FAIL: protobuf out buffer\n"); return 1; }
     const long iters = bench_iters(500000);
     long i;
-    bench_instr_start();
     const double t0 = bench_seconds();
     for (i = 0; i < iters; i++) {
         Fullscale__FullScaleExample *d =
             fullscale__full_scale_example__unpack(NULL, serialized, buffer);
+        size_t need = fullscale__full_scale_example__get_packed_size(d);
+        if (need > cap) {
+            uint8_t *grown = (uint8_t *)realloc(out, need);
+            if (grown == NULL) { fprintf(stderr, "FAIL: protobuf out buffer\n"); return 1; }
+            out = grown;
+            cap = need;
+        }
         used = fullscale__full_scale_example__pack(d, out);
         fullscale__full_scale_example__free_unpacked(d, NULL);
     }
     const double t1 = bench_seconds();
-    bench_instr_stop();
 
     if (used != serialized || memcmp(out, buffer, serialized) != 0) {
         fprintf(stderr, "FAIL: protobuf-c loop-path self-check\n");

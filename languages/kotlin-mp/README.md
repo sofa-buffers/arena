@@ -20,7 +20,7 @@ Wire qualifies on both halves:
   `corelib-kotlin-mp` itself.
 
 Both codecs therefore live in `commonMain` here, and only the benchmark drivers
-(file I/O, SHA-256, `String.format`) sit in `jvmMain` — the platform the arena
+(SHA-256, the process CPU clock, `String.format`) sit in `jvmMain` — the platform the arena
 measures.
 
 ## Layout
@@ -30,10 +30,9 @@ build.gradle.kts      the shared half of BOTH impls' build: KMP plugin, JVM
                       target, toolchain, compiler flags, the benchClasspath task
 settings.gradle.kts   one build, two subprojects (:sofab, :protobuf)
 sofab/
-  cfg.yaml            sofabgen config (emit: project — for the _Json helper)
-  gen/                generated commonMain codec (_Main.kt + the single-target
-                      scaffolding are pruned by setup.sh; see below)
-  src/jvmMain/        the driver, package `message`
+  cfg.yaml            sofabgen config (emit: sources — the codec only)
+  gen/                generated commonMain codec
+  src/jvmMain/        the driver, package `bench`
 protobuf/
   build.gradle.kts    the Wire version — single source of truth (setup.sh reads
                       it back out to fetch the matching compiler CLI)
@@ -55,18 +54,11 @@ JDK 21** (override with `GRADLE_JAVA_HOME`). That is a build-time detail only:
 target is measured on, through a bare `java -cp …` — no Gradle daemon anywhere
 near the timed loop.
 
-## Pruned generated files
-
-`sofab/cfg.yaml` asks for `emit: project` because the sources-only mode does not
-emit the `_Json` helper the driver fills the message from. The project mode also
-writes a single-target Kotlin/JVM scaffolding and a conformance CLI; `setup.sh`
-deletes both. `_Main.kt` in particular is the one generated file that is *not*
-platform-free (`System.in`/`System.out`, `exitProcess`), so it could not live in
-`commonMain` anyway. What stays under `gen/` is exactly the commonMain codec.
-
 ## Timing
 
-`System.nanoTime()` around the chained `encode(decode(blob))` loop, identical for
-both impls — the same helper the `java` target uses, so the two JVM rows are
-measured the same way (docs/BENCH.md allows a per-target timing helper as long as
-every impl in the target shares it).
+Process CPU time (`com.sun.management.OperatingSystemMXBean.getProcessCpuTime()`)
+around the chained decode + re-encode loop, identical for both impls and the
+same clock the `java` target uses (docs/BENCH.md rule 3). Both impls encode
+into output storage hoisted out of the loop: sofab via `encodeTo(OStream)` over a
+`MAX_SIZE` byte array, Wire via `ProtoAdapter.encode(BufferedSink, value)` into a
+reused okio `Buffer` (Wire has no byte-array encode target).

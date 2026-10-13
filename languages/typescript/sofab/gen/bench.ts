@@ -22,11 +22,15 @@ function parseStatePreserveBigInts(text: string): Record<string, unknown> {
   return JSON.parse(quoted) as Record<string, unknown>;
 }
 
-function encode(src: Example): Uint8Array {
-  // The generated encode() sizes its own buffer from the schema's worst case
-  // (Example.MAX_SIZE) — corelib-ts has no self-growing OStream: an OStream
-  // always writes into a buffer its caller owns.
-  return src.encode();
+// Process CPU time (user + system) in seconds — docs/BENCH.md rule 3. Same
+// helper in both TypeScript drivers; process.cpuUsage() exists on Node and Bun.
+function cpuSeconds(): number {
+  const u = process.cpuUsage();
+  return (u.user + u.system) / 1e6;
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 function main(): number {
@@ -39,22 +43,18 @@ function main(): number {
   const src = Example.fromJSON(state);
 
   // Warm-up round-trip + self-check (outside the timed region).
-  const blob = encode(src);
+  const blob = src.encode();
   const serialized = blob.length;
   const sha = createHash("sha256").update(blob).digest("hex");
-  const reencoded = encode(Example.decode(blob));
-  if (reencoded.length !== blob.length || !blob.every((b, i) => b === reencoded[i])) {
+  if (!sameBytes(Example.decode(blob).encode(), blob)) {
     process.stderr.write("FAIL: sofab round-trip self-check\n");
     return 1;
   }
 
   const iters = parseInt(process.env.BENCH_ITERS ?? "500000", 10);
 
-  // Pool a single OStream across encodes via reset() (corelib-ts) — the buffer
-  // it writes into is allocated here, outside the timed region, matching the
-  // bench contract and how protobufjs internally reuses its writer. One
-  // MAX_SIZE buffer is what the generated encode() allocates per call; hoisting
-  // it out is the pooled form of exactly that.
+  // One caller-owned OStream over a MAX_SIZE buffer, reused via reset();
+  // os.bytes() is a view of the bytes written since the last reset().
   const os = new OStream(new Uint8Array(Example.MAX_SIZE));
 
   // Warm the JIT (same chained shape as the timed loop).
@@ -64,25 +64,24 @@ function main(): number {
   }
 
   // Chained round trip: decode the reference wire, then re-encode the freshly
-  // decoded message (issue #86) — the proxy/transcode shape, which denies
-  // protobuf its once-per-instance serialized-size memo so encode is measured on
-  // equal terms. sink keeps the re-encode live and doubles as a loop-path check
-  // (every re-encode is `serialized` bytes).
+  // decoded message (issue #86) — the proxy/transcode shape, the same for both
+  // impls. sink keeps the re-encode live; the loop-path check below also
+  // compares the last re-encode's bytes against the reference.
   let sink = 0;
-  const t0 = process.hrtime.bigint();
+  const t0 = cpuSeconds();
   for (let i = 0; i < iters; i++) {
     os.reset();
     Example.decode(blob).serialize(os);
     sink += os.bytes().length;
   }
-  const t1 = process.hrtime.bigint();
+  const t1 = cpuSeconds();
 
-  if (sink !== serialized * iters) {
+  if (sink !== serialized * iters || !sameBytes(os.bytes(), blob)) {
     process.stderr.write("FAIL: sofab loop-path self-check\n");
     return 1;
   }
 
-  const cpu = Number(t1 - t0) / 1e9;
+  const cpu = t1 - t0;
   const mbs = cpu > 0 ? (serialized * iters) / cpu / 1e6 : 0;
   process.stdout.write(
     `BENCH lang=typescript impl=sofab serialized_bytes=${serialized} ` +
