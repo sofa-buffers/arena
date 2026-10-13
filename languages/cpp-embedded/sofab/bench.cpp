@@ -110,8 +110,8 @@ int main()
     // deserializes into one reused message. Same reason the bare-metal siblings
     // (languages/cpp-cortex-m/footprint.sh) link encodeTo, not encode.
     std::uint8_t buf[Example::_maxSize];
-    const size_t serialized = src.encodeTo(buf, sizeof(buf));
-    if (serialized == 0) {
+    size_t serialized = 0;
+    if (src.encodeTo(buf, sizeof(buf), serialized) != sofab::Error::None) {
         fprintf(stderr, "FAIL: sofab encode refused\n");
         return 1;
     }
@@ -125,7 +125,9 @@ int main()
         fprintf(stderr, "FAIL: sofab decode refused\n");
         return 1;
     }
-    if (check.encodeTo(buf, sizeof(buf)) != serialized ||
+    size_t reencoded = 0;
+    if (check.encodeTo(buf, sizeof(buf), reencoded) != sofab::Error::None ||
+        reencoded != serialized ||
         memcmp(buf, bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab round-trip self-check\n");
         return 1;
@@ -139,15 +141,16 @@ int main()
     // `used` is the per-iteration sink, checked against the reference after.
     Example dec;
     size_t used = 0;
+    sofab::Error err = sofab::Error::None;
     const long iters = bench_iters(500000);
     const double t0 = now_seconds();
     for (long i = 0; i < iters; ++i) {
         Example::try_decode(bytes.data(), serialized, dec);
-        used = dec.encodeTo(buf, sizeof(buf));
+        err = dec.encodeTo(buf, sizeof(buf), used);
     }
     const double t1 = now_seconds();
 
-    if (used != serialized || memcmp(buf, bytes.data(), serialized) != 0) {
+    if (err != sofab::Error::None || used != serialized || memcmp(buf, bytes.data(), serialized) != 0) {
         fprintf(stderr, "FAIL: sofab loop-path self-check\n");
         return 1;
     }
