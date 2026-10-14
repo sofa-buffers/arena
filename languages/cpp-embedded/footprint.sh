@@ -23,7 +23,7 @@
 #                    sources (Fields.cpp/MessageInterface.cpp/ReadBufferSection.cpp),
 #                    instantiated through serialize()/clear()+deserialize().
 #   * Both drivers take their CONCRETE buffer types (sofab's raw byte buffer,
-#     which encodeTo/try_decode wrap in their inline OStreamView/IStreamObject;
+#     which encodeTo/try_decode wrap in their inline OStreamView/IStreamInto;
 #     EmbeddedProto's WriteBufferFixedSize/ReadBufferFixedSize sized by
 #     max_serialized_size() and explicitly instantiated), so each codec's buffer
 #     code lands in its sum, as in cpp-cortex-m.
@@ -64,8 +64,8 @@ emit() { # impl "text rodata data bss"
 cat > "$TMP/drv_sofab.cpp" <<'EOF'
 #include "example.hpp"
 using fullscale::Example;
-// Heap-free entry points: encodeTo into caller storage, try_decode (decodes a
-// fresh message, copies it into `out` on success); every verdict is returned.
+// Heap-free entry points: encodeTo into caller storage, try_decode (resets
+// `out` and decodes into it in place); every verdict is returned.
 sofab::Error fp_encode(const Example &m, std::uint8_t *dst, std::size_t cap, std::size_t &used) { return m.encodeTo(dst, cap, used); }
 bool fp_decode(const std::uint8_t *d, std::size_t n, Example &out) { return Example::try_decode(d, n, out).ok(); }
 EOF

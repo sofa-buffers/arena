@@ -99,8 +99,8 @@ int main()
     // Warm-up round-trip + self-check (outside the timed region).
     //
     // encodeTo()/try_decode() are the generated API's heap-free pair: encodeTo
-    // writes into storage the caller owns; try_decode decodes a fresh message and
-    // copies it into the caller's destination on success, returning the verdict.
+    // writes into storage the caller owns; try_decode resets the caller's
+    // destination and decodes into it in place, returning the verdict.
     std::uint8_t buf[Example::_maxSize];
     size_t serialized = 0;
     if (src.encodeTo(buf, sizeof(buf), serialized) != sofab::Error::None) {

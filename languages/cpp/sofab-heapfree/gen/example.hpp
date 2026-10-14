@@ -36,14 +36,15 @@ struct Example_Nested : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
         f32 = 0.0f;
         f64 = 0.0;
-        str = "";
-        bytes_field = {};
+        str.clear();
+        bytes_field.clear();
     }
 
     /**
@@ -134,12 +135,13 @@ struct Example_Arrays_Nested : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
-        fp32 = {};
-        fp64 = {};
+        fp32.clear();
+        fp64.clear();
     }
 
     /**
@@ -237,18 +239,19 @@ struct Example_Arrays : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
-        u8 = {};
-        i8 = {};
-        u16 = {};
-        i16 = {};
-        u32 = {};
-        i32 = {};
-        u64 = {};
-        i64 = {};
+        u8.clear();
+        i8.clear();
+        u16.clear();
+        i16.clear();
+        u32.clear();
+        i32.clear();
+        u64.clear();
+        i64.clear();
         nested.reset();
     }
 
@@ -391,8 +394,9 @@ struct Example : sofab::Message {
      * @c sofab::IStreamInline) and it is yours to call between messages,
      * alongside the stream's own reset for the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
         u8 = 0;
@@ -405,7 +409,7 @@ struct Example : sofab::Message {
         i64 = 0;
         nested.reset();
         arrays.reset();
-        string_array = {};
+        string_array.clear();
     }
 
     /**
@@ -484,12 +488,8 @@ struct Example : sofab::Message {
      */
     static sofab::IStreamImpl::Result try_decode(const std::uint8_t *_data, std::size_t _len, Example &_out) {
         _out.reset();
-        sofab::IStreamInline *_isp = nullptr;
-        sofab::IStreamInline _is{[&_out, &_isp](sofab::id _id, std::size_t _size, std::size_t _count) {
-            _out.deserialize(*_isp, _id, _size, _count);
-        }, sofab::Limits{SIZE_MAX}};
-        _isp = &_is;
-        return _is.feed(_data, _len);
+        sofab::IStreamInto<Example> _in{_out, sofab::Limits{SIZE_MAX}};
+        return _in.feed(_data, _len);
     }
 
     /**

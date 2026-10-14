@@ -84,7 +84,7 @@ HARNESS volatile std::size_t sink;
 int main() {
     std::size_t n = 0;
     sofab::Error e = msg.encodeTo(buf, sizeof buf, n);
-    // try_decode decodes a fresh message and copies it into `dec` on success,
+    // try_decode resets `dec` and decodes into it in place (IStreamInto),
     // returning the verdict — the counterpart of embeddedproto's clear() +
     // deserialize().
     bool ok = Example::try_decode(buf, n, dec).ok();
