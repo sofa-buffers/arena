@@ -28,7 +28,7 @@ public class Main {
         return 2;
     }
 
-    private static void benchOp_example(boolean enc, message.Example obj, byte[] wire) {
+    private static void benchOp_example(boolean enc, message.Example obj, byte[] wire) throws IOException {
         if (enc) {
             benchSink ^= obj.encode().length;
         } else {

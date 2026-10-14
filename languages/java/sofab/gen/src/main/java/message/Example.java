@@ -79,15 +79,14 @@ public class Example {
     /**
      * Encode this message into a new array.
      *
-     * @throws RuntimeException wrapping the {@link SofabException} that
-     *         {@link #serialize} raises; no bytes are returned then
+     * @throws IOException a field past its schema bound: {@link #serialize}
+     *         refuses and no bytes are returned. Every refusal is a
+     *         {@link SofabException}, whose {@code error()} is the code.
      */
-    public byte[] encode() {
-        try {
-            OStream os = OStream.overScratch(MAX_SIZE);
-            serialize(os);
-            return os.copyOfBytesUsed();
-        } catch (IOException e) { throw new RuntimeException(e); }
+    public byte[] encode() throws IOException {
+        OStream os = OStream.overScratch(MAX_SIZE);
+        serialize(os);
+        return os.copyOfBytesUsed();
     }
     /**
      * Encode into a stream the caller owns, then flush the tail.
@@ -103,10 +102,17 @@ public class Example {
         serialize(os);
         os.flush();
     }
-    public static Example decode(byte[] data) {
+    /**
+     * Decode a whole message into a fresh instance. This cannot tell
+     * COMPLETE from INCOMPLETE -- {@code feed} suspends rather than throw
+     * on truncated bytes; use {@link #tryDecode} when that verdict matters.
+     *
+     * @throws SofabException the bytes were refused; {@code e.error()} is the
+     *         code (INVALID_MSG, LIMIT_EXCEEDED, ARGUMENT)
+     */
+    public static Example decode(byte[] data) throws SofabException {
         Example m = new Example();
-        try { new IStream().feed(data, new _Example__Visitor(m)); }
-        catch (Exception e) { throw new RuntimeException(e); }
+        new IStream().feed(data, new _Example__Visitor(m));
         return m;
     }
     public static DecodeStatus tryDecode(byte[] data, Example out) throws SofabException {

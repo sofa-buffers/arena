@@ -174,7 +174,7 @@ func benchMain(w string, in []byte) int {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|streamencode|bench> [Message|workload]")
+		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|pushdecode|streamencode|encodeinto|bench> [Message|workload]")
 		os.Exit(2)
 	}
 	mode := os.Args[1]
@@ -222,6 +222,33 @@ func main() {
 			out, _ := marshalJSON(obj)
 			os.Stdout.Write(out)
 			fmt.Fprintln(os.Stdout)
+		} else if mode == "pushdecode" {
+			d := message.Example__NewDecoder()
+			n := chunkArg()
+			if n == 0 {
+				n = len(in)
+			}
+			out := sofab.Complete
+			var chunk []byte
+			for i := 0; i < len(in); i += n {
+				j := i + n
+				if j > len(in) {
+					j = len(in)
+				}
+				chunk = append(chunk[:0], in[i:j]...)
+				var ferr error
+				out, ferr = d.Feed(chunk)
+				if ferr != nil {
+					_, again := d.Feed(nil)
+					fail(fmt.Errorf("%v [finish=%s]", ferr, verdictName(again)))
+				}
+			}
+			if out != sofab.Complete {
+				fail(sofab.ErrIncomplete)
+			}
+			js, _ := marshalJSON(d.Message())
+			os.Stdout.Write(js)
+			fmt.Fprintln(os.Stdout)
 		} else if mode == "streamencode" {
 			obj := message.Example__New()
 			if err := unmarshalJSON(in, obj); err != nil {
@@ -249,6 +276,21 @@ func main() {
 				}
 			}
 			os.Stdout.Write(out.Bytes())
+		} else if mode == "encodeinto" {
+			obj := message.Example__New()
+			if err := unmarshalJSON(in, obj); err != nil {
+				fail(err)
+			}
+			sz := windowArg()
+			if sz == 0 {
+				sz = message.Example__MaxSize
+			}
+			dst := make([]byte, sz)
+			n, err := obj.EncodeInto(dst)
+			if err != nil {
+				fail(err)
+			}
+			os.Stdout.Write(dst[:n])
 		} else {
 			fail(fmt.Errorf("unknown mode %q", mode))
 		}
@@ -479,8 +521,9 @@ func chunkArg() int {
 	return 1
 }
 
-// windowArg is `streamencode`'s third argument: the encode buffer size in
-// bytes, 0 for the generated EncodeTo with its own scratch.
+// windowArg is the third argument of `streamencode` and `encodeinto`: the
+// output buffer size in bytes. 0 means each verb's own default -- the
+// generated EncodeTo with its own scratch, and <Msg>__MaxSize.
 func windowArg() int {
 	if len(os.Args) > 3 {
 		n, err := strconv.Atoi(os.Args[3])

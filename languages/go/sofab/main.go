@@ -19,8 +19,6 @@ import (
 	"strconv"
 	"syscall"
 
-	sofab "github.com/sofa-buffers/corelib-go"
-
 	"example.com/gen/message"
 )
 
@@ -83,18 +81,15 @@ func run() int {
 
 	// Timed region: chained round trip — decode the reference wire into a fresh
 	// message, then re-encode it (issue #86) into a caller-owned MaxSize buffer
-	// hoisted out of the loop (corelib-go README: "Serialize into a buffer you
-	// own"), bounded to the schema's depth exactly as the generated Encode() is.
+	// hoisted out of the loop, through the generated EncodeInto (the message's
+	// own encoder options, no restated internals).
 	out := make([]byte, message.Example__MaxSize)
-	encOpts := []sofab.Option{sofab.WithMaxDepth(message.Example__MaxDepth)}
 	var last []byte
 	t0 := cpuSeconds()
 	for i := 0; i < iters; i++ {
 		dec, _ := message.Example__Decode(blob)
-		e, _ := sofab.NewEncoderBuffer(out, 0, encOpts...)
-		dec.Serialize(e)
-		e.Flush()
-		last = e.Bytes()
+		n, _ := dec.EncodeInto(out)
+		last = out[:n]
 	}
 	cpu := cpuSeconds() - t0
 

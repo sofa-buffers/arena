@@ -7,6 +7,7 @@
 #include <span>
 #include <cstddef>
 #include <utility>
+#include <new>
 #include "sofab/sofab.hpp"
 
 static_assert(sofab::API_VERSION == 1,
@@ -41,14 +42,15 @@ struct Example_Nested : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
         f32 = 0.0f;
         f64 = 0.0;
-        str = "";
-        bytes_field = {};
+        str.clear();
+        bytes_field.clear();
     }
 
     /**
@@ -140,12 +142,13 @@ struct Example_Arrays_Nested : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
-        fp32 = {};
-        fp64 = {};
+        fp32.clear();
+        fp64.clear();
     }
 
     /**
@@ -244,18 +247,19 @@ struct Example_Arrays : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Containers are cleared, not reallocated: a container keeps its own
+     * buffer, so the capacity a reused destination has already paid for is
+     * not handed back.
      */
     void reset() noexcept {
-        u8 = {};
-        i8 = {};
-        u16 = {};
-        i16 = {};
-        u32 = {};
-        i32 = {};
-        u64 = {};
-        i64 = {};
+        u8.clear();
+        i8.clear();
+        u16.clear();
+        i16.clear();
+        u32.clear();
+        i32.clear();
+        u64.clear();
+        i64.clear();
         nested.reset();
     }
 
@@ -399,21 +403,14 @@ struct Example : sofab::Message {
      * yours to call between messages, alongside the stream's own reset for
      * the decoder state.
      *
-     * Containers are cleared, not reallocated: the capacity a reused
-     * destination has already paid for is kept.
+     * Every field is inline here, so this is the constructor again: the
+     * object's lifetime ends and a new one begins in the same storage,
+     * which is the same defaults without a second copy of them in the
+     * image. Any reference to this object stays valid.
      */
     void reset() noexcept {
-        u8 = 0;
-        i8 = 0;
-        u16 = 0;
-        i16 = 0;
-        u32 = 0;
-        i32 = 0;
-        u64 = 0;
-        i64 = 0;
-        nested.reset();
-        arrays.reset();
-        string_array = {};
+        this->~Example();
+        ::new (static_cast<void *>(this)) Example();
     }
 
     /**
@@ -477,23 +474,23 @@ struct Example : sofab::Message {
     }
 
     /**
-     * @brief Decode a message, reporting whether the input was acceptable.
+     * @brief Decode a message into @p _out, reporting whether the input was
+     *        acceptable.
      *
-     * Decodes into a fresh instance and copies it over @p _out on success,
-     * so @p _out never carries anything over from an earlier message. To
-     * decode into a destination directly, drive the stream yourself and
-     * call @ref reset on it between messages.
+     * @p _out is put back to its declared defaults first (@ref reset) and
+     * then decoded into directly, so it may be reused across messages
+     * without carrying anything over and without a second copy of the message on the stack.
      *
      * @param _data Encoded bytes.
      * @param _len  Number of bytes at @p _data.
-     * @param _out  Receives the message on success; untouched otherwise.
+     * @param _out  Receives the message; on a rejected input it holds the
+     *             fields decoded before the error, never an older message's.
      * @return The decode result; check @c ok() before reading @p _out.
      */
     static sofab::IStreamImpl::Result try_decode(const std::uint8_t *_data, std::size_t _len, Example &_out) {
-        sofab::IStreamObject<Example> _in;
-        sofab::IStreamImpl::Result _r = _in.feed(_data, _len);
-        if (_r.ok()) { _out = *_in; }
-        return _r;
+        _out.reset();
+        sofab::IStreamInto<Example> _in{_out};
+        return _in.feed(_data, _len);
     }
 
     /**
