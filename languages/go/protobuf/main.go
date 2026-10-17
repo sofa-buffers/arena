@@ -147,13 +147,22 @@ func run() int {
 		}
 	}
 
-	// Timed region: chained round trip — decode the reference wire into a fresh
-	// message, then re-encode it (issue #86) with MarshalAppend into a
-	// caller-owned buffer hoisted out of the loop (grown once, then reused).
+	// Timed region: chained round trip — decode the reference wire, then re-encode
+	// it (issue #86) with MarshalAppend into a caller-owned buffer hoisted out of
+	// the loop (grown once, then reused).
+	//
+	// The destination is hoisted too, mirroring the sofab driver's
+	// Example__TryDecode(data, out) (docs/BENCH.md rule 6). This is protobuf-go's
+	// own reset-then-decode path and semantically identical to allocating per
+	// iteration: proto.Unmarshal resets what it is handed unless Merge is set
+	// (`if !o.Merge { Reset(m.Interface()) }`, proto/decode.go). It saves only
+	// the one struct allocation, because the generated Reset is `*x = T{}` and
+	// so drops every field slice — protobuf-go has no way to keep that storage,
+	// unlike sofab's generated _spare members. Same treatment, different ceiling.
 	var out []byte
+	dec := &pb.FullScaleExample{}
 	t0 := cpuSeconds()
 	for i := 0; i < iters; i++ {
-		dec := &pb.FullScaleExample{}
 		proto.Unmarshal(blob, dec)
 		out, _ = mo.MarshalAppend(out[:0], dec)
 	}

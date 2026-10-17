@@ -61,8 +61,10 @@ func run() int {
 	sum := sha256.Sum256(blob)
 	sha := hex.EncodeToString(sum[:])
 
-	dec, err := message.Example__Decode(blob)
-	if err != nil {
+	// Warm-up self-check through the SAME entry point the timed loop uses, so it
+	// validates the path that gets measured.
+	dec := &message.Example{}
+	if err := message.Example__TryDecode(blob, dec); err != nil {
 		fmt.Fprintln(os.Stderr, "FAIL: sofab decode:", err)
 		return 1
 	}
@@ -79,15 +81,22 @@ func run() int {
 		}
 	}
 
-	// Timed region: chained round trip — decode the reference wire into a fresh
-	// message, then re-encode it (issue #86) into a caller-owned MaxSize buffer
-	// hoisted out of the loop, through the generated EncodeInto (the message's
-	// own encoder options, no restated internals).
+	// Timed region: chained round trip — decode the reference wire, then re-encode
+	// it (issue #86) into a caller-owned MaxSize buffer hoisted out of the loop,
+	// through the generated EncodeInto (the message's own encoder options, no
+	// restated internals).
+	//
+	// The destination is hoisted too, through Example__TryDecode(data, out): it
+	// Resets `out` itself and keeps the storage its slices and strings already
+	// hold (the generated _spare members). Example__Decode would hand that back
+	// per iteration and time the allocator instead of the codec. The protobuf
+	// driver hoists its destination the same way for the same reason —
+	// proto.Unmarshal already resets what it is handed (docs/BENCH.md rule 6).
 	out := make([]byte, message.Example__MaxSize)
 	var last []byte
 	t0 := cpuSeconds()
 	for i := 0; i < iters; i++ {
-		dec, _ := message.Example__Decode(blob)
+		message.Example__TryDecode(blob, dec)
 		n, _ := dec.EncodeInto(out)
 		last = out[:n]
 	}

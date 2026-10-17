@@ -85,6 +85,23 @@ public sealed class Example_Arrays {
         if (!((this.nested ?? new Example_Arrays_Nested()).IsDefault())) return false;
         return true;
     }
+    /// <summary>
+    /// Every field back to its schema default. A nested struct is reset and a
+    /// list cleared in place, so a reference taken to either reads the defaults
+    /// too. An array, a blob and the object a union option holds are replaced,
+    /// so a reference taken to one of those keeps its old value.
+    /// </summary>
+    public void Reset() {
+        this.u8 = global::System.Array.Empty<byte>();
+        this.i8 = global::System.Array.Empty<sbyte>();
+        this.u16 = global::System.Array.Empty<ushort>();
+        this.i16 = global::System.Array.Empty<short>();
+        this.u32 = global::System.Array.Empty<uint>();
+        this.i32 = global::System.Array.Empty<int>();
+        this.u64 = global::System.Array.Empty<ulong>();
+        this.i64 = global::System.Array.Empty<long>();
+        (this.nested ??= new()).Reset();
+    }
 }
 
 public sealed class Example_Arrays_Nested {
@@ -112,6 +129,16 @@ public sealed class Example_Arrays_Nested {
         if (!(this.fp64 == null || this.fp64.Length == 0)) return false;
         return true;
     }
+    /// <summary>
+    /// Every field back to its schema default. A nested struct is reset and a
+    /// list cleared in place, so a reference taken to either reads the defaults
+    /// too. An array, a blob and the object a union option holds are replaced,
+    /// so a reference taken to one of those keeps its old value.
+    /// </summary>
+    public void Reset() {
+        this.fp32 = global::System.Array.Empty<float>();
+        this.fp64 = global::System.Array.Empty<double>();
+    }
 }
 
 public sealed class Example_Nested {
@@ -138,6 +165,18 @@ public sealed class Example_Nested {
         if (!(this.str == "")) return false;
         if (!(this.bytes_field == null || this.bytes_field.Length == 0)) return false;
         return true;
+    }
+    /// <summary>
+    /// Every field back to its schema default. A nested struct is reset and a
+    /// list cleared in place, so a reference taken to either reads the defaults
+    /// too. An array, a blob and the object a union option holds are replaced,
+    /// so a reference taken to one of those keeps its old value.
+    /// </summary>
+    public void Reset() {
+        this.f32 = 0;
+        this.f64 = 0;
+        this.str = "";
+        this.bytes_field = global::System.Array.Empty<byte>();
     }
 }
 
@@ -190,6 +229,25 @@ public sealed class Example {
         if (!(this.string_array.Count == 0)) return false;
         return true;
     }
+    /// <summary>
+    /// Every field back to its schema default. A nested struct is reset and a
+    /// list cleared in place, so a reference taken to either reads the defaults
+    /// too. An array, a blob and the object a union option holds are replaced,
+    /// so a reference taken to one of those keeps its old value.
+    /// </summary>
+    public void Reset() {
+        this.u8 = 0;
+        this.i8 = 0;
+        this.u16 = 0;
+        this.i16 = 0;
+        this.u32 = 0;
+        this.i32 = 0;
+        this.u64 = 0;
+        this.i64 = 0;
+        (this.nested ??= new()).Reset();
+        (this.arrays ??= new()).Reset();
+        (this.string_array ??= new(5)).Clear();
+    }
     public const int MaxSize = 732;
     // Per-thread scratch buffer and encoder: Encode() serialises into the
     // buffer and returns an exact-size copy, so neither the worst-case
@@ -233,6 +291,27 @@ public sealed class Example {
     }
     public static global::sofab.DecodeStatus TryDecode(byte[] data, out Example msg) {
         msg = new Example();
+        return new global::sofab.IStream().Feed(data, 0, data.Length, new _Example__Visitor(msg));
+    }
+    /// <summary>
+    /// Decode into <paramref name="msg"/>, a destination the caller owns and
+    /// may reuse: it is <see cref="Reset"/> first, so a field absent from
+    /// <paramref name="data"/> reads as its default. The verdict is the one
+    /// <c>TryDecode(data, out msg)</c> returns.
+    /// </summary>
+    /// <remarks>
+    /// On a refusal <paramref name="msg"/> holds the fields decoded before the
+    /// error, never an older message's. A nested struct or a list held directly
+    /// by the message belongs to the destination: the next decode into it
+    /// overwrites that object. Anything else -- an array, a blob, a list's
+    /// elements, an object inside a union option -- is replaced by a new one.
+    /// Copy what must outlive the next decode.
+    /// </remarks>
+    /// <exception cref="global::System.ArgumentNullException"><paramref name="msg"/> is null.</exception>
+    /// <exception cref="global::sofab.SofabException">Malformed input, as for <c>TryDecode(data, out msg)</c>.</exception>
+    public static global::sofab.DecodeStatus TryDecode(byte[] data, Example msg) {
+        global::System.ArgumentNullException.ThrowIfNull(msg);
+        msg.Reset();
         return new global::sofab.IStream().Feed(data, 0, data.Length, new _Example__Visitor(msg));
     }
     /// <summary>

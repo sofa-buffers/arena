@@ -23,6 +23,10 @@ type Example struct {
 	I16         int16    `json:"i16"`
 	U8          uint8    `json:"u8"`
 	I8          int8     `json:"i8"`
+	// The _spare members keep an array's or a blob's storage across Reset,
+	// which puts the field itself back to its default (nil where it has
+	// none, as a fresh message holds it); the next decode writes into it.
+	_spareStringArray []string
 }
 
 func (m *Example) Serialize(e *sofab.Encoder) {
@@ -163,7 +167,7 @@ func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	case 100:
 		return &m.Arrays, nil
 	case 200:
-		m.StringArray = m.StringArray[:0]
+		m.StringArray = sofab.ReuseSlice(m._spareStringArray, 0)
 		return sofab.NewStringSeq(&m.StringArray, sofab.Bounds{Count: 5, ElemLen: 64}, _caps), nil
 	}
 	return nil, nil
@@ -173,6 +177,25 @@ func (m *Example) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 func Example__New() *Example {
 	m := &Example{}
 	return m
+}
+
+// Reset puts every field of Example back to its schema default, in place, so
+// that it reads exactly as a fresh one: a nested struct is Reset and a union
+// Cleared. An array or blob keeps the storage it held for the next decode
+// into this object, which writes into it -- so a slice read from it, or
+// assigned to it, before Reset is overwritten by Reset or by that decode.
+func (m *Example) Reset() {
+	m.U8 = 0
+	m.I8 = 0
+	m.U16 = 0
+	m.I16 = 0
+	m.U32 = 0
+	m.I32 = 0
+	m.U64 = 0
+	m.I64 = 0
+	m.Nested.Reset()
+	m.Arrays.Reset()
+	m._spareStringArray, m.StringArray = m.StringArray, nil
 }
 
 // Example__MaxSize is this message's worst-case encoded size, derived from the
@@ -272,6 +295,24 @@ func Example__Decode(data []byte) (*Example, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// Example__TryDecode decodes data into out, which the caller owns, instead of into a
+// new message: out is Reset first, so afterwards it reads exactly as
+// Example__Decode(data) would. It is the shape for a receive loop that decodes
+// every message into the same object.
+//
+// The storage out's arrays and blobs held is written into rather than
+// allocated anew, so a slice read from out before this call -- or held
+// by a copy of it -- is overwritten by it. Copy what you keep.
+//
+// The error is Example__Decode's: nil, sofab.ErrIncomplete for bytes that end
+// inside a field, or the refusal. On a refusal out holds the fields
+// decoded before the error and the defaults for the rest, never a value of
+// the message it held before.
+func Example__TryDecode(data []byte, out *Example) error {
+	out.Reset()
+	return sofab.AcceptBytes(data, out)
 }
 
 // Example__DecodeFrom parses a message straight out of r (with defaults pre-applied).

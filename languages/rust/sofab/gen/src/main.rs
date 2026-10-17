@@ -152,8 +152,8 @@ pub fn run_encode_example(obj: &message::Example) -> usize {
 
 #[inline(never)]
 #[no_mangle]
-pub fn run_decode_example(wire: &[u8]) -> message::Example {
-    black_box(message::Example::try_decode(black_box(wire)).expect("decode"))
+pub fn run_decode_example(wire: &[u8], out: &mut message::Example) {
+    message::Example::try_decode(black_box(wire), black_box(out)).expect("decode");
 }
 
 // bench_main runs one op of <workload>. Everything here is setup and
@@ -166,7 +166,9 @@ fn bench_main(w: &str, input: &[u8]) -> i32 {
         if w == "encode_example" {
             sink = sink.wrapping_add(run_encode_example(&obj) as u64);
         } else {
-            let out = run_decode_example(&wire);
+            let mut out = message::Example::default();
+            message::Example::try_decode(&wire, &mut out).expect("decode"); // setup: the destination holds one decode (not collected)
+            run_decode_example(&wire, &mut out);
             sink = sink.wrapping_add(serde_json::to_vec(&out).map(|v| v.len() as u64).unwrap_or(0));
         }
         eprintln!("sink={} BYTES={}", sink, wire.len());
@@ -221,11 +223,28 @@ fn main() {
                     std::io::stdout().write_all(&out).unwrap();
                 }
             } else if mode == "decode" {
-                let obj = match message::Example::try_decode(&input) {
-                    Ok(o) => o,
-                    Err(e) => { eprintln!("decode error: {:?}", e); std::process::exit(1); }
-                };
+                let mut obj = message::Example::default();
+                if let Err(e) = message::Example::try_decode(&input, &mut obj) {
+                    eprintln!("decode error: {:?}", e);
+                    std::process::exit(1);
+                }
                 println!("{}", serde_json::to_string(&obj).unwrap());
+            } else if mode == "reusedecode" {
+                let held = args.get(3).map(|s| s.as_str()).unwrap_or("");
+                let held: Vec<u8> = (0..held.len() / 2).map(|i| u8::from_str_radix(&held[2 * i..2 * i + 2], 16).expect("hex")).collect();
+                let mut obj = message::Example::decode(&held);
+                let verdict = match message::Example::try_decode(&input, &mut obj) {
+                    Ok(()) => "COMPLETE".to_string(),
+                    Err(message::DecodeError::Incomplete) => "INCOMPLETE".to_string(),
+                    Err(message::DecodeError::Sofab(e)) => format!("{:?}", e),
+                };
+                let hex: String = match obj.encode() {
+                    Ok(b) => b.iter().map(|b| format!("{:02x}", b)).collect(),
+                    Err(_) => "-".to_string(),
+                };
+                println!("{}", verdict);
+                println!("{}", serde_json::to_string(&obj).unwrap());
+                println!("{}", hex);
             } else if mode == "streamdecode" {
                 let mut dec = message::Example::decoder();
                 let csz: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);

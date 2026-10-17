@@ -108,11 +108,9 @@ func run_encode_example() {
 
 //go:noinline
 func run_decode_example() {
-	obj, err := message.Example__Decode(benchExampleWire)
-	if err != nil {
+	if err := message.Example__TryDecode(benchExampleWire, benchExampleOut); err != nil {
 		fail(err)
 	}
-	benchExampleOut = obj
 }
 
 // warmup_* pay the runtime's one-time costs (lazy itabs, type/name
@@ -132,11 +130,9 @@ func warmup_encode_example() {
 
 //go:noinline
 func warmup_decode_example() {
-	obj, err := message.Example__Decode(benchExampleWire)
-	if err != nil {
+	if err := message.Example__TryDecode(benchExampleWire, benchExampleOut); err != nil {
 		fail(err)
 	}
-	benchExampleOut = obj
 }
 
 // benchMain runs one op of <workload>. Everything here is setup, warmup and
@@ -153,7 +149,8 @@ func benchMain(w string, in []byte) int {
 			run_encode_example()
 		} else {
 			warmup_encode_example() // setup: the decode input (not collected)
-			warmup_decode_example() // one-time runtime costs (not collected)
+			benchExampleOut = message.Example__New()
+			warmup_decode_example() // one-time runtime costs, and the destination's first decode (not collected)
 			run_decode_example()
 		}
 		var sink uint64
@@ -174,7 +171,7 @@ func benchMain(w string, in []byte) int {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|pushdecode|streamencode|encodeinto|bench> [Message|workload]")
+		fmt.Fprintln(os.Stderr, "usage: harness <encode|decode|streamdecode|pushdecode|reusedecode|streamencode|encodeinto|bench> [Message|workload] [chunk|window|held-hex]")
 		os.Exit(2)
 	}
 	mode := os.Args[1]
@@ -249,6 +246,37 @@ func main() {
 			js, _ := marshalJSON(d.Message())
 			os.Stdout.Write(js)
 			fmt.Fprintln(os.Stdout)
+		} else if mode == "reusedecode" {
+			held := ""
+			if len(os.Args) > 3 {
+				held = os.Args[3]
+			}
+			hb, err := hex.DecodeString(held)
+			if err != nil {
+				fail(err)
+			}
+			obj, err := message.Example__Decode(hb)
+			if err != nil {
+				fail(fmt.Errorf("held message: %w", err))
+			}
+			if err := message.Example__TryDecode(hb, obj); err != nil {
+				fail(fmt.Errorf("held message, decoded again: %w", err))
+			}
+			st := "COMPLETE"
+			if err := message.Example__TryDecode(in, obj); errors.Is(err, sofab.ErrIncomplete) {
+				st = "INCOMPLETE"
+			} else if err != nil {
+				st = verdictName(err)
+			}
+			wire := "-"
+			if b, err := obj.Encode(); err == nil {
+				wire = hex.EncodeToString(b)
+			}
+			js, _ := marshalJSON(obj)
+			fmt.Fprintln(os.Stdout, st)
+			os.Stdout.Write(js)
+			fmt.Fprintln(os.Stdout)
+			fmt.Fprintln(os.Stdout, wire)
 		} else if mode == "streamencode" {
 			obj := message.Example__New()
 			if err := unmarshalJSON(in, obj); err != nil {

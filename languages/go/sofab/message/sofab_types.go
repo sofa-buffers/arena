@@ -27,6 +27,17 @@ type Example_Arrays struct {
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	I64    []int64               `json:"i64"`
 	Nested Example_Arrays_Nested `json:"nested"`
+	// The _spare members keep an array's or a blob's storage across Reset,
+	// which puts the field itself back to its default (nil where it has
+	// none, as a fresh message holds it); the next decode writes into it.
+	_spareU8  []uint8
+	_spareI8  []int8
+	_spareU16 []uint16
+	_spareI16 []int16
+	_spareU32 []uint32
+	_spareI32 []int32
+	_spareU64 []uint64
+	_spareI64 []int64
 }
 
 func (m *Example_Arrays) Serialize(e *sofab.Encoder) {
@@ -131,7 +142,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U8 = make([]uint8, 0, count)
+		m.U8 = sofab.ReuseSlice(m._spareU8, count)
 	case 1:
 		if kind != sofab.ArraySigned {
 			return nil
@@ -139,7 +150,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I8 = make([]int8, 0, count)
+		m.I8 = sofab.ReuseSlice(m._spareI8, count)
 	case 2:
 		if kind != sofab.ArrayUnsigned {
 			return nil
@@ -147,7 +158,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U16 = make([]uint16, 0, count)
+		m.U16 = sofab.ReuseSlice(m._spareU16, count)
 	case 3:
 		if kind != sofab.ArraySigned {
 			return nil
@@ -155,7 +166,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I16 = make([]int16, 0, count)
+		m.I16 = sofab.ReuseSlice(m._spareI16, count)
 	case 4:
 		if kind != sofab.ArrayUnsigned {
 			return nil
@@ -163,7 +174,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U32 = make([]uint32, 0, count)
+		m.U32 = sofab.ReuseSlice(m._spareU32, count)
 	case 5:
 		if kind != sofab.ArraySigned {
 			return nil
@@ -171,7 +182,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I32 = make([]int32, 0, count)
+		m.I32 = sofab.ReuseSlice(m._spareI32, count)
 	case 6:
 		if kind != sofab.ArrayUnsigned {
 			return nil
@@ -179,7 +190,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.U64 = make([]uint64, 0, count)
+		m.U64 = sofab.ReuseSlice(m._spareU64, count)
 	case 7:
 		if kind != sofab.ArraySigned {
 			return nil
@@ -187,7 +198,7 @@ func (m *Example_Arrays) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, count int
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.I64 = make([]int64, 0, count)
+		m.I64 = sofab.ReuseSlice(m._spareI64, count)
 	}
 	return nil
 }
@@ -246,6 +257,23 @@ func (m *Example_Arrays) BeginSequence(id sofab.ID) (sofab.Visitor, error) {
 	return nil, nil
 }
 
+// Reset puts every field of Example_Arrays back to its schema default, in place, so
+// that it reads exactly as a fresh one: a nested struct is Reset and a union
+// Cleared. An array or blob keeps the storage it held for the next decode
+// into this object, which writes into it -- so a slice read from it, or
+// assigned to it, before Reset is overwritten by Reset or by that decode.
+func (m *Example_Arrays) Reset() {
+	m._spareU8, m.U8 = m.U8, nil
+	m._spareI8, m.I8 = m.I8, nil
+	m._spareU16, m.U16 = m.U16, nil
+	m._spareI16, m.I16 = m.I16, nil
+	m._spareU32, m.U32 = m.U32, nil
+	m._spareI32, m.I32 = m.I32, nil
+	m._spareU64, m.U64 = m.U64, nil
+	m._spareI64, m.I64 = m.I64, nil
+	m.Nested.Reset()
+}
+
 // Example_Arrays_Nested is a generated SofaBuffers object.
 type Example_Arrays_Nested struct {
 	sofab.VisitorBase
@@ -253,6 +281,11 @@ type Example_Arrays_Nested struct {
 	Fp32 []float32 `json:"fp32"`
 	// Schema bound: count 5 is a CAPACITY, not a length -- starts empty; over 5 elements is INVALID, never truncated: encode refuses it.
 	Fp64 []float64 `json:"fp64"`
+	// The _spare members keep an array's or a blob's storage across Reset,
+	// which puts the field itself back to its default (nil where it has
+	// none, as a fresh message holds it); the next decode writes into it.
+	_spareFp32 []float32
+	_spareFp64 []float64
 }
 
 func (m *Example_Arrays_Nested) Serialize(e *sofab.Encoder) {
@@ -291,7 +324,7 @@ func (m *Example_Arrays_Nested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, co
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.Fp32 = make([]float32, 0, count)
+		m.Fp32 = sofab.ReuseSlice(m._spareFp32, count)
 	case 1:
 		if kind != sofab.ArrayFp64 {
 			return nil
@@ -299,7 +332,7 @@ func (m *Example_Arrays_Nested) ArrayBegin(id sofab.ID, kind sofab.ArrayKind, co
 		if count > 5 {
 			return sofab.ErrInvalidMsg
 		}
-		m.Fp64 = make([]float64, 0, count)
+		m.Fp64 = sofab.ReuseSlice(m._spareFp64, count)
 	}
 	return nil
 }
@@ -320,6 +353,16 @@ func (m *Example_Arrays_Nested) ArrayFloat64(id sofab.ID, _ int, v float64) erro
 	return nil
 }
 
+// Reset puts every field of Example_Arrays_Nested back to its schema default, in place, so
+// that it reads exactly as a fresh one: a nested struct is Reset and a union
+// Cleared. An array or blob keeps the storage it held for the next decode
+// into this object, which writes into it -- so a slice read from it, or
+// assigned to it, before Reset is overwritten by Reset or by that decode.
+func (m *Example_Arrays_Nested) Reset() {
+	m._spareFp32, m.Fp32 = m.Fp32, nil
+	m._spareFp64, m.Fp64 = m.Fp64, nil
+}
+
 // Example_Nested is a generated SofaBuffers object.
 type Example_Nested struct {
 	sofab.VisitorBase
@@ -330,6 +373,10 @@ type Example_Nested struct {
 	// Schema bound: maxlen 4 -- a longer value is INVALID, never truncated: encode refuses it.
 	BytesField []byte  `json:"bytes_field"`
 	F32        float32 `json:"f32"`
+	// The _spare members keep an array's or a blob's storage across Reset,
+	// which puts the field itself back to its default (nil where it has
+	// none, as a fresh message holds it); the next decode writes into it.
+	_spareBytesField []byte
 	// _acc assembles a string or blob payload the codec delivers in pieces
 	// (S6.6.3). Unexported, so it is not part of the object's JSON form.
 	_acc sofab.PayloadAcc
@@ -432,7 +479,19 @@ func (m *Example_Nested) Bytes(id sofab.ID, total, offset int, chunk []byte) err
 		if !_done {
 			return nil
 		}
-		m.BytesField = append([]byte(nil), _b...)
+		m.BytesField = sofab.ReuseBytes(m._spareBytesField, _b)
 	}
 	return nil
+}
+
+// Reset puts every field of Example_Nested back to its schema default, in place, so
+// that it reads exactly as a fresh one: a nested struct is Reset and a union
+// Cleared. An array or blob keeps the storage it held for the next decode
+// into this object, which writes into it -- so a slice read from it, or
+// assigned to it, before Reset is overwritten by Reset or by that decode.
+func (m *Example_Nested) Reset() {
+	m.F32 = 0
+	m.F64 = 0
+	m.Str = ""
+	m._spareBytesField, m.BytesField = m.BytesField, nil
 }

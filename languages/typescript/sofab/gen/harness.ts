@@ -2,11 +2,11 @@
 import { OStream, MIN_OUTPUT_BUFFER } from "@sofa-buffers/corelib";
 import * as M from "./message.js";
 
-const MESSAGES: Record<string, { fromJSON(d: Record<string, unknown>): { encode(): Uint8Array; serialize(os: import("@sofa-buffers/corelib").OStream): void; toJSON(): Record<string, unknown> }; decode(b: Uint8Array): { encode(): Uint8Array; serialize(os: import("@sofa-buffers/corelib").OStream): void; toJSON(): Record<string, unknown> } }> = {
+const MESSAGES: Record<string, { fromJSON(d: Record<string, unknown>): { encode(): Uint8Array; serialize(os: import("@sofa-buffers/corelib").OStream): void; toJSON(): Record<string, unknown> }; decode(b: Uint8Array): { encode(): Uint8Array; serialize(os: import("@sofa-buffers/corelib").OStream): void; toJSON(): Record<string, unknown> }; tryDecode(b: Uint8Array, out: never): import("@sofa-buffers/corelib").DecodeStatus }> = {
   "example": M.Example,
 };
 
-const DECODERS: Record<string, { new (): { feed(chunk: Uint8Array): import("@sofa-buffers/corelib").DecodeStatus; finish(): { toJSON(): Record<string, unknown> } } }> = {
+const DECODERS: Record<string, { new (out?: never): { feed(chunk: Uint8Array): import("@sofa-buffers/corelib").DecodeStatus; finish(): { toJSON(): Record<string, unknown> }; readonly message: { encode(): Uint8Array; toJSON(): Record<string, unknown> } } }> = {
   "example": M.Example__Decoder,
 };
 
@@ -114,6 +114,30 @@ async function main(): Promise<number> {
   } else if (mode === "recode") {
     const obj = cls.decode(new Uint8Array(input));
     process.stdout.write(obj.encode());
+  } else if (mode === "reusedecode") {
+    const prev = cls.decode(new Uint8Array(Buffer.from(process.argv[4] ?? "", "hex")));
+    const dec = new DECODERS[name](prev as never);
+    let st = "COMPLETE";
+    try {
+      dec.feed(new Uint8Array(input));
+      dec.finish();
+    } catch (e) {
+      st = (e as { code?: string })?.code ?? String(e);
+    }
+    let hex = "-";
+    try { hex = Buffer.from(dec.message.encode()).toString("hex"); } catch { /* the encode refused */ }
+    process.stdout.write(st + "\n" + showJSON(dec.message.toJSON()) + "\n" + hex + "\n");
+  } else if (mode === "trydecodeinto") {
+    const prev = cls.decode(new Uint8Array(Buffer.from(process.argv[4] ?? "", "hex")));
+    let st: string;
+    try {
+      st = cls.tryDecode(new Uint8Array(input), prev as never);
+    } catch (e) {
+      st = (e as { code?: string })?.code ?? String(e);
+    }
+    let hex = "-";
+    try { hex = Buffer.from(prev.encode()).toString("hex"); } catch { /* the encode refused */ }
+    process.stdout.write(st + "\n" + showJSON(prev.toJSON()) + "\n" + hex + "\n");
   } else if (mode === "status") {
     try {
       cls.decode(new Uint8Array(input));
