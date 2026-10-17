@@ -108,21 +108,39 @@ STAMP="tools/.sofabgen-version"   # now holds the resolved workflow run id
 # position is not a guarantee this arena may rest on: a benchmark run that lies
 # about which generator produced its wire is worse than one that fails. Sorting a
 # page costs one request of the same size.
+#
+# Green is also not proof that the binary EXISTS. The generator's nightly
+# `schedule` run skips the `build-binaries` job, and a skipped job still leaves
+# the run `conclusion=success` — so the newest green run is routinely one that
+# uploaded only its `generated-*` artifacts and no sofabgen binary at all (the
+# same holds once an artifact passes its retention window and expires). Picking
+# by date alone therefore resolves a run that cannot be fetched from, which is
+# how this script came to delete a working generator and exit 1 (#124). So walk
+# the page newest-first and resolve the first run that actually carries OUR
+# platform artifact, remembering its id so the fetch below needs no re-query.
 RUN_ID="${SOFABGEN_RUN_ID:-}"
 RUN_SHA=""
+ART_ID=""
 if [ -z "$RUN_ID" ]; then
-    RUNS="$(curl -fsSL "${AUTH[@]}" \
+    RUNS_JSON="$(curl -fsSL "${AUTH[@]}" \
         "$GEN_API/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=50" 2>/dev/null || true)"
-    PICK="$(printf '%s' "$RUNS" | jq -r '
+    CANDS="$(printf '%s' "$RUNS_JSON" | jq -r '
         [.workflow_runs[]? | select(.conclusion == "success" and .created_at)]
-        | if length == 0 then empty
-          else max_by(.created_at) as $r
-               | "\($r.id) \($r.head_sha) \($r.created_at) \(length)"
-          end' 2>/dev/null || true)"
-    if [ -n "$PICK" ]; then
-        read -r RUN_ID RUN_SHA RUN_AT RUN_N <<<"$PICK"
-        echo "==> sofabgen: newest green generator@main CI run is $RUN_ID ($RUN_AT, ${RUN_SHA:0:8}) of $RUN_N considered"
-    fi
+        | sort_by(.created_at) | reverse
+        | .[] | "\(.id) \(.head_sha) \(.created_at) \(.event)"' 2>/dev/null || true)"
+    RUN_N="$(printf '%s' "$CANDS" | grep -c . || true)"
+    while read -r c_id c_sha c_at c_ev; do
+        [ -n "${c_id:-}" ] || continue
+        c_art="$(curl -fsSL "${AUTH[@]}" \
+            "$GEN_API/actions/runs/$c_id/artifacts?per_page=100" 2>/dev/null \
+            | jq -r --arg n "$ASSET" 'first(.artifacts[] | select(.name==$n and .expired==false) | .id) // empty' 2>/dev/null || true)"
+        if [ -n "$c_art" ]; then
+            RUN_ID="$c_id"; RUN_SHA="$c_sha"; RUN_AT="$c_at"; ART_ID="$c_art"
+            echo "==> sofabgen: newest green generator@main CI run WITH $ASSET is $RUN_ID ($RUN_AT, ${RUN_SHA:0:8}, $c_ev) of $RUN_N considered"
+            break
+        fi
+        echo "==>   skipping run $c_id ($c_at, ${c_sha:0:8}, $c_ev): green but carries no $ASSET"
+    done <<<"$CANDS"
 fi
 if [ -z "$RUN_ID" ]; then
     # No network / API failed / no token: fall back to whatever binary is already
@@ -142,25 +160,38 @@ fi
 # has an older binary would keep serving it even though a newer build now exists.
 # Same reasoning as the corelib lines above: log the run-id transition so a
 # generator bump is visible, not just implied by a re-download.
+#
+# The refresh is a FLAG, not an eager `rm`: deleting the present binary up front
+# means any later failure (no artifact, dead network, bad checksum) leaves the
+# arena with no generator at all, so one failed bootstrap breaks every target's
+# setup.sh instead of just declining to update (#124). `install` below replaces
+# the binary only once a verified one is in hand.
 STAMPED="$(cat "$STAMP" 2>/dev/null || true)"
+NEED_FETCH=0
 if [ "$STAMPED" != "$RUN_ID" ]; then
     [ -x tools/sofabgen ] \
         && echo "==> sofabgen BUMPED CI run ${STAMPED:-none} -> $RUN_ID; refreshing binary"
-    rm -f tools/sofabgen
+    NEED_FETCH=1
 fi
+[ -x tools/sofabgen ] || NEED_FETCH=1
 
-if [ ! -x tools/sofabgen ]; then
+if [ "$NEED_FETCH" -eq 1 ]; then
     if [ "${#AUTH[@]}" -eq 0 ]; then
         echo "!! fetching the sofabgen CI artifact needs a token; set GITHUB_TOKEN in .devcontainer/.env" >&2
         exit 1
     fi
     # Find our platform's artifact in that run, then download its zip (the Actions
     # artifacts API always hands back a zip wrapping the binary + its .sha256).
-    ART_ID="$(curl -fsSL "${AUTH[@]}" \
-        "$GEN_API/actions/runs/$RUN_ID/artifacts?per_page=100" 2>/dev/null \
-        | jq -r --arg n "$ASSET" 'first(.artifacts[] | select(.name==$n and .expired==false) | .id) // empty' 2>/dev/null || true)"
+    # The picker above already resolved it unless the run was pinned by hand.
     if [ -z "$ART_ID" ]; then
-        echo "!! CI run $RUN_ID has no (unexpired) artifact named $ASSET" >&2; exit 1
+        ART_ID="$(curl -fsSL "${AUTH[@]}" \
+            "$GEN_API/actions/runs/$RUN_ID/artifacts?per_page=100" 2>/dev/null \
+            | jq -r --arg n "$ASSET" 'first(.artifacts[] | select(.name==$n and .expired==false) | .id) // empty' 2>/dev/null || true)"
+    fi
+    if [ -z "$ART_ID" ]; then
+        echo "!! CI run $RUN_ID has no (unexpired) artifact named $ASSET" >&2
+        echo "!! (SOFABGEN_RUN_ID pins a run whose build-binaries job was skipped?)" >&2
+        exit 1
     fi
     echo "==> downloading sofabgen artifact $ASSET (CI run $RUN_ID)"
     TMP="$(mktemp -d)"
