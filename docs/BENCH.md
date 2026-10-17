@@ -148,7 +148,36 @@ Python pair changes no storage, so it does not.
      never a hand-written `memset` standing in for it, and never skipped: a
      field equal to its default is absent from the wire, so without it the
      previous message's value survives, and the baseline re-initializes its
-     destination every iteration too.
+     destination every iteration too;
+   - the **decode into a destination the caller keeps** (`try_decode(data,
+     &mut out)`, `Example__TryDecode(data, out)`, `tryDecode(bytes, out)`)
+     wherever the library offers one, with that destination hoisted out of the
+     timed loop — the decode-side counterpart of the no-allocation encode
+     above, and for the same reason: a decode that returns a fresh message
+     hands back the storage its string, vector and array fields already hold,
+     so the loop times the allocator. Adopt it **only where it measurably
+     pays**, both sides at once, and only against the spread the row actually
+     has: it is worth +29 % in Rust and +21 % in Go, and nothing distinguishable
+     from noise in C#, Java or Kotlin, whose rows drift 10-30 % inside a single
+     best-of-5. Where a baseline has its own reuse pair, it gets it (prost's
+     `clear()` + `merge()`; protobuf-go's hoisted destination, since
+     `proto.Unmarshal` resets what it is handed) — even when that buys the
+     baseline nothing, as with protobuf-go, whose generated `Reset` is
+     `*x = T{}` and drops every field slice.
+
+     Where a baseline has **no** such pair, the row becomes asymmetric, and the
+     arena takes that rather than hobbling the side that can: it is a real
+     difference between the libraries, not a handicap imposed here, and the
+     alternative — denying SofaBuffers an entry point its users have — distorts
+     the row just as much in the other direction. It must be **named in the
+     results**, because that row's throughput column is then not a like-for-like
+     codec comparison. Today that is the `typescript` pair: protobufjs has only
+     an undocumented, untyped destination argument whose repeated fields append,
+     and hand-truncating its ten arrays would be the stand-in the bullet above
+     forbids. protobuf-java and Square Wire generate immutable messages and have
+     no mutable destination at all; the generated C# message has no `Clear()`
+     and `MergeFrom` appends — all three are rows where the reuse was measured,
+     found worthless, and therefore not taken, so the question never arose.
 
    Footprint targets follow the same rule, where it bites hardest: what the
    driver calls is what gets linked, so a hand-written stand-in for the
