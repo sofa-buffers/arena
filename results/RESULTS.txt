@@ -9,20 +9,20 @@
   language       |  wire size (B) |      throughput MB/s |    throughput msgs/s |         sofab advantage
                  |  sofab   proto |     sofab      proto |     sofab      proto |    size    MB/s   msg/s
   -------------------------------------------------------------------------------------------------------
-  cpp            |    434     494 |    295.84     262.19 |    681669     530747 |   1.14x   1.13x   1.28x
-  cpp/heapfree   |    434     494 |    377.18     262.19 |    869070     530747 |   1.14x   1.44x   1.64x
-  rust           |    434     494 |    394.43     248.75 |    908826     503550 |   1.14x   1.59x   1.80x
-  rust/heapless  |    434     494 |    488.01     248.75 |   1124438     503550 |   1.14x   1.96x   2.23x
-  zig            |    434     494 |    423.27     265.26 |    975268     536973 |   1.14x   1.60x   1.82x
-  dart           |    434     494 |    170.87      56.76 |    393700     114889 |   1.14x   3.01x   3.43x
-  go             |    434     494 |    146.46     140.24 |    337470     283882 |   1.14x   1.04x   1.19x
-  csharp         |    434     494 |    228.34     130.90 |    526122     264986 |   1.14x   1.74x   1.99x
-  java           |    434     494 |    286.56     255.93 |    660275     518071 |   1.14x   1.12x   1.27x
-  kotlin-mp      |    434     494 |    255.16     151.88 |    587927     307453 |   1.14x   1.68x   1.91x
-  typescript     |    434     494 |     69.62      76.52 |    160415     154898 |   1.14x   0.91x   1.04x
-  typescript-bun |    434     494 |     56.38      34.49 |    129902      69813 |   1.14x   1.63x   1.86x
-  python/native  |    434     494 |     27.09     177.62 |     62409     359556 |   1.14x   0.15x   0.17x
-  python/pure    |    434     494 |      2.73     177.62 |      6278     359556 |   1.14x   0.02x   0.02x
+  cpp            |    434     494 |    359.86     268.20 |    829166     542921 |   1.14x   1.34x   1.53x
+  cpp/heapfree   |    434     494 |    388.86     268.20 |    895988     542921 |   1.14x   1.45x   1.65x
+  rust           |    434     494 |    421.47     271.24 |    971118     549059 |   1.14x   1.55x   1.77x
+  rust/heapless  |    434     494 |    499.58     271.24 |   1151111     549059 |   1.14x   1.84x   2.10x
+  zig            |    434     494 |    442.22     266.34 |   1018946     539154 |   1.14x   1.66x   1.89x
+  dart           |    434     494 |    204.24      60.10 |    470588     121654 |   1.14x   3.40x   3.87x
+  go             |    434     494 |    160.24     146.87 |    369219     297300 |   1.14x   1.09x   1.24x
+  csharp         |    434     494 |    236.64     136.77 |    545244     276864 |   1.14x   1.73x   1.97x
+  java           |    434     494 |    288.37     247.62 |    664451     501253 |   1.14x   1.16x   1.33x
+  kotlin-mp      |    434     494 |    250.14     129.49 |    576368     262123 |   1.14x   1.93x   2.20x
+  typescript     |    434     494 |     73.26      92.84 |    168792     187932 |   1.14x   0.79x   0.90x
+  typescript-bun |    434     494 |     57.71      59.05 |    132974     119528 |   1.14x   0.98x   1.11x
+  python/native  |    434     494 |     27.96     251.29 |     64422     508679 |   1.14x   0.11x   0.13x
+  python/pure    |    434     494 |      2.71     251.29 |      6240     508679 |   1.14x   0.01x   0.01x
 
   size advantage  = protobuf_bytes / sofab_bytes   (>1: SofaBuffers smaller on the wire)
   MB/s advantage  = sofab_MBps  / protobuf_MBps    (bytes/s;    embeds the wire-size gap — see #85)
@@ -46,10 +46,10 @@
   opponent                              |  wire size (B) |      throughput MB/s |    throughput msgs/s |         sofab advantage
                                         |  sofab   proto |     sofab      proto |     sofab      proto |    size    MB/s   msg/s
   ------------------------------------------------------------------------------------------------------------------------------
-  sofab-c-embedded vs. protobuf-c       |    434     494 |    113.44     327.98 |    261377     663929 |   1.14x   0.35x   0.39x
-  sofab-c-embedded vs. nanopb           |    434     494 |    113.44      61.87 |    261377     125240 |   1.14x   1.83x   2.09x
-  sofab-rust-embedded vs. micropb       |    434     494 |    166.46     124.04 |    383543     251098 |   1.14x   1.34x   1.53x
-  sofab-cpp-embedded vs. embeddedproto  |    434     494 |    133.03      59.66 |    306520     120771 |   1.14x   2.23x   2.54x
+  sofab-c-embedded vs. protobuf-c       |    434     494 |    117.21     289.86 |    270077     586769 |   1.14x   0.40x   0.46x
+  sofab-c-embedded vs. nanopb           |    434     494 |    117.21      64.60 |    270077     130772 |   1.14x   1.81x   2.07x
+  sofab-rust-embedded vs. micropb       |    434     494 |    162.89     140.22 |    375333     283837 |   1.14x   1.16x   1.32x
+  sofab-cpp-embedded vs. embeddedproto  |    434     494 |    159.78      61.56 |    368166     124617 |   1.14x   2.60x   2.95x
 
 ================================================================================
  EMBEDDED — code footprint, bare-metal --gc-sections link delta
@@ -62,18 +62,18 @@
 ================================================================================
   target         impl          |    .text  .rodata   .data  footprint  static-RAM
   --------------------------------------------------------------------------
-  c-cortex-m     sofab         |     4296      360       0       4656           0
-                 nanopb        |     5676      936       0       6612           0
-  cpp-cortex-m   sofab         |     7016      156      80       7252         132
-                 embeddedproto |     8344      904      80       9328          96
-  rust-cortex-m  sofab         |     6668      256       0       6924           0
-                 micropb       |     8180      261       0       8441           0
-  c-riscv        sofab         |     4208      464       0       4672           0
-                 nanopb        |     6384     1112       0       7496           0
-  cpp-riscv      sofab         |     6714      320      76       7110         420
-                 embeddedproto |     8824     1012      76       9912         388
-  rust-riscv     sofab         |     7080      320       0       7400           0
-                 micropb       |     9680      393       0      10073           0
+  c-cortex-m     sofab         |     4340      360       0       4700           0
+                 nanopb        |     5696      936       0       6632           0
+  cpp-cortex-m   sofab         |     5700      156      80       5936         132
+                 embeddedproto |     8400      904      80       9384          96
+  rust-cortex-m  sofab         |     6376      256       0       6632           0
+                 micropb       |     8100      256       0       8356           0
+  c-riscv        sofab         |     4512      464       0       4976           0
+                 nanopb        |     6416     1112       0       7528           0
+  cpp-riscv      sofab         |     5736      296      76       6108         420
+                 embeddedproto |     8908     1012      76       9996         388
+  rust-riscv     sofab         |     7608      324       0       7932           0
+                 micropb       |     9528      393       0       9921           0
 
   status per language:
     c-embedded     [embedded] OK
