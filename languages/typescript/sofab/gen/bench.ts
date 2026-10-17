@@ -46,7 +46,11 @@ function main(): number {
   const blob = src.encode();
   const serialized = blob.length;
   const sha = createHash("sha256").update(blob).digest("hex");
-  if (!sameBytes(Example.decode(blob).encode(), blob)) {
+  // Self-check through the SAME entry point the timed loop uses, so it validates
+  // the path that gets measured.
+  const dec = new Example();
+  Example.tryDecode(blob, dec);
+  if (!sameBytes(dec.encode(), blob)) {
     process.stderr.write("FAIL: sofab round-trip self-check\n");
     return 1;
   }
@@ -60,18 +64,26 @@ function main(): number {
   // Warm the JIT (same chained shape as the timed loop).
   for (let i = 0; i < 10000; i++) {
     os.reset();
-    Example.decode(blob).serialize(os);
+    Example.tryDecode(blob, dec);
+    dec.serialize(os);
   }
 
   // Chained round trip: decode the reference wire, then re-encode the freshly
   // decoded message (issue #86) — the proxy/transcode shape, the same for both
   // impls. sink keeps the re-encode live; the loop-path check below also
   // compares the last re-encode's bytes against the reference.
+  //
+  // Decode reuses the one hoisted destination through tryDecode(bytes, out),
+  // which resets it and keeps the typed arrays and strings it already holds
+  // (the corelib's reuseU8..reuseFp64 family). `decode` would return a fresh
+  // message per iteration and time the allocator and the GC instead of the
+  // codec — the same reason rule 3 hoists the output buffer.
   let sink = 0;
   const t0 = cpuSeconds();
   for (let i = 0; i < iters; i++) {
     os.reset();
-    Example.decode(blob).serialize(os);
+    Example.tryDecode(blob, dec);
+    dec.serialize(os);
     sink += os.bytes().length;
   }
   const t1 = cpuSeconds();

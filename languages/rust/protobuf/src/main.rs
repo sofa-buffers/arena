@@ -109,9 +109,19 @@ fn main() {
     // Chained round trip: decode the reference wire, then re-encode the freshly
     // decoded message (issue #86) — the proxy/transcode shape, so encode runs on
     // a just-parsed message rather than a pre-built, reused instance.
+    //
+    // One hoisted destination, reset and refilled every iteration, mirroring the
+    // sofab driver's `try_decode(data, &mut out)` (docs/BENCH.md rule 6: the
+    // baseline re-initializes its destination every iteration too). `clear()` +
+    // `merge()` is prost's own pair for exactly this and keeps what the message's
+    // String/Vec fields already allocated, so neither impl pays an allocator the
+    // other avoids. `decode()` would build a fresh message instead -- the shape
+    // both sides used while sofab had no reused-destination decode to offer.
+    let mut dec = FullScaleExample::default();
     let t0 = cpu_seconds();
     for _ in 0..iters {
-        let dec = FullScaleExample::decode(&blob[..]).unwrap();
+        dec.clear();
+        dec.merge(&blob[..]).unwrap();
         buf.clear();
         dec.encode(&mut buf).unwrap();
         black_box(&buf);

@@ -105,6 +105,21 @@ impl Example_Arrays {
         os.write_sequence_begin_lazy(10)?; self.nested.serialize(os)?; os.write_sequence_end()?;
         Ok(())
     }
+    /// Every field back to its schema default, in place: a string, blob or
+    /// array is cleared and refilled from its default, so it keeps the heap
+    /// capacity it holds, and a nested struct or union is reset the same way.
+    /// The elements of an array are dropped; the array keeps its own buffer.
+    pub fn reset(&mut self) {
+        self.u8.clear();
+        self.i8.clear();
+        self.u16.clear();
+        self.i16.clear();
+        self.u32.clear();
+        self.i32.clear();
+        self.u64.clear();
+        self.i64.clear();
+        self.nested.reset();
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -136,6 +151,14 @@ impl Example_Arrays_Nested {
             os.write_array_fp64(1, &self.fp64)?;
         }
         Ok(())
+    }
+    /// Every field back to its schema default, in place: a string, blob or
+    /// array is cleared and refilled from its default, so it keeps the heap
+    /// capacity it holds, and a nested struct or union is reset the same way.
+    /// The elements of an array are dropped; the array keeps its own buffer.
+    pub fn reset(&mut self) {
+        self.fp32.clear();
+        self.fp64.clear();
     }
 }
 
@@ -170,6 +193,16 @@ impl Example_Nested {
         if !self.str.is_empty() { os.write_str(2, &self.str)?; }
         if !self.bytes_field.is_empty() { os.write_blob(3, &self.bytes_field)?; }
         Ok(())
+    }
+    /// Every field back to its schema default, in place: a string, blob or
+    /// array is cleared and refilled from its default, so it keeps the heap
+    /// capacity it holds, and a nested struct or union is reset the same way.
+    /// The elements of an array are dropped; the array keeps its own buffer.
+    pub fn reset(&mut self) {
+        self.f32 = 0.0;
+        self.f64 = 0.0;
+        self.str.clear();
+        self.bytes_field.clear();
     }
 }
 
@@ -229,6 +262,23 @@ impl Example {
         os.write_sequence_end()?;
         Ok(())
     }
+    /// Every field back to its schema default, in place: a string, blob or
+    /// array is cleared and refilled from its default, so it keeps the heap
+    /// capacity it holds, and a nested struct or union is reset the same way.
+    /// The elements of an array are dropped; the array keeps its own buffer.
+    pub fn reset(&mut self) {
+        self.u8 = 0;
+        self.i8 = 0;
+        self.u16 = 0;
+        self.i16 = 0;
+        self.u32 = 0;
+        self.i32 = 0;
+        self.u64 = 0;
+        self.i64 = 0;
+        self.nested.reset();
+        self.arrays.reset();
+        self.string_array.clear();
+    }
     pub fn encode(&self) -> Result<Vec<u8>, sofab::Error> {
         let mut buf = vec![0u8; Self::MAX_SIZE];
         let used = { let mut os = sofab::OStream::new(&mut buf); self.serialize(&mut os)?; os.bytes_used() };
@@ -238,11 +288,23 @@ impl Example {
     pub fn decode(data: &[u8]) -> Self {
         _Example__Decode::decode(data)
     }
-    /// Decode a whole buffer, surfacing the accept/reject verdict --
-    /// a truncated tail included, which is `DecodeError::Incomplete` and
-    /// not a half-filled value.
-    pub fn try_decode(data: &[u8]) -> Result<Self, DecodeError> {
-        _Example__Decode::try_decode(data)
+    /// Decode a whole buffer into `out`, surfacing the accept/reject verdict --
+    /// a truncated tail included, which is `DecodeError::Incomplete`.
+    ///
+    /// `out` is reset first, so it reads as a fresh decode of `data` and never
+    /// as a field of the message it held before. The storage it holds is
+    /// written into, not dropped: a string, a blob and an array keep their
+    /// buffers, and so do the elements of an array of strings, blobs, rows,
+    /// structs or unions up to the length the new message gives it, the
+    /// strings and blobs of a struct element included. Elements past that
+    /// length are dropped. What is not kept: the elements of an array inside
+    /// an array element or a row (it is emptied and grows again), and the
+    /// storage of a union option other than the one the union falls back to.
+    ///
+    /// On `Err`, `out` holds the fields decoded before the refusal, and none
+    /// of the message it held before.
+    pub fn try_decode(data: &[u8], out: &mut Self) -> Result<(), DecodeError> {
+        _Example__Decode::try_decode(data, out)
     }
     /// An incremental decoder for this message: hold it and feed chunks as
     /// they arrive, instead of buffering the whole message first.
@@ -258,26 +320,32 @@ mod _Example__Decode {
 
     pub fn decode(data: &[u8]) -> Example {
         let mut m = Example::default();
+        let lv;
         {
-            let mut v = _V { m: &mut m, stack: [_Loc::Root; 3], sp: 0, cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = _V { m: &mut m, stack: [_Loc::Root; 3], sp: 0, cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0, lv: [0; 1] };
             let mut is = sofab::IStream::new();
             let _ = is.feed(data, &mut v);
+            lv = v.lv;
         }
+        _trim(&mut m, lv);
         m
     }
 
-    pub fn try_decode(data: &[u8]) -> Result<Example, DecodeError> {
-        let mut m = Example::default();
+    pub fn try_decode(data: &[u8], m: &mut Example) -> Result<(), DecodeError> {
+        _rearm(m);
         let overflow;
         let invalid;
         let fed;
+        let lv;
         {
-            let mut v = _V { m: &mut m, stack: [_Loc::Root; 3], sp: 0, cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 };
+            let mut v = _V { m: &mut *m, stack: [_Loc::Root; 3], sp: 0, cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0, lv: [0; 1] };
             let mut is = sofab::IStream::new();
             fed = is.feed(data, &mut v);
             overflow = v.err;
             invalid = v.inv;
+            lv = v.lv;
         }
+        _trim(m, lv);
         // A scalar array carried more elements than its schema `count`, an
         // invalid-UTF-8 string, an over-length string/blob, or an over-index
         // wrapper element: INVALID, and it dominates a truncated tail (S5.2).
@@ -292,7 +360,31 @@ mod _Example__Decode {
         // A fixed-capacity field overflowed during the fill:
         // report it rather than return a silently-truncated value.
         if overflow { return Err(DecodeError::Sofab(sofab::Error::BufferFull)); }
-        Ok(m)
+        Ok(())
+    }
+
+    /// Cut each reused wrapper array to the slots this decode made. Run after
+    /// every decode, a refused one included: an omitted array, a cut-off input
+    /// and an error never reach the array's end, so the tail an earlier decode
+    /// left there is cut here.
+    fn _trim(m: &mut Example, lv: [usize; 1]) {
+        sofab::seq::SeqVec::truncate(&mut m.string_array, lv[0]);
+    }
+
+    /// `Example::reset`, except that a reused wrapper array keeps its slots: they
+    /// are the storage the decode writes into, and _trim cuts what it did not
+    /// reach.
+    fn _rearm(m: &mut Example) {
+        m.u8 = 0;
+        m.i8 = 0;
+        m.u16 = 0;
+        m.i16 = 0;
+        m.u32 = 0;
+        m.i32 = 0;
+        m.u64 = 0;
+        m.i64 = 0;
+        m.nested.reset();
+        m.arrays.reset();
     }
 
     /// Incremental decoder: hold one and feed the message as bytes arrive.
@@ -322,11 +414,12 @@ mod _Example__Decode {
         inv: bool,
         askip: usize,
         afill: usize,
+        lv: [usize; 1],
     }
 
     impl _Decoder {
         pub fn new() -> Self {
-            Self { m: Example::default(), is: sofab::IStream::new(), stack: [_Loc::Root; 3], sp: 0, cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0 }
+            Self { m: Example::default(), is: sofab::IStream::new(), stack: [_Loc::Root; 3], sp: 0, cur: _Loc::Root, dead: 0, acc: sofab::PayloadAcc::new(), err: false, inv: false, askip: 0, afill: 0, lv: [0; 1] }
         }
 
         /// Feed the next chunk. `Ok(Status::Complete)` if it ended on a field
@@ -335,10 +428,10 @@ mod _Example__Decode {
         /// these bytes were. `Err` is a refusal, and it is terminal.
         pub fn feed(&mut self, chunk: &[u8]) -> Result<sofab::Status, sofab::Error> {
             let fed = {
-                let mut v = _V { m: &mut self.m, stack: self.stack, sp: self.sp, cur: self.cur, dead: self.dead, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill };
+                let mut v = _V { m: &mut self.m, stack: self.stack, sp: self.sp, cur: self.cur, dead: self.dead, acc: core::mem::take(&mut self.acc), err: self.err, inv: self.inv, askip: self.askip, afill: self.afill, lv: self.lv };
                 let r = self.is.feed(chunk, &mut v);
                 // `..` covers `m`, ending its borrow before the write-back.
-                let _V { stack, sp, cur, dead, acc, err, inv, askip, afill, .. } = v;
+                let _V { stack, sp, cur, dead, acc, err, inv, askip, afill, lv, .. } = v;
                 self.stack = stack;
                 self.sp = sp;
                 self.cur = cur;
@@ -348,6 +441,7 @@ mod _Example__Decode {
                 self.inv = inv;
                 self.askip = askip;
                 self.afill = afill;
+                self.lv = lv;
                 r
             };
             // INVALID dominates a truncated tail (S5.2), so it is reported
@@ -370,6 +464,7 @@ mod _Example__Decode {
                 return Err(DecodeError::Incomplete);
             }
             if self.err { return Err(DecodeError::Sofab(sofab::Error::BufferFull)); }
+            _trim(&mut self.m, self.lv);
             Ok(self.m)
         }
     }
@@ -400,6 +495,7 @@ struct _V<'a> {
     inv: bool,
     askip: usize, // elements left to discard from a wire-type-contradictory array
     afill: usize, // elements still expected by an armed native-array fill (S7.3)
+    lv: [usize; 1], // live counts of the reused wrapper arrays
 }
 
 impl _V<'_> {
@@ -499,7 +595,7 @@ impl<'a> sofab::Visitor for _V<'a> {
         let _s = match core::str::from_utf8(_p) { Ok(_v) => _v, Err(_) => { self.inv = true; "" } };
         match (self.cur, id) {
             (_Loc::Root_nested, 2) => { self.m.nested.str.clear(); let _ = self.m.nested.str.push_str(_s); if self.m.nested.str.len() != _s.len() { self.err = true; } }
-            (_Loc::Root_string__array, _) => { match sofab::seq::reserve_elem(&mut self.m.string_array, id, sofab::seq::Bound::Schema(5)) { Ok(_e) => { _e.clear(); let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } Err(_e) => { self.refuse(_e); } } }
+            (_Loc::Root_string__array, _) => { match sofab::seq::reuse_leaf(&mut self.m.string_array, &mut self.lv[0], id, sofab::seq::Bound::Schema(5), <heapless::String<64>>::clear) { Ok(_e) => { let _ = _e.push_str(_s); if _e.len() != _s.len() { self.err = true; } } Err(_e) => { self.refuse(_e); } } }
             _ => {}
         }
     }
@@ -587,7 +683,7 @@ impl<'a> sofab::Visitor for _V<'a> {
         self.cur = match (self.cur, id) {
             (_Loc::Root, 10) => _Loc::Root_nested,
             (_Loc::Root, 100) => _Loc::Root_arrays,
-            (_Loc::Root, 200) => { self.m.string_array.clear(); _Loc::Root_string__array },
+            (_Loc::Root, 200) => { self.lv[0] = 0; _Loc::Root_string__array },
             (_Loc::Root_arrays, 10) => _Loc::Root_arrays_nested,
             _ => _Loc::Dead,
         };

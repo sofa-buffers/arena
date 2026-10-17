@@ -51,8 +51,10 @@ fn main() {
     // hybrid-array `Array` (no `LowerHex`), unlike 0.10's `GenericArray`.
     let sha: String = Sha256::digest(&blob).iter().map(|b| format!("{b:02x}")).collect();
     // try_decode: the whole-buffer decode that returns the verdict (prost's
-    // decode is fallible too).
-    let decoded = Example::try_decode(&blob).expect("sofab decode");
+    // decode is fallible too). It decodes INTO a destination we own and resets
+    // that destination itself, so there is no fresh-message form to pick.
+    let mut decoded = Example::default();
+    Example::try_decode(&blob, &mut decoded).expect("sofab decode");
     if decoded.encode().expect("sofab re-encode") != blob {
         eprintln!("FAIL: sofab round-trip self-check");
         std::process::exit(1);
@@ -68,11 +70,21 @@ fn main() {
 
     // Chained round trip: decode the reference wire, then re-encode the freshly
     // decoded message (issue #86) — the proxy/transcode shape, the same for both
-    // impls. try_decode returns a fresh message, like prost's decode.
+    // impls.
+    //
+    // The destination is hoisted, because `try_decode(data, &mut out)` is now the
+    // only verdict-surfacing decode the generated API offers: it writes into a
+    // message the caller owns and resets that message itself, keeping the
+    // storage its String/Vec fields already hold. Allocating a fresh `Example`
+    // per iteration would hand that back and time the allocator instead of the
+    // codec. docs/BENCH.md rule 6 therefore puts prost on the same footing: its
+    // loop reuses one destination through `clear()` + `merge()`, prost's own
+    // reset-then-decode pair, rather than `decode()`'s fresh message.
+    let mut dec = Example::default();
     let mut used = 0usize;
     let t0 = cpu_seconds();
     for _ in 0..iters {
-        let dec = Example::try_decode(&blob).expect("sofab decode");
+        Example::try_decode(&blob, &mut dec).expect("sofab decode");
         used = {
             let mut os = OStream::new(&mut buf);
             dec.serialize(&mut os).expect("sofab serialize");
