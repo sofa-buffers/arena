@@ -66,6 +66,19 @@ def main() -> int:
     # decoded message (issue #86) — the proxy/transcode shape, the same for both
     # impls. Encode goes into one caller-owned MAX_SIZE buffer via the
     # documented Encoder.over_buffer + serialize (corelib-py README).
+    #
+    # over_buffer inside the loop, not one hoisted encoder re-armed with
+    # buffer_set: measured both ways under Callgrind — Ir/op, because at 0.10x
+    # this row's wall-clock noise swamps the difference and reported a spurious
+    # +4.3% for native — and hoisting saves 0.51% Ir/op on sofab-native and
+    # 0.86% on sofab-pure, linear over three iteration counts. Against that,
+    # corelib-py has no Encoder.reset(): buffer_set is the documented
+    # mid-stream/flush-sink re-arm and clears the buffer side only, leaving
+    # _depth, _npending and _error standing, so carrying one encoder across
+    # messages is correct only because a completed message happens to leave
+    # them clean. Sub-1% does not buy that invariant, and the generated
+    # encode() constructs an encoder per message anyway (arena#137).
+    # Re-measure with the row before changing it, never on its own.
     buf = bytearray(message.Example.MAX_SIZE)
     sink = 0
     t0 = time.process_time()
