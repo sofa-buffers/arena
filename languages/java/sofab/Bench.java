@@ -95,6 +95,13 @@ public class Bench {
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
         // decoded message (issue #86). sink keeps the re-encode live.
+        //
+        // decode(), not the generated tryDecode(data, out): this row was measured
+        // both ways and the reused destination landed inside its own best-of-5
+        // spread, so docs/BENCH.md rule 6 keeps the library's documented one-shot.
+        // protobuf-java generates immutable messages and parseFrom has no
+        // destination to reuse, so there is nothing for the baseline to follow
+        // either. Re-measure with the row before changing it, never on its own.
         long sink = 0;
         long t0 = cpuNanos();
         for (int i = 0; i < iters; i++) {

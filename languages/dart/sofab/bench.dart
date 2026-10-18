@@ -85,12 +85,16 @@ bool _bytesEqual(Uint8List a, Uint8List b) {
 void main() {
   final src = buildExample();
 
-  // Warm-up round-trip + self-check (outside the timed region).
+  // Warm-up round-trip + self-check (outside the timed region). The decode runs
+  // through tryDecode into the destination the timed loop reuses, so the check
+  // validates the entry point that gets measured; a wrong verdict shows up as
+  // re-encoded bytes that differ from the reference.
   final blob = src.encode();
   final serialized = blob.length;
   final sha = sha256Hex(blob);
-  final decoded = Example.decode(blob);
-  if (!_bytesEqual(decoded.encode(), blob)) {
+  final dec = Example();
+  Example.tryDecode(blob, dec);
+  if (!_bytesEqual(dec.encode(), blob)) {
     stderr.writeln('FAIL: sofab round-trip self-check');
     exit(1);
   }
@@ -102,7 +106,6 @@ void main() {
   // destination via the generated tryDecode (it resets first); encode goes into
   // a caller-owned maxSize buffer via encodeTo + Encoder.reset (corelib-dart
   // README). `sink` is a per-iteration data dependency against dead-code removal.
-  final dec = Example();
   final enc = Encoder.overBuffer(Uint8List(Example.maxSize), depth: Example.maxDepth);
   var sink = 0;
   final clock = CpuClock();

@@ -80,6 +80,14 @@ static class Program {
 
         // Chained round trip: decode the reference wire, then re-encode the freshly
         // decoded message (issue #86). sink keeps the re-encode live.
+        //
+        // Decode(), not the generated TryDecode(data, msg): this row was measured
+        // both ways and the reused destination moved less than two IDENTICAL
+        // blocks of the same run moved against each other, so docs/BENCH.md rule 6
+        // keeps the library's documented one-shot. Google.Protobuf's generated
+        // message has no Clear() and MergeFrom appends into repeated fields, so
+        // the baseline cannot follow a reused destination at all. Revisit when the
+        // signal clears this row's noise, not before.
         long sink = 0;
         double t0 = CpuSeconds();
         for (long i = 0; i < iters; i++) {

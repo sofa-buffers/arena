@@ -104,6 +104,12 @@ public fun main() {
 
     // Chained round trip: decode the reference wire, then re-encode the freshly
     // decoded message (issue #86). sink keeps the re-encode live.
+    //
+    // decode(), not the generated tryDecode(data, out): this row was measured both
+    // ways and the reused destination landed inside its own best-of-5 spread, so
+    // docs/BENCH.md rule 6 keeps the library's documented one-shot. Square Wire
+    // generates immutable messages too, so adapter.decode has no destination to
+    // reuse and the baseline could not follow either.
     var sink = 0L
     val t0 = cpuNanos()
     for (i in 0 until iters) {
