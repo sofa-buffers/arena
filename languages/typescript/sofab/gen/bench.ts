@@ -75,9 +75,15 @@ function main(): number {
   //
   // Decode reuses the one hoisted destination through tryDecode(bytes, out),
   // which resets it and keeps the typed arrays and strings it already holds
-  // (the corelib's reuseU8..reuseFp64 family). `decode` would return a fresh
-  // message per iteration and time the allocator and the GC instead of the
-  // codec — the same reason rule 3 hoists the output buffer.
+  // (the corelib's reuseU8..reuseFp64 family) and, since corelib-ts#216, takes
+  // the decode machinery bound to that destination from the generated module's
+  // VisitorCache rather than building a visitor, its PayloadAcc and its array
+  // targets per call. Both halves key on the destination, so one hoisted `dec`
+  // is what the generated API asks for here: `decode` would return a fresh
+  // message per iteration, keep no storage, miss that cache every time, and
+  // time the allocator and the GC instead of the codec — the same reason rule 3
+  // hoists the output buffer. The machinery takes one decode at a time per
+  // destination, which this single-threaded loop over one destination keeps.
   let sink = 0;
   const t0 = cpuSeconds();
   for (let i = 0; i < iters; i++) {
