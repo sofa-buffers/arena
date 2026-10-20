@@ -286,7 +286,12 @@ pub const Example = struct {
     /// arrive, instead of buffering the whole message first. A chunk is read
     /// only during the `feed` call it is passed to: reuse, overwrite or free it
     /// as soon as feed returns.
+    /// `out` is reset to the schema defaults first, so it reads as a fresh
+    /// decode of the fed message whatever it held before: a field the message
+    /// omits fires nothing, and must not keep an older message's value. The
+    /// storage it held is not freed; it stays with the allocator it came from.
     pub fn decoder(out: *Example, alloc: std.mem.Allocator) Decoder {
+        out.* = .{};
         return .{ .v = .{ .m = out, .alloc = alloc } };
     }
 };
