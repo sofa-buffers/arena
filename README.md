@@ -194,20 +194,20 @@ columns and keep only the size **advantage** (`1.14×`).
 
 | language | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
 |---|--:|--:|--:|--:|:--:|:--:|:--:|
-| C++        | 356.1 | 266.1 | 820 477 | 538 577 | **1.14×** | **1.34×** | **1.52×** |
-| C++ · heapfree _\*1_ | 389.1 | 266.1 | 896 468 | 538 577 | **1.14×** | **1.46×** | **1.66×** |
-| Rust _\*4_ | 545.3 | 266.8 | 1 256 327 | 540 119 | **1.14×** | **2.04×** | **2.33×** |
-| Rust · heapless _\*1_ | 523.4 | 266.8 | 1 205 889 | 540 119 | **1.14×** | **1.96×** | **2.23×** |
-| Zig        | 442.7 | 266.4 | 1 019 933 | 539 214 | **1.14×** | **1.66×** | **1.89×** |
-| Dart       | 204.7 |  60.0 | 471 698 | 121 359 | **1.14×** | **3.41×** | **3.89×** |
-| Go _\*4_ | 193.2 | 148.5 | 445 079 | 300 534 | **1.14×** | **1.30×** | **1.48×** |
-| C#         | 236.2 | 135.3 | 544 255 | 273 843 | **1.14×** | **1.75×** | **1.99×** |
-| Java       | 284.6 | 246.4 | 655 737 | 498 753 | **1.14×** | **1.16×** | **1.31×** |
-| Kotlin Multiplatform | 284.6 | 135.7 | 655 737 | 274 725 | **1.14×** | **2.10×** | **2.39×** |
-| TypeScript · Node/V8 _\*2 \*5_ |  72.5 |  94.7 | 167 036 | 191 757 | **1.14×** | 0.77× | 0.87× |
-| TypeScript · Bun/JSC _\*2 \*5_ |  63.5 |  58.2 | 146 206 | 117 708 | **1.14×** | **1.09×** | **1.24×** |
-| Python · native _\*3_ |  27.8 | 249.3 |  64 116 | 504 618 | **1.14×** | 0.11× | 0.13× |
-| Python · pure _\*3_ |   2.7 | 249.3 |   6 211 | 504 618 | **1.14×** | 0.01× | 0.01× |
+| C++        | 359.5 | 268.2 | 828 328 | 542 951 | **1.14×** | **1.34×** | **1.53×** |
+| C++ · heapfree _\*1_ | 388.5 | 268.2 | 895 109 | 542 951 | **1.14×** | **1.45×** | **1.65×** |
+| Rust _\*4_ | 544.6 | 267.0 | 1 254 799 | 540 474 | **1.14×** | **2.04×** | **2.32×** |
+| Rust · heapless _\*1_ | 520.5 | 267.0 | 1 199 222 | 540 474 | **1.14×** | **1.95×** | **2.22×** |
+| Zig        | 441.4 | 265.9 | 1 017 008 | 538 218 | **1.14×** | **1.66×** | **1.89×** |
+| Dart       | 202.3 | 57.1 | 466 200 | 115 673 | **1.14×** | **3.54×** | **4.03×** |
+| Go _\*4_ | 168.1 | 143.0 | 387 261 | 289 469 | **1.14×** | **1.18×** | **1.34×** |
+| C#         | 223.0 | 131.1 | 513 789 | 265 283 | **1.14×** | **1.70×** | **1.94×** |
+| Java       | 275.6 | 243.4 | 634 920 | 492 610 | **1.14×** | **1.13×** | **1.29×** |
+| Kotlin Multiplatform | 279.1 | 126.3 | 643 086 | 255 754 | **1.14×** | **2.21×** | **2.51×** |
+| TypeScript · Node/V8 _\*2 \*5_ | 79.4 | 91.0 | 182 965 | 184 186 | **1.14×** | 0.87× | 0.99× |
+| TypeScript · Bun/JSC _\*2 \*5_ | 72.4 | 54.4 | 166 795 | 110 109 | **1.14×** | **1.33×** | **1.51×** |
+| Python · native _\*3_ | 27.4 | 248.2 | 63 159 | 502 356 | **1.14×** | 0.11× | 0.13× |
+| Python · pure _\*3_ | 2.7 | 248.2 | 6 099 | 502 356 | **1.14×** | 0.01× | 0.01× |
 
 ***SofaBuffers is faster per message (`msg/s`) than protobuf in every compiled
 language**, and on Bun/JSC. The two outliers are Python and TypeScript on
@@ -220,10 +220,10 @@ SofaBuffers ahead; comparable only within a row.*
 one `cfg.yaml` key apart (`allow_dynamic: false`), sharing their base row's
 protobuf run — so they isolate that single codegen option and *are* comparable
 to their base row. **That axis has flipped sign:** `heapless` used to lead
-`Rust` by 18 %, and now trails it (523.4 vs 545.3). Once the decode reuses its
+`Rust` by 18 %, and now trails it (520.5 vs 544.6). Once the decode reuses its
 destination, `String`/`Vec` never reach the allocator either, and what is left
 is that heapless resets a 792 B message against 360 B. `heapfree` still leads
-C++ (389.1 vs 356.1), where the same reuse has been in place a generation
+C++ (388.5 vs 359.5), where the same reuse has been in place a generation
 longer.
 
 - _\*2_ The two **TypeScript** rows are the **identical** codec on the two JavaScript
@@ -274,10 +274,10 @@ ranking metric** (that is footprint, below).
 
 | opponent | sofab MB/s | proto MB/s | sofab msg/s | proto msg/s | **size** adv | **MB/s** adv | **msg/s** adv |
 |---|--:|--:|--:|--:|:--:|:--:|:--:|
-| sofab-c-embedded vs. protobuf-c    | 117.6 | 289.9 | 270 902 | 586 864 | **1.14×** | 0.41× | 0.46× |
-| sofab-c-embedded vs. nanopb        | 117.6 |  64.7 | 270 902 | 130 946 | **1.14×** | **1.82×** | **2.07×** |
-| sofab-rust-embedded vs. micropb    | 163.4 | 139.9 | 376 462 | 283 153 | **1.14×** | **1.17×** | **1.33×** |
-| sofab-cpp-embedded vs. embeddedproto | 160.4 |  61.5 | 369 494 | 124 540 | **1.14×** | **2.61×** | **2.97×** |
+| sofab-c-embedded vs. protobuf-c    | 117.3 | 289.6 | 270 153 | 586 306 | **1.14×** | 0.40× | 0.46× |
+| sofab-c-embedded vs. nanopb        | 117.3 | 64.5 | 270 153 | 130 497 | **1.14×** | **1.82×** | **2.07×** |
+| sofab-rust-embedded vs. micropb    | 162.9 | 139.7 | 375 420 | 282 732 | **1.14×** | **1.17×** | **1.33×** |
+| sofab-cpp-embedded vs. embeddedproto | 159.7 | 61.4 | 367 942 | 124 378 | **1.14×** | **2.60×** | **2.96×** |
 
 ***Even built for size, the SofaBuffers codecs outrun every embedded protobuf
 baseline on the size-neutral `msg/s` metric** (nanopb, EmbeddedProto, micropb) —
@@ -325,15 +325,15 @@ than the smallest protobuf alternative in every one.*
   that tuned — and with the round trip chained so protobuf pays its size pass every
   encode — Dart, Kotlin Multiplatform, Rust, C#, Zig, C++, Go and Java all run
   ahead of their protobuf baselines on the size-neutral `msg/s` metric: Dart by
-  the widest margin (3.9×), then Kotlin Multiplatform (2.4×), Rust (2.3×), C#
-  (2.0×) and Zig (1.9×). Decoding into a destination the caller keeps is what
+  the widest margin (4.0×), then Kotlin Multiplatform (2.5×), Rust (2.3×), C#
+  (1.9×) and Zig (1.9×). Decoding into a destination the caller keeps is what
   moved Rust and Go most recently, and it reshuffled the ranking: Rust now leads
   the compiled rows outright, and the heap-free profiles no longer win by
   default — `cpp/heapfree` still beats `cpp`, but `rust/heapless` has fallen
   behind plain `rust`, because a reused destination keeps `String`/`Vec` off the
   allocator too and heapless is left resetting the larger message. On
   JavaScript the two engines part ways: SofaBuffers leads clearly on Bun/JSC
-  (1.24×) and trails on Node/V8 (0.88×). Python is the far outlier. Both
+  (1.51×) and is level with or behind protobuf on Node/V8 (0.99× at the default count, 0.88× over longer runs). Python is the far outlier. Both
   outliers share a cause — protobuf-python and protobufjs lean on engines
   written in C, while SofaBuffers still encodes field by field in the host
   language.
