@@ -443,6 +443,28 @@ pub fn main(init: std.process.Init) !void {
             };
             try toJson_Example(&obj, out);
             try out.writeByte('\n');
+        } else if (std.mem.eql(u8, mode, "reusedecode")) {
+            const held = args.next() orelse "";
+            const hb = try alloc.alloc(u8, held.len / 2);
+            _ = try std.fmt.hexToBytes(hb, held);
+            var obj = try message.Example.decode(alloc, hb);
+            var dec = message.Example.decoder(&obj, alloc);
+            var st: []const u8 = "COMPLETE";
+            if (dec.feed(input)) |_| {
+                dec.finish() catch |e| {
+                    st = if (e == error.IncompleteMessage) "INCOMPLETE" else @errorName(e);
+                };
+            } else |e| {
+                st = @errorName(e);
+            }
+            try out.print("{s}\n", .{st});
+            try toJson_Example(&obj, out);
+            try out.writeByte('\n');
+            if (obj.encode(alloc)) |b| {
+                try out.print("{x}\n", .{b});
+            } else |_| {
+                try out.writeAll("-\n");
+            }
         } else {
             std.process.exit(2);
         }
